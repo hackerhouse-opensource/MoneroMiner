@@ -228,6 +228,7 @@ void updateHashrate(MiningStats& stats);
 std::string formatRuntime(uint64_t seconds);
 void printStats(const MiningStats& stats);
 std::vector<uint8_t> compactTo256BitTarget(const std::string& targetHex);
+uint64_t getTargetDifficulty(const std::string& targetHex);
 void initializeThreadVM(MiningThreadData* data);
 void threadSafePrint(const std::string& message, bool debugOnly = false);
 void processNewJob(const picojson::object& job);
@@ -663,67 +664,77 @@ bool isHashLessThanTarget(const std::vector<uint8_t>& hash, const std::vector<ui
     return false;  // Equal case
 }
 
-// Function to check if the hash meets the target difficulty
-bool isHashValid(const std::vector<uint8_t>& hash, const std::string& targetHex) {
-    std::vector<uint8_t> targetBytes = hexToBytes(targetHex);
+// Function to expand compact target to full 256-bit target
+std::vector<uint8_t> compactTo256BitTarget(const std::string& targetHex) {
+    std::vector<uint8_t> target(32, 0);  // Initialize 256-bit target with zeros
+    uint32_t compact = std::stoul(targetHex, nullptr, 16);
     
-    // Convert target to uint32 (first 4 bytes in little-endian)
-    uint32_t target32 = 0;
-    for (int i = 0; i < 4; i++) {
-        target32 |= static_cast<uint32_t>(targetBytes[i]) << (8 * i);
+    // Extract mantissa and exponent
+    uint32_t mantissa = compact & 0x007FFFFF;
+    uint8_t exponent = (compact >> 24) & 0xFF;
+    
+    // Handle the shift based on exponent
+    if (exponent <= 3) {
+        mantissa >>= 8 * (3 - exponent);
+    } else {
+        mantissa <<= 8 * (exponent - 3);
     }
     
-    // Convert first 8 bytes of hash to uint64 (little-endian)
+    // Copy mantissa into the target (little-endian)
+    for (int i = 0; i < 4; i++) {
+        target[i] = (mantissa >> (8 * i)) & 0xFF;
+    }
+    
+    // Debug logging with counter to match hash validation frequency
+    static std::atomic<uint64_t> targetExpandCounter(0);
+    uint64_t currentCount = ++targetExpandCounter;
+    if (debugMode && (currentCount == 1 || currentCount % 10000 == 0)) {
+        std::stringstream ss;
+        ss << "Target expansion #" << currentCount << ":"
+           << "\n  Input target (hex): 0x" << targetHex
+           << "\n  Compact value: 0x" << std::hex << std::setw(8) << std::setfill('0') << compact
+           << "\n  Exponent: 0x" << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(exponent)
+           << " (" << std::dec << static_cast<int>(exponent) << ")"
+           << "\n  Mantissa: 0x" << std::hex << std::setw(6) << std::setfill('0') << mantissa
+           << "\n  Expanded target (first 8 bytes, LE): 0x";
+        
+        // Show first 8 bytes in little-endian order
+        for (int i = 7; i >= 0; i--) {
+            ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(target[i]);
+        }
+        threadSafePrint(ss.str(), true);
+    }
+    
+    return target;
+}
+
+// Function to check if the hash meets the target difficulty
+bool isHashValid(const std::vector<uint8_t>& hash, const std::string& targetHex) {
+    std::vector<uint8_t> targetBytes = compactTo256BitTarget(targetHex);
+    
+    // XMRig-style optimization: Compare first 8 bytes only
     uint64_t hash64 = 0;
+    uint64_t target64 = 0;
+    
+    // Convert first 8 bytes to uint64_t (little-endian)
     for (int i = 0; i < 8; i++) {
         hash64 |= static_cast<uint64_t>(hash[i]) << (8 * i);
+        target64 |= static_cast<uint64_t>(targetBytes[i]) << (8 * i);
     }
     
     // Debug logging
-    static std::atomic<uint64_t> hashCounter(0);
-    uint64_t currentCount = ++hashCounter;
+    static std::atomic<uint64_t> diffCheckCounter(0);
+    uint64_t currentCount = ++diffCheckCounter;
     if (debugMode && (currentCount == 1 || currentCount % 10000 == 0)) {
         std::stringstream ss;
         ss << "Hash validation #" << currentCount << ":"
-           << "\n  Hash (hex): 0x" << bytesToHex(hash)
            << "\n  Hash (first 8 bytes, LE): 0x" << std::hex << std::setw(16) << std::setfill('0') << hash64
-           << "\n  Target (hex): 0x" << targetHex
-           << "\n  Target (32-bit, LE): 0x" << std::hex << std::setw(8) << std::setfill('0') << target32
-           << "\n  Target difficulty: " << std::dec << (target32 ? (0xFFFFFFFFULL / target32) : 0);
-
-        // Full 256-bit comparison for first hash
-        if (currentCount == 1) {
-            ss << "\n\nFull 256-bit comparison (most significant to least significant):";
-            for (int i = 31; i >= 0; i--) {
-                if (i % 4 == 3) ss << "\n  ";
-                ss << "Byte " << std::dec << std::setw(2) << i << ": Hash=0x" 
-                   << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hash[i]) 
-                   << " Target=0x" << std::hex << std::setw(2) << std::setfill('0') 
-                   << static_cast<int>(targetBytes[i % 4]);
-            }
-        }
-        
+           << "\n  Target (first 8 bytes, LE): 0x" << std::hex << std::setw(16) << std::setfill('0') << target64
+           << "\n  Hash <= Target: " << (hash64 <= target64 ? "YES" : "NO");
         threadSafePrint(ss.str(), true);
     }
-
-    // XMRig-style target comparison:
-    // 1. First compare first 4 bytes for quick rejection
-    if (hash64 > static_cast<uint64_t>(target32)) {
-        return false;
-    }
     
-    // 2. If first 4 bytes match target, do full 256-bit comparison
-    if (hash64 < static_cast<uint64_t>(target32)) {
-        return true;
-    }
-
-    // 3. Full comparison needed only when first 4 bytes are equal
-    for (int i = 31; i >= 4; i--) {
-        if (hash[i] < targetBytes[i % 4]) return true;
-        if (hash[i] > targetBytes[i % 4]) return false;
-    }
-
-    return false;  // Equal case
+    return hash64 <= target64;
 }
 
 // Calculate actual difficulty from target (XMRig style)
@@ -1073,73 +1084,102 @@ void handleShareResponse(const std::string& response, bool& accepted) {
 
 // Implementation of submitShare function
 bool submitShare(const std::string& jobId, const std::string& nonceHex, 
-                const std::string& hashHex, const std::string& algo) {
-    if (debugMode) {
-        std::stringstream ss;
-        ss << "Submitting share:"
-           << "\n  Job ID: " << jobId
-           << "\n  Nonce: 0x" << nonceHex
-           << "\n  Hash: " << hashHex
-           << "\n  Algorithm: " << algo;
-        threadSafePrint(ss.str(), true);
+                const std::string& hashHex, const std::string& algo) 
+{
+    // Validate share before submission
+    std::vector<uint8_t> hash = hexToBytes(hashHex);
+    
+    // Get current job for validation
+    std::unique_lock<std::mutex> lock(jobQueueMutex);
+    if (jobQueue.empty()) {
+        threadSafePrint("No active job for share validation", true);
+        return false;
     }
     
-    std::string payload = createSubmitPayload(sessionId, jobId, nonceHex, hashHex, algo);
-    std::string response = sendAndReceive(globalSocket, payload);
+    Job currentJob = jobQueue.front();
+    lock.unlock();
     
-    bool accepted = false;
-    try {
-        picojson::value v;
-        std::string err = picojson::parse(v, response);
-        if (!err.empty()) {
-            if (debugMode) {
-                threadSafePrint("Failed to parse share response: " + err, true);
-            }
-            return false;
-        }
-        
-        if (v.contains("result") && v.get("result").is<picojson::object>()) {
-            auto& result = v.get("result").get<picojson::object>();
-            if (result.count("status") && result["status"].is<std::string>()) {
-                accepted = result["status"].get<std::string>() == "OK";
-                if (debugMode) {
-                    threadSafePrint("Share " + std::string(accepted ? "accepted" : "rejected") + 
-                                  " by pool", true);
-                }
-            }
-        }
-        
-        if (v.contains("error") && !v.get("error").is<picojson::null>()) {
-            if (debugMode) {
-                auto& error = v.get("error");
-                std::stringstream ss;
-                ss << "Share rejected with error:";
-                if (error.contains("code")) {
-                    ss << "\n  Code: " << error.get("code").to_str();
-                }
-                if (error.contains("message")) {
-                    ss << "\n  Message: " << error.get("message").to_str();
-                }
-                threadSafePrint(ss.str(), true);
-            }
-        }
-    }
-    catch (const std::exception& e) {
+    // Verify job ID matches
+    if (jobId != currentJob.jobId) {
         if (debugMode) {
-            threadSafePrint("Exception while processing share response: " + 
-                          std::string(e.what()), true);
+            threadSafePrint("Share validation failed: job ID mismatch", true);
         }
         return false;
     }
     
-    // Update global stats
-    if (accepted) {
-        globalStats.acceptedShares++;
-    } else {
-        globalStats.rejectedShares++;
+    // Verify hash meets target
+    if (!isHashValid(hash, currentJob.target)) {
+        if (debugMode) {
+            threadSafePrint("Share validation failed: hash does not meet target", true);
+        }
+        return false;
     }
     
-    return accepted;
+    // Log share details in debug mode
+    if (debugMode) {
+        std::stringstream ss;
+        ss << "Submitting validated share:"
+           << "\n  Job ID: " << jobId
+           << "\n  Nonce: 0x" << nonceHex
+           << "\n  Hash: " << hashHex
+           << "\n  Target: " << currentJob.target
+           << "\n  Algorithm: " << algo;
+        threadSafePrint(ss.str(), true);
+    }
+    
+    // Create submission payload
+    std::string payload = createSubmitPayload(sessionId, jobId, nonceHex, hashHex, algo);
+    
+    // Attempt submission with retries
+    const int MAX_RETRIES = SHARE_SUBMISSION_RETRIES;
+    const int RETRY_DELAY_MS = 1000;  // 1 second between retries
+    
+    for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+            std::string response = sendAndReceive(globalSocket, payload);
+            bool accepted = false;
+            handleShareResponse(response, accepted);
+            
+            if (accepted) {
+                if (attempt > 1) {
+                    threadSafePrint("Share accepted on retry #" + std::to_string(attempt - 1));
+                }
+                return true;
+            }
+            
+            // If share was rejected due to job not found or stale, don't retry
+            if (response.find("\"error\"") != std::string::npos &&
+                (response.find("job not found") != std::string::npos ||
+                 response.find("stale share") != std::string::npos)) {
+                if (debugMode) {
+                    threadSafePrint("Share rejected permanently: " + response, true);
+                }
+                return false;
+            }
+            
+            // For other rejections, retry if attempts remain
+            if (attempt < MAX_RETRIES) {
+                threadSafePrint("Share submission failed, retrying in 1 second... (Attempt " + 
+                              std::to_string(attempt) + "/" + std::to_string(MAX_RETRIES) + ")");
+                std::this_thread::sleep_for(std::chrono::milliseconds(RETRY_DELAY_MS));
+                continue;
+            }
+        }
+        catch (const std::exception& e) {
+            if (attempt < MAX_RETRIES) {
+                threadSafePrint("Share submission error: " + std::string(e.what()) + 
+                              ", retrying in 1 second... (Attempt " + std::to_string(attempt) + 
+                              "/" + std::to_string(MAX_RETRIES) + ")");
+                std::this_thread::sleep_for(std::chrono::milliseconds(RETRY_DELAY_MS));
+                continue;
+            }
+            threadSafePrint("Share submission failed after " + std::to_string(MAX_RETRIES) + 
+                          " attempts: " + std::string(e.what()));
+            return false;
+        }
+    }
+    
+    return false;
 }
 
 // Helper function to format thread ID consistently
