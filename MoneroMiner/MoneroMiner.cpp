@@ -431,14 +431,17 @@ public:
         }
 
         try {
-            // Debug logging for blob content
-            if (debugMode && (currentDebugCounter == 1 || currentDebugCounter % 10000 == 0)) {
+            // Debug logging for every hash calculation in debug mode
+            if (debugMode) {
                 std::stringstream ss;
-                ss << "Calculating hash for blob:"
-                   << "\n  Size: " << blob.size() << " bytes"
-                   << "\n  Content: " << bytesToHex(blob)
-                   << "\n  Nonce position (39-42): " 
-                   << bytesToHex(std::vector<uint8_t>(blob.begin() + 39, blob.begin() + 43));
+                ss << "Thread " << threadId << " calculating hash:"
+                   << "\n  VM initialized: " << (vmInitialized ? "YES" : "NO")
+                   << "\n  VM pointer valid: " << (vm != nullptr ? "YES" : "NO")
+                   << "\n  Blob size: " << blob.size() << " bytes"
+                   << "\n  Full blob: 0x" << bytesToHex(blob)
+                   << "\n  Nonce position (39-42): 0x" 
+                   << bytesToHex(std::vector<uint8_t>(blob.begin() + 39, blob.begin() + 43))
+                   << "\n  Using dataset with seed hash: " << currentSeedHash;
                 threadSafePrint(ss.str(), true);
             }
 
@@ -448,16 +451,22 @@ public:
                 return false;
             }
 
-            // Calculate hash using RandomX
-            randomx_calculate_hash(vm, blob.data(), blob.size(), hash);
+            // Calculate hash using RandomX multi-step process
+            // Use aligned temporary hash buffer for intermediate results
+            alignas(16) uint64_t tempHash[8];
 
-            // Only log first hash and every 10000th hash in debug mode
-            if (debugMode && (currentDebugCounter == 1 || currentDebugCounter % 10000 == 0)) {
+            // First step - initialize hash calculation with temp buffer
+            randomx_calculate_hash_first(vm, tempHash, blob.data(), blob.size());
+            
+            // Last step - get the final hash
+            randomx_calculate_hash_last(vm, hash);
+
+            // Log the calculated hash in debug mode
+            if (debugMode) {
                 std::stringstream ss;
-                ss << "Thread " << threadId << " | Hash #" << currentDebugCounter 
-                   << "\n  Nonce: 0x" << bytesToHex(std::vector<uint8_t>(blob.begin() + 39, blob.begin() + 43))
-                   << "\n  Input blob: " << bytesToHex(blob)
-                   << "\n  Output hash: 0x" << bytesToHex(std::vector<uint8_t>(hash, hash + RANDOMX_HASH_SIZE));
+                ss << "Thread " << threadId << " hash result:"
+                   << "\n  Hash: 0x" << bytesToHex(std::vector<uint8_t>(hash, hash + RANDOMX_HASH_SIZE))
+                   << "\n  Counter: " << currentDebugCounter;
                 threadSafePrint(ss.str(), true);
             }
 
@@ -498,15 +507,52 @@ void processNewJob(const picojson::object& jobObj) {
     
     // Create new job
     Job newJob;
-    std::vector<uint8_t> blobBytes = hexToBytes(blobIt->second.get<std::string>());
+    std::vector<uint8_t> blobBytes;
+    try {
+        blobBytes = hexToBytes(blobIt->second.get<std::string>());
+    } catch (const std::exception& e) {
+        threadSafePrint("Failed to decode blob: " + std::string(e.what()));
+        return;
+    }
+    
+    // Validate blob size
+    if (blobBytes.size() < 76) {
+        threadSafePrint("Invalid blob size: " + std::to_string(blobBytes.size()) + " bytes (expected >= 76)");
+        return;
+    }
+    
     newJob.blob.assign(blobBytes.begin(), blobBytes.end());
     newJob.target = targetIt->second.get<std::string>();
     newJob.jobId = jobIdIt->second.get<std::string>();
     newJob.height = static_cast<uint64_t>(heightIt->second.get<double>());
     newJob.seedHash = seedHashIt->second.get<std::string>();
     
+    // Validate target format
+    if (newJob.target.length() != 8) {
+        threadSafePrint("Invalid target length: " + std::to_string(newJob.target.length()) + " (expected 8)");
+        return;
+    }
+    
+    // Log detailed job information in debug mode
+    if (debugMode) {
+        std::stringstream ss;
+        ss << "Processing new job:"
+           << "\n  Height: " << newJob.height
+           << "\n  Job ID: " << newJob.jobId
+           << "\n  Target: 0x" << newJob.target
+           << "\n  Seed Hash: " << newJob.seedHash
+           << "\n  Blob size: " << newJob.blob.size() << " bytes"
+           << "\n  Blob: 0x" << bytesToHex(newJob.blob)
+           << "\n  Initial nonce (39-42): 0x" 
+           << bytesToHex(std::vector<uint8_t>(newJob.blob.begin() + 39, newJob.blob.begin() + 43))
+           << "\n  Expanded target: 0x" << bytesToHex(compactTo256BitTarget(newJob.target))
+           << "\n  Difficulty: " << getTargetDifficulty(newJob.target);
+        threadSafePrint(ss.str(), true);
+    }
+    
     // Update current seed hash if changed
     if (newJob.seedHash != currentSeedHash) {
+        threadSafePrint("Seed hash changed from " + currentSeedHash + " to " + newJob.seedHash);
         handleSeedHashChange(newJob.seedHash);
     }
     
@@ -526,25 +572,12 @@ void processNewJob(const picojson::object& jobObj) {
     // Notify waiting threads
     jobQueueCV.notify_all();
     
-    // Log job details
+    // Log basic job details for all modes
     std::stringstream ss;
     ss << "New job received - Height: " << newJob.height 
        << ", Job ID: " << newJob.jobId 
        << ", Target: " << newJob.target;
     threadSafePrint(ss.str());
-    
-    if (debugMode) {
-        ss.str("");
-        ss << "New job details:"
-           << "\n  Height: " << newJob.height
-           << "\n  Job ID: " << newJob.jobId
-           << "\n  Target: " << newJob.target
-           << "\n  Seed Hash: " << newJob.seedHash
-           << "\n  Blob size: " << newJob.blob.size() << " bytes"
-           << "\n  Blob: " << bytesToHex(newJob.blob)
-           << "\n  Initial nonce position: bytes 39-42";
-        threadSafePrint(ss.str(), true);
-    }
 }
 
 // Job listener thread
@@ -1082,7 +1115,24 @@ void handleShareResponse(const std::string& response, bool& accepted) {
             const picojson::object& error = errorIt->second.get<picojson::object>();
             auto messageIt = error.find("message");
             if (messageIt != error.end() && messageIt->second.is<std::string>()) {
-                threadSafePrint("Share rejected: " + messageIt->second.get<std::string>());
+                std::string errorMsg = messageIt->second.get<std::string>();
+                threadSafePrint("Share rejected: " + errorMsg);
+                
+                // Check for "Wrong hash" error and log additional details
+                if (errorMsg.find("Wrong hash") != std::string::npos) {
+                    auto expectedHashIt = error.find("expected");
+                    auto submittedHashIt = error.find("submitted");
+                    
+                    std::stringstream ss;
+                    ss << "Hash mismatch details:";
+                    if (expectedHashIt != error.end() && expectedHashIt->second.is<std::string>()) {
+                        ss << "\n  Expected hash: 0x" << expectedHashIt->second.get<std::string>();
+                    }
+                    if (submittedHashIt != error.end() && submittedHashIt->second.is<std::string>()) {
+                        ss << "\n  Submitted hash: 0x" << submittedHashIt->second.get<std::string>();
+                    }
+                    threadSafePrint(ss.str(), true);
+                }
             }
         } else {
             threadSafePrint("Share rejected with error: " + errorIt->second.serialize());
