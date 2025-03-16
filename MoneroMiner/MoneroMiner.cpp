@@ -423,7 +423,7 @@ public:
         }
     }
 
-    bool calculateHash(const std::vector<uint8_t>& blob, uint8_t* hash, uint32_t currentDebugCounter = 0) {
+    bool calculateHash(const std::vector<uint8_t>& blob, uint8_t* outputHash, uint32_t currentDebugCounter = 0) {
         std::lock_guard<std::mutex> lock(vmMutex);
         if (!vmInitialized || !vm) {
             threadSafePrint("VM not initialized for hash calculation", true);
@@ -451,21 +451,22 @@ public:
                 return false;
             }
 
-            // Calculate hash using RandomX multi-step process
-            // Use aligned temporary hash buffer for intermediate results
-            alignas(16) uint64_t tempHash[8];
+            // Get aligned buffers for hash calculation
+            uint8_t* tempHashBuffer = hashBuffers->getTempHash();
+            uint8_t* scratchpadBuffer = hashBuffers->getScratchpad();
 
-            // First step - initialize hash calculation with temp buffer
-            randomx_calculate_hash_first(vm, tempHash, blob.data(), blob.size());
+            // First step - initialize hash calculation with aligned temp buffer
+            uint64_t (&tempHashArray)[8] = *reinterpret_cast<uint64_t(*)[8]>(tempHashBuffer);
+            randomx_calculate_hash_first(vm, tempHashArray, blob.data(), blob.size());
             
             // Last step - get the final hash
-            randomx_calculate_hash_last(vm, hash);
+            randomx_calculate_hash_last(vm, outputHash);
 
             // Log the calculated hash in debug mode
             if (debugMode) {
                 std::stringstream ss;
                 ss << "Thread " << threadId << " hash result:"
-                   << "\n  Hash: 0x" << bytesToHex(std::vector<uint8_t>(hash, hash + RANDOMX_HASH_SIZE))
+                   << "\n  Hash: 0x" << bytesToHex(std::vector<uint8_t>(outputHash, outputHash + RANDOMX_HASH_SIZE))
                    << "\n  Counter: " << currentDebugCounter;
                 threadSafePrint(ss.str(), true);
             }
