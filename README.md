@@ -16,8 +16,8 @@ A high-performance Monero (XMR) mining implementation in C++ using the RandomX a
 
 ### Prerequisites
 
+- Visual Studio 2022
 - C++17 compatible compiler
-- CMake 3.10 or higher
 - Windows SDK 10.0 or higher
 - RandomX library
 
