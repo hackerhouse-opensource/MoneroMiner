@@ -387,13 +387,23 @@ public:
                 return false;
             }
 
+            // Define all required RandomX flags
+            const randomx_flags flags = static_cast<randomx_flags>(
+                RANDOMX_FLAG_FULL_MEM |    // Use full memory mode
+                RANDOMX_FLAG_JIT |         // Enable JIT compilation
+                RANDOMX_FLAG_HARD_AES      // Use hardware AES
+            );
+
             if (debugMode) {
-                threadSafePrint("Creating RandomX VM with flags: " + 
-                              std::to_string(RANDOMX_FLAG_FULL_MEM | RANDOMX_FLAG_JIT | RANDOMX_FLAG_HARD_AES));
+                std::stringstream ss;
+                ss << "Creating RandomX VM with flags:"
+                   << "\n  RANDOMX_FLAG_FULL_MEM: " << ((flags & RANDOMX_FLAG_FULL_MEM) ? "YES" : "NO")
+                   << "\n  RANDOMX_FLAG_JIT: " << ((flags & RANDOMX_FLAG_JIT) ? "YES" : "NO")
+                   << "\n  RANDOMX_FLAG_HARD_AES: " << ((flags & RANDOMX_FLAG_HARD_AES) ? "YES" : "NO");
+                threadSafePrint(ss.str(), true);
             }
 
-            vm = randomx_create_vm(static_cast<randomx_flags>(RANDOMX_FLAG_FULL_MEM | RANDOMX_FLAG_JIT | RANDOMX_FLAG_HARD_AES), 
-                                 currentCache, currentDataset);
+            vm = randomx_create_vm(flags, currentCache, currentDataset);
             
             if (!vm) {
                 threadSafePrint("Failed to create RandomX VM - null pointer returned", true);
@@ -712,7 +722,7 @@ std::vector<uint8_t> compactTo256BitTarget(const std::string& targetHex) {
 bool isHashValid(const std::vector<uint8_t>& hash, const std::string& targetHex) {
     std::vector<uint8_t> targetBytes = compactTo256BitTarget(targetHex);
     
-    // XMRig-style optimization: Compare first 8 bytes only
+    // XMRig-style optimization: Compare first 8 bytes for quick rejection
     uint64_t hash64 = 0;
     uint64_t target64 = 0;
     
@@ -720,6 +730,22 @@ bool isHashValid(const std::vector<uint8_t>& hash, const std::string& targetHex)
     for (int i = 0; i < 8; i++) {
         hash64 |= static_cast<uint64_t>(hash[i]) << (8 * i);
         target64 |= static_cast<uint64_t>(targetBytes[i]) << (8 * i);
+    }
+    
+    // Quick rejection if first 8 bytes are greater
+    if (hash64 > target64) {
+        return false;
+    }
+    
+    // If first 8 bytes are less, hash is definitely valid
+    if (hash64 < target64) {
+        return true;
+    }
+    
+    // If first 8 bytes are equal, perform full 256-bit comparison
+    for (int i = 8; i < 32; i++) {
+        if (hash[i] < targetBytes[i]) return true;
+        if (hash[i] > targetBytes[i]) return false;
     }
     
     // Debug logging
@@ -730,11 +756,14 @@ bool isHashValid(const std::vector<uint8_t>& hash, const std::string& targetHex)
         ss << "Hash validation #" << currentCount << ":"
            << "\n  Hash (first 8 bytes, LE): 0x" << std::hex << std::setw(16) << std::setfill('0') << hash64
            << "\n  Target (first 8 bytes, LE): 0x" << std::hex << std::setw(16) << std::setfill('0') << target64
-           << "\n  Hash <= Target: " << (hash64 <= target64 ? "YES" : "NO");
+           << "\n  First 8 bytes equal, performed full 256-bit comparison"
+           << "\n  Full hash: 0x" << bytesToHex(hash)
+           << "\n  Full target: 0x" << bytesToHex(targetBytes)
+           << "\n  Result: " << (hash64 <= target64 ? "VALID" : "INVALID");
         threadSafePrint(ss.str(), true);
     }
     
-    return hash64 <= target64;
+    return true;  // Hash equals target
 }
 
 // Calculate actual difficulty from target (XMRig style)
@@ -1456,8 +1485,8 @@ std::string sendAndReceive(SOCKET sock, const std::string& payload) {
     }
     
     // Send the payload
-    int totalSent = 0;
-    int payloadLength = static_cast<int>(payload.length());
+    size_t totalSent = 0;
+    size_t payloadLength = payload.length();
     std::string payloadWithNewline = payload + "\n";
     
     // Set send timeout
@@ -1467,7 +1496,8 @@ std::string sendAndReceive(SOCKET sock, const std::string& payload) {
     setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, (char*)&sendTimeout, sizeof(sendTimeout));
     
     while (totalSent < payloadLength + 1) {
-        int sent = send(sock, payloadWithNewline.c_str() + totalSent, payloadLength + 1 - totalSent, 0);
+        int sent = send(sock, payloadWithNewline.c_str() + totalSent, 
+                       static_cast<int>(payloadLength + 1 - totalSent), 0);
         if (sent == SOCKET_ERROR) {
             int error = WSAGetLastError();
             if (error == WSAEWOULDBLOCK) {
