@@ -40,6 +40,7 @@
 #include <ctime>
 #include <fstream>
 #include <csignal>
+#include <limits>
 #include <WinSock2.h>
 #include <WS2tcpip.h>
 #include "randomx.h"
@@ -216,7 +217,7 @@ struct GlobalStats;
 // Function declarations
 void signalHandler(int signum);
 std::vector<uint8_t> hexToBytes(const std::string& hex);
-void incrementNonce(std::vector<uint8_t>& blob);
+void incrementNonce(std::vector<uint8_t>& blob, uint32_t nonce);
 std::string createSubmitPayload(const std::string& sessionId, const std::string& jobId, 
                               const std::string& nonceHex, const std::string& hashHex, 
                               const std::string& algo);
@@ -419,8 +420,8 @@ public:
         try {
             randomx_calculate_hash(vm, blob.data(), blob.size(), hash);
 
-            // Only log first hash and every 1000th hash in debug mode
-            if (debugMode && (currentDebugCounter == 1 || currentDebugCounter % 1000 == 0)) {
+            // Only log first hash and every 10000th hash in debug mode to reduce log spam
+            if (debugMode && (currentDebugCounter == 1 || currentDebugCounter % 10000 == 0)) {
                 std::stringstream ss;
                 ss << "Thread " << threadId << " | Hash #" << currentDebugCounter 
                    << " | Nonce=0x" << bytesToHex(std::vector<uint8_t>(blob.begin() + 39, blob.begin() + 43))
@@ -664,47 +665,107 @@ bool isHashLessThanTarget(const std::vector<uint8_t>& hash, const std::vector<ui
 
 // Function to check if the hash meets the target difficulty
 bool isHashValid(const std::vector<uint8_t>& hash, const std::string& targetHex) {
-    // Convert target hex to uint32_t (first 4 bytes in little-endian)
-    uint32_t target32;
     std::vector<uint8_t> targetBytes = hexToBytes(targetHex);
-    target32 = (static_cast<uint32_t>(targetBytes[3]) << 24) |
-               (static_cast<uint32_t>(targetBytes[2]) << 16) |
-               (static_cast<uint32_t>(targetBytes[1]) << 8) |
-               static_cast<uint32_t>(targetBytes[0]);
-
-    // Convert hash to uint64_t (first 8 bytes in little-endian)
+    
+    // Convert target to uint32 (first 4 bytes in little-endian)
+    uint32_t target32 = 0;
+    for (int i = 0; i < 4; i++) {
+        target32 |= static_cast<uint32_t>(targetBytes[i]) << (8 * i);
+    }
+    
+    // Convert first 8 bytes of hash to uint64 (little-endian)
     uint64_t hash64 = 0;
     for (int i = 0; i < 8; i++) {
-        hash64 |= static_cast<uint64_t>(hash[i]) << (i * 8);  // Read in little-endian order
+        hash64 |= static_cast<uint64_t>(hash[i]) << (8 * i);
     }
-
-    // Only log first hash and every 10000th hash in debug mode
+    
+    // Debug logging
     static std::atomic<uint64_t> hashCounter(0);
     uint64_t currentCount = ++hashCounter;
     if (debugMode && (currentCount == 1 || currentCount % 10000 == 0)) {
         std::stringstream ss;
         ss << "Hash validation #" << currentCount << ":"
            << "\n  Hash (hex): 0x" << bytesToHex(hash)
-           << "\n  Hash (first 8 bytes, BE): 0x" << std::hex << std::setw(16) << std::setfill('0') << hash64
+           << "\n  Hash (first 8 bytes, LE): 0x" << std::hex << std::setw(16) << std::setfill('0') << hash64
            << "\n  Target (hex): 0x" << targetHex
-           << "\n  Target (32-bit): 0x" << std::hex << std::setw(8) << std::setfill('0') << target32
-           << "\n  Target difficulty: " << std::dec << (target32 ? (0xFFFFFFFFULL / target32) : 0)
-           << "\n  Hash < Target: " << (hash64 < target32 ? "YES" : "NO");
+           << "\n  Target (32-bit, LE): 0x" << std::hex << std::setw(8) << std::setfill('0') << target32
+           << "\n  Target difficulty: " << std::dec << (target32 ? (0xFFFFFFFFULL / target32) : 0);
 
-        // Add byte-by-byte comparison for the first hash
+        // Full 256-bit comparison for first hash
         if (currentCount == 1) {
-            ss << "\n\nByte-by-byte comparison (little-endian order):";
-            for (int i = 0; i < 8; i++) {
-                ss << "\n  Byte " << i << ": Hash=0x" << std::hex << std::setw(2) << std::setfill('0') 
-                   << static_cast<int>(hash[i]) << " Target=0x" << std::hex << std::setw(2) 
-                   << std::setfill('0') << (i < 4 ? static_cast<int>(targetBytes[i]) : 0);
+            ss << "\n\nFull 256-bit comparison (most significant to least significant):";
+            for (int i = 31; i >= 0; i--) {
+                if (i % 4 == 3) ss << "\n  ";
+                ss << "Byte " << std::dec << std::setw(2) << i << ": Hash=0x" 
+                   << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hash[i]) 
+                   << " Target=0x" << std::hex << std::setw(2) << std::setfill('0') 
+                   << static_cast<int>(targetBytes[i % 4]);
             }
         }
+        
         threadSafePrint(ss.str(), true);
     }
 
-    // Compare hash with target (hash must be less than target)
-    return hash64 < target32;
+    // XMRig-style target comparison:
+    // 1. First compare first 4 bytes for quick rejection
+    if (hash64 > static_cast<uint64_t>(target32)) {
+        return false;
+    }
+    
+    // 2. If first 4 bytes match target, do full 256-bit comparison
+    if (hash64 < static_cast<uint64_t>(target32)) {
+        return true;
+    }
+
+    // 3. Full comparison needed only when first 4 bytes are equal
+    for (int i = 31; i >= 4; i--) {
+        if (hash[i] < targetBytes[i % 4]) return true;
+        if (hash[i] > targetBytes[i % 4]) return false;
+    }
+
+    return false;  // Equal case
+}
+
+// Calculate actual difficulty from target (XMRig style)
+uint64_t getTargetDifficulty(const std::string& targetHex) {
+    std::vector<uint8_t> target = hexToBytes(targetHex);
+    
+    // Convert 4 bytes to uint32_t in little-endian order (XMRig style)
+    uint32_t target32 = 0;
+    for (int i = 0; i < 4; i++) {
+        target32 |= static_cast<uint32_t>(target[i]) << (8 * i);
+    }
+    
+    // XMRig difficulty calculation
+    return target32 ? (0xFFFFFFFFULL / target32) : 0;
+}
+
+// Helper function to check if a hash meets difficulty (XMRig style)
+bool checkHashDifficulty(const std::vector<uint8_t>& hash, uint64_t difficulty) {
+    if (difficulty == 0) return false;
+    
+    // Convert first 8 bytes of hash to uint64_t in little-endian order
+    uint64_t hash64 = 0;
+    for (int i = 0; i < 8; i++) {
+        hash64 |= static_cast<uint64_t>(hash[i]) << (8 * i);
+    }
+    
+    const uint64_t max_divided_by_diff = (std::numeric_limits<uint64_t>::max)() / difficulty;
+    
+    // Debug logging with counter
+    static std::atomic<uint64_t> diffCheckCounter(0);
+    uint64_t currentCount = ++diffCheckCounter;
+    if (debugMode && (currentCount == 1 || currentCount % 10000 == 0)) {
+        std::stringstream ss;
+        ss << "Difficulty check #" << currentCount << ":"
+           << "\n  Hash value (first 8 bytes): 0x" << std::hex << hash64
+           << "\n  Required difficulty: " << std::dec << difficulty
+           << "\n  Max value / difficulty: 0x" << std::hex << max_divided_by_diff
+           << "\n  Hash <= Max/Diff: " << (hash64 <= max_divided_by_diff ? "YES" : "NO");
+        threadSafePrint(ss.str(), true);
+    }
+    
+    return hash64 <= max_divided_by_diff;
 }
 
 // RandomX management functions
@@ -1316,16 +1377,7 @@ std::vector<uint8_t> hexToBytes(const std::string& hex) {
 }
 
 // Update incrementNonce to handle standard vector
-void incrementNonce(std::vector<uint8_t>& blob) {
-    // The nonce is located at byte positions 39-42 (inclusive)
-    // Convert the current nonce to uint32_t (big-endian)
-    uint32_t nonce = 0;
-    for (int i = 0; i < 4; i++) {
-        nonce |= (static_cast<uint32_t>(blob[39 + i]) << (8 * (3 - i)));
-    }
-    
-    nonce++;
-    
+void incrementNonce(std::vector<uint8_t>& blob, uint32_t nonce) {
     // Write back in big-endian format
     for (int i = 0; i < 4; i++) {
         blob[39 + i] = static_cast<uint8_t>((nonce >> (8 * (3 - i))) & 0xFF);
@@ -1333,7 +1385,7 @@ void incrementNonce(std::vector<uint8_t>& blob) {
 
     if (debugMode) {
         std::stringstream ss;
-        ss << "Current nonce: 0x" << std::hex << std::setw(8) << std::setfill('0') << nonce;
+        ss << "Incremented nonce to: 0x" << std::hex << nonce;
         threadSafePrint(ss.str(), true);
     }
 }
@@ -1486,10 +1538,9 @@ void handleLoginResponse(const std::string& response) {
 void miningThread(MiningThreadData* data) {
     try {
         // Wait for dataset to be initialized
-        static std::atomic<bool> initMessageShown(false);
         while (!currentDataset && !shouldStop) {
-            if (!initMessageShown.exchange(true)) {
-                threadSafePrint("Waiting for dataset initialization... This may take several minutes.", false);
+            if (!showedInitMessage.exchange(true)) {
+                threadSafePrint("Waiting for dataset initialization...");
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
@@ -1498,7 +1549,7 @@ void miningThread(MiningThreadData* data) {
 
         // Initialize VM with proper flags
         if (!data->initializeVM()) {
-            threadSafePrint("Failed to initialize VM for thread " + std::to_string(data->getThreadId()), true);
+            threadSafePrint("Failed to initialize VM for thread " + std::to_string(data->getThreadId()));
             return;
         }
 
@@ -1506,8 +1557,8 @@ void miningThread(MiningThreadData* data) {
         uint64_t hashCount = 0;
         uint64_t totalHashCount = 0;
         auto lastHashrateUpdate = std::chrono::steady_clock::now();
-        uint32_t debugCounter = 0;
-        const int BATCH_SIZE = VM_BATCH_SIZE;  // Use defined batch size
+        uint32_t debugCounter = 1;  // Initialize to 1 instead of 0
+        const int BATCH_SIZE = VM_BATCH_SIZE;
 
         // Calculate nonce range for this thread
         uint32_t threadCount = static_cast<uint32_t>(threadData.size());
@@ -1525,6 +1576,8 @@ void miningThread(MiningThreadData* data) {
         }
 
         uint32_t currentJobIdSnapshot = 0;
+        uint64_t currentDifficulty = 0;
+
         while (!shouldStop) {
             std::unique_lock<std::mutex> lock(jobQueueMutex);
             jobQueueCV.wait_for(lock, std::chrono::milliseconds(100), [] { 
@@ -1536,7 +1589,13 @@ void miningThread(MiningThreadData* data) {
 
             Job job = jobQueue.front();
             currentJobIdSnapshot = activeJobId.load();
+            currentDifficulty = getTargetDifficulty(job.target);
             lock.unlock();
+
+            if (debugMode) {
+                threadSafePrint("Thread " + std::to_string(data->getThreadId()) + 
+                              " mining with difficulty: " + std::to_string(currentDifficulty));
+            }
 
             uint64_t currentNonce = startNonce;
             bool foundShare = false;
@@ -1549,16 +1608,16 @@ void miningThread(MiningThreadData* data) {
                         job.blob[39 + j] = static_cast<uint8_t>((currentNonce >> (24 - (j * 8))) & 0xFF);
                     }
 
-                    debugCounter++;
-                    if (!data->calculateHash(job.blob, hash.data(), debugCounter)) {
-                        threadSafePrint("Hash calculation failed for thread " + std::to_string(data->getThreadId()), true);
+                    if (!data->calculateHash(job.blob, hash.data(), debugCounter++)) {  // Pass and increment counter
+                        threadSafePrint("Hash calculation failed for thread " + std::to_string(data->getThreadId()));
                         break;
                     }
 
                     totalHashes++;
                     hashCount++;
 
-                    if (isHashValid(hash, job.target)) {
+                    // Check hash against target using both methods
+                    if (isHashValid(hash, job.target) || checkHashDifficulty(hash, currentDifficulty)) {
                         if (currentJobIdSnapshot == activeJobId.load()) {
                             std::string nonceHex = bytesToHex(std::vector<uint8_t>(job.blob.begin() + 39, job.blob.begin() + 43));
                             std::string hashHex = bytesToHex(hash);
@@ -1570,7 +1629,8 @@ void miningThread(MiningThreadData* data) {
                                    << "\n  Height: " << job.height
                                    << "\n  Nonce: 0x" << nonceHex
                                    << "\n  Hash: " << hashHex
-                                   << "\n  Target: " << job.target;
+                                   << "\n  Target: " << job.target
+                                   << "\n  Difficulty: " << currentDifficulty;
                                 threadSafePrint(ss.str(), true);
                             }
                             
@@ -1596,7 +1656,7 @@ void miningThread(MiningThreadData* data) {
                     lastHashrateUpdate = now;
                 }
 
-                // Check for new jobs more frequently
+                // Check for new jobs
                 if (newJobAvailable.load() || foundShare) {
                     break;
                 }
@@ -1605,7 +1665,7 @@ void miningThread(MiningThreadData* data) {
     }
     catch (const std::exception& e) {
         threadSafePrint("Exception in mining thread " + std::to_string(data->getThreadId()) + 
-                       ": " + std::string(e.what()), true);
+                       ": " + std::string(e.what()));
     }
 }
 
