@@ -113,3 +113,12 @@ Hacker Fantastic (https://hacker.house)
 
 Attribution-NonCommercial-NoDerivatives 4.0 International
 https://creativecommons.org/licenses/by-nc-nd/4.0/
+
+## Donations
+
+If you find this miner useful, consider donating XMR to support development:
+
+```
+8BghJxGWaE2Ekh8KrrEEqhGMLVnB17cCATNscfEyH8qq9uvrG3WwYPXbvqfx1HqY96ZaF3yVYtcQ2X1KUMNt2Pr29M41jHf
+```
+
