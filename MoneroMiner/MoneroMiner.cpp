@@ -1634,18 +1634,6 @@ std::string formatRuntime(uint64_t seconds) {
     return oss.str();
 }
 
-// Print mining statistics
-void printStats(const MiningStats& stats) {
-    std::lock_guard<std::mutex> lock(consoleMutex);
-    std::cout << "\nMining Statistics:" << std::endl;
-    std::cout << "Runtime: " << formatRuntime(stats.runtime) << std::endl;
-    std::cout << "Total Hashes: " << stats.totalHashes << std::endl;
-    std::cout << "Current Hashrate: " << stats.currentHashrate << " H/s" << std::endl;
-    std::cout << "Accepted Shares: " << stats.acceptedShares << std::endl;
-    std::cout << "Rejected Shares: " << stats.rejectedShares << std::endl;
-    std::cout << std::endl;
-}
-
 // Main function signal handler
 void signalHandler(int signum) {
     threadSafePrint("Received signal " + std::to_string(signum) + ", shutting down...");
