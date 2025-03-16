@@ -173,7 +173,6 @@ bool parseCommandLine(int argc, char* argv[]) {
 #define SHARE_SUBMISSION_RETRIES 3
 #define JOB_QUEUE_SIZE 2
 #define HASHRATE_AVERAGING_WINDOW_SIZE 60  // 60 seconds
-#define VM_BATCH_SIZE 256                  // Number of hashes per VM batch
 #define THREAD_PAUSE_TIME 100              // Milliseconds to pause when no jobs available
 
 // Error handling
@@ -363,6 +362,7 @@ private:
     int threadId;  // Add thread ID
 
 public:
+    static const unsigned int BATCH_SIZE = 256;  // Define batch size as static const member
     std::atomic<bool> isRunning;
     std::chrono::steady_clock::time_point startTime;
 
@@ -666,8 +666,8 @@ void listenForNewJobs(SOCKET sock) {
 
 // Function to compare hash with target
 bool isHashLessThanTarget(const std::vector<uint8_t>& hash, const std::vector<uint8_t>& target) {
-    // Compare bytes from most significant to least significant (reverse order)
-    for (int i = 31; i >= 0; i--) {
+    // Compare bytes from most significant to least significant (big-endian)
+    for (int i = 0; i < 32; i++) {
         if (hash[i] < target[i]) return true;
         if (hash[i] > target[i]) return false;
     }
@@ -679,38 +679,35 @@ std::vector<uint8_t> compactTo256BitTarget(const std::string& targetHex) {
     std::vector<uint8_t> target(32, 0);  // Initialize 256-bit target with zeros
     uint32_t compact = std::stoul(targetHex, nullptr, 16);
     
-    // Extract mantissa and exponent
-    uint32_t mantissa = compact & 0x007FFFFF;
-    uint8_t exponent = (compact >> 24) & 0xFF;
+    // Extract mantissa (24 bits) and exponent (8 bits)
+    uint32_t mantissa = compact & 0x00FFFFFF;  // Extract 24-bit mantissa
+    uint8_t exponent = (compact >> 24) & 0xFF; // Extract 8-bit exponent
     
-    // Handle the shift based on exponent
-    if (exponent <= 3) {
-        mantissa >>= 8 * (3 - exponent);
-    } else {
-        mantissa <<= 8 * (exponent - 3);
-    }
+    // For Monero's target format:
+    // The mantissa should be written at the leftmost position (most significant bytes)
+    // The rest of the bytes should be zeros
+    // For example, target 0xf3220000:
+    // - exponent = 0xf3 (243)
+    // - mantissa = 0x220000
+    // Should expand to: 0x2200000000000000000000000000000000000000000000000000000000000000
     
-    // Copy mantissa into the target (little-endian)
-    for (int i = 0; i < 4; i++) {
-        target[i] = (mantissa >> (8 * i)) & 0xFF;
-    }
+    // Write mantissa in big-endian format at the start of the target
+    target[0] = (mantissa >> 16) & 0xFF;  // Most significant byte
+    target[1] = (mantissa >> 8) & 0xFF;   // Middle byte
+    target[2] = mantissa & 0xFF;          // Least significant byte
     
-    // Debug logging with counter to match hash validation frequency
+    // Debug logging only for first target expansion and every 10000th hash
     static std::atomic<uint64_t> targetExpandCounter(0);
     uint64_t currentCount = ++targetExpandCounter;
     if (debugMode && (currentCount == 1 || currentCount % 10000 == 0)) {
         std::stringstream ss;
         ss << "Target expansion #" << currentCount << ":"
-           << "\n  Input target (hex): 0x" << targetHex
-           << "\n  Compact value: 0x" << std::hex << std::setw(8) << std::setfill('0') << compact
-           << "\n  Exponent: 0x" << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(exponent)
-           << " (" << std::dec << static_cast<int>(exponent) << ")"
-           << "\n  Mantissa: 0x" << std::hex << std::setw(6) << std::setfill('0') << mantissa
-           << "\n  Expanded target (first 8 bytes, LE): 0x";
-        
-        // Show first 8 bytes in little-endian order
-        for (int i = 7; i >= 0; i--) {
-            ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(target[i]);
+           << "\n  Input target: 0x" << targetHex
+           << "\n  Exponent: " << static_cast<int>(exponent) << " (0x" << std::hex << static_cast<int>(exponent) << ")"
+           << "\n  Mantissa: 0x" << std::hex << mantissa
+           << "\n  Expanded target (BE): 0x";
+        for (const auto& byte : target) {
+            ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(byte);
         }
         threadSafePrint(ss.str(), true);
     }
@@ -720,64 +717,42 @@ std::vector<uint8_t> compactTo256BitTarget(const std::string& targetHex) {
 
 // Function to check if the hash meets the target difficulty
 bool isHashValid(const std::vector<uint8_t>& hash, const std::string& targetHex) {
-    std::vector<uint8_t> targetBytes = compactTo256BitTarget(targetHex);
+    static std::atomic<uint64_t> hashCheckCounter(0);
+    uint64_t currentCount = ++hashCheckCounter;
     
-    // XMRig-style optimization: Compare first 8 bytes for quick rejection
-    uint64_t hash64 = 0;
-    uint64_t target64 = 0;
+    // Convert target hex to bytes
+    std::vector<uint8_t> target = compactTo256BitTarget(targetHex);
     
-    // Convert first 8 bytes to uint64_t (little-endian)
-    for (int i = 0; i < 8; i++) {
-        hash64 |= static_cast<uint64_t>(hash[i]) << (8 * i);
-        target64 |= static_cast<uint64_t>(targetBytes[i]) << (8 * i);
+    // Compare bytes from most significant to least significant (big-endian)
+    bool isValid = false;
+    for (int i = 0; i < 32; i++) {
+        if (hash[i] < target[i]) {
+            isValid = true;
+            break;
+        }
+        if (hash[i] > target[i]) {
+            isValid = false;
+            break;
+        }
     }
     
-    // Quick rejection if first 8 bytes are greater
-    if (hash64 > target64) {
-        return false;
-    }
-    
-    // If first 8 bytes are less, hash is definitely valid
-    if (hash64 < target64) {
-        return true;
-    }
-    
-    // If first 8 bytes are equal, perform full 256-bit comparison
-    for (int i = 8; i < 32; i++) {
-        if (hash[i] < targetBytes[i]) return true;
-        if (hash[i] > targetBytes[i]) return false;
-    }
-    
-    // Debug logging
-    static std::atomic<uint64_t> diffCheckCounter(0);
-    uint64_t currentCount = ++diffCheckCounter;
+    // Debug logging only for first hash and every 10000th hash
     if (debugMode && (currentCount == 1 || currentCount % 10000 == 0)) {
         std::stringstream ss;
         ss << "Hash validation #" << currentCount << ":"
-           << "\n  Hash (first 8 bytes, LE): 0x" << std::hex << std::setw(16) << std::setfill('0') << hash64
-           << "\n  Target (first 8 bytes, LE): 0x" << std::hex << std::setw(16) << std::setfill('0') << target64
-           << "\n  First 8 bytes equal, performed full 256-bit comparison"
-           << "\n  Full hash: 0x" << bytesToHex(hash)
-           << "\n  Full target: 0x" << bytesToHex(targetBytes)
-           << "\n  Result: " << (hash64 <= target64 ? "VALID" : "INVALID");
+           << "\n  Hash (BE): 0x" << bytesToHex(hash)
+           << "\n  Target (BE): 0x" << bytesToHex(target)
+           << "\n  Result: " << (isValid ? "VALID" : "INVALID");
         threadSafePrint(ss.str(), true);
     }
     
-    return true;  // Hash equals target
+    return isValid;
 }
 
 // Calculate actual difficulty from target (XMRig style)
 uint64_t getTargetDifficulty(const std::string& targetHex) {
-    std::vector<uint8_t> target = hexToBytes(targetHex);
-    
-    // Convert 4 bytes to uint32_t in little-endian order (XMRig style)
-    uint32_t target32 = 0;
-    for (int i = 0; i < 4; i++) {
-        target32 |= static_cast<uint32_t>(target[i]) << (8 * i);
-    }
-    
-    // XMRig difficulty calculation
-    return target32 ? (0xFFFFFFFFULL / target32) : 0;
+    uint32_t compact = std::stoul(targetHex, nullptr, 16);
+    return 0xFFFFFFFFFFFFFFFFULL / ((uint64_t)(compact & 0x00FFFFFF));
 }
 
 // Helper function to check if a hash meets difficulty (XMRig style)
@@ -790,8 +765,6 @@ bool checkHashDifficulty(const std::vector<uint8_t>& hash, uint64_t difficulty) 
         hash64 |= static_cast<uint64_t>(hash[i]) << (8 * i);
     }
     
-    const uint64_t max_divided_by_diff = (std::numeric_limits<uint64_t>::max)() / difficulty;
-    
     // Debug logging with counter
     static std::atomic<uint64_t> diffCheckCounter(0);
     uint64_t currentCount = ++diffCheckCounter;
@@ -800,12 +773,11 @@ bool checkHashDifficulty(const std::vector<uint8_t>& hash, uint64_t difficulty) 
         ss << "Difficulty check #" << currentCount << ":"
            << "\n  Hash value (first 8 bytes): 0x" << std::hex << hash64
            << "\n  Required difficulty: " << std::dec << difficulty
-           << "\n  Max value / difficulty: 0x" << std::hex << max_divided_by_diff
-           << "\n  Hash <= Max/Diff: " << (hash64 <= max_divided_by_diff ? "YES" : "NO");
+           << "\n  Hash <= Target: " << (hash64 <= (std::numeric_limits<uint64_t>::max)() / difficulty ? "YES" : "NO");
         threadSafePrint(ss.str(), true);
     }
     
-    return hash64 <= max_divided_by_diff;
+    return hash64 <= (std::numeric_limits<uint64_t>::max)() / difficulty;
 }
 
 // RandomX management functions
@@ -1445,16 +1417,18 @@ std::vector<uint8_t> hexToBytes(const std::string& hex) {
     return bytes;
 }
 
-// Update incrementNonce to handle standard vector
+// Update incrementNonce to use little-endian format and reduce debug output
 void incrementNonce(std::vector<uint8_t>& blob, uint32_t nonce) {
-    // Write back in big-endian format
+    // Write in little-endian format (Monero standard)
     for (int i = 0; i < 4; i++) {
-        blob[39 + i] = static_cast<uint8_t>((nonce >> (8 * (3 - i))) & 0xFF);
+        blob[39 + i] = static_cast<uint8_t>((nonce >> (8 * i)) & 0xFF);
     }
 
-    if (debugMode) {
+    static std::atomic<uint64_t> nonceCounter(0);
+    uint64_t currentCount = ++nonceCounter;
+    if (debugMode && (currentCount == 1 || currentCount % 10000 == 0)) {
         std::stringstream ss;
-        ss << "Incremented nonce to: 0x" << std::hex << nonce;
+        ss << "Incremented nonce to: 0x" << std::hex << std::setw(8) << std::setfill('0') << nonce;
         threadSafePrint(ss.str(), true);
     }
 }
@@ -1496,8 +1470,11 @@ std::string sendAndReceive(SOCKET sock, const std::string& payload) {
     setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, (char*)&sendTimeout, sizeof(sendTimeout));
     
     while (totalSent < payloadLength + 1) {
-        int sent = send(sock, payloadWithNewline.c_str() + totalSent, 
-                       static_cast<int>(payloadLength + 1 - totalSent), 0);
+        // Calculate remaining bytes and ensure we don't exceed INT_MAX
+        size_t remainingBytes = payloadLength + 1 - totalSent;
+        int bytesToSend = (remainingBytes > INT_MAX) ? INT_MAX : static_cast<int>(remainingBytes);
+        
+        int sent = send(sock, payloadWithNewline.c_str() + totalSent, bytesToSend, 0);
         if (sent == SOCKET_ERROR) {
             int error = WSAGetLastError();
             if (error == WSAEWOULDBLOCK) {
@@ -1627,8 +1604,12 @@ void miningThread(MiningThreadData* data) {
         uint64_t hashCount = 0;
         uint64_t totalHashCount = 0;
         auto lastHashrateUpdate = std::chrono::steady_clock::now();
-        uint32_t debugCounter = 1;  // Initialize to 1 instead of 0
-        const int BATCH_SIZE = VM_BATCH_SIZE;
+        uint32_t debugCounter = 1;
+        
+        if (debugMode) {
+            threadSafePrint("Thread " + std::to_string(data->getThreadId()) + 
+                          " using batch size: " + std::to_string(MiningThreadData::BATCH_SIZE));
+        }
 
         // Calculate nonce range for this thread
         uint32_t threadCount = static_cast<uint32_t>(threadData.size());
@@ -1647,6 +1628,7 @@ void miningThread(MiningThreadData* data) {
 
         uint32_t currentJobIdSnapshot = 0;
         uint64_t currentDifficulty = 0;
+        uint32_t currentNonce = static_cast<uint32_t>(startNonce);
 
         while (!shouldStop) {
             std::unique_lock<std::mutex> lock(jobQueueMutex);
@@ -1667,18 +1649,17 @@ void miningThread(MiningThreadData* data) {
                               " mining with difficulty: " + std::to_string(currentDifficulty));
             }
 
-            uint64_t currentNonce = startNonce;
             bool foundShare = false;
 
-            while (!shouldStop && currentJobIdSnapshot == activeJobId.load() && currentNonce <= endNonce) {
+            while (!shouldStop && currentJobIdSnapshot == activeJobId.load() && 
+                   currentNonce <= static_cast<uint32_t>(endNonce)) {
                 // Process hashes in batches
-                for (int i = 0; i < BATCH_SIZE && currentNonce <= endNonce; i++) {
-                    // Update nonce in job blob (big-endian)
-                    for (int j = 0; j < 4; j++) {
-                        job.blob[39 + j] = static_cast<uint8_t>((currentNonce >> (24 - (j * 8))) & 0xFF);
-                    }
-
-                    if (!data->calculateHash(job.blob, hash.data(), debugCounter++)) {  // Pass and increment counter
+                for (unsigned int i = 0; i < MiningThreadData::BATCH_SIZE && 
+                     currentNonce <= static_cast<uint32_t>(endNonce); i++) {
+                    // Update nonce in job blob (little-endian)
+                    incrementNonce(job.blob, currentNonce);
+                    
+                    if (!data->calculateHash(job.blob, hash.data(), debugCounter++)) {
                         threadSafePrint("Hash calculation failed for thread " + std::to_string(data->getThreadId()));
                         break;
                     }
@@ -1686,8 +1667,8 @@ void miningThread(MiningThreadData* data) {
                     totalHashes++;
                     hashCount++;
 
-                    // Check hash against target using both methods
-                    if (isHashValid(hash, job.target) || checkHashDifficulty(hash, currentDifficulty)) {
+                    // Check hash against target
+                    if (isHashValid(hash, job.target)) {
                         if (currentJobIdSnapshot == activeJobId.load()) {
                             std::string nonceHex = bytesToHex(std::vector<uint8_t>(job.blob.begin() + 39, job.blob.begin() + 43));
                             std::string hashHex = bytesToHex(hash);
@@ -1713,6 +1694,7 @@ void miningThread(MiningThreadData* data) {
                         }
                     }
 
+                    // Increment nonce by 1
                     currentNonce++;
                 }
 
@@ -1721,7 +1703,7 @@ void miningThread(MiningThreadData* data) {
                 auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - lastHashrateUpdate);
                 if (elapsed.count() >= 1) {
                     updateThreadStats(data, hashCount, totalHashCount, static_cast<int>(elapsed.count()), 
-                                   job.jobId, static_cast<uint32_t>(currentNonce));
+                                   job.jobId, currentNonce);
                     hashCount = 0;
                     lastHashrateUpdate = now;
                 }
@@ -1730,6 +1712,11 @@ void miningThread(MiningThreadData* data) {
                 if (newJobAvailable.load() || foundShare) {
                     break;
                 }
+            }
+
+            // If we've reached the end of our nonce range, wrap around to start
+            if (currentNonce > static_cast<uint32_t>(endNonce)) {
+                currentNonce = static_cast<uint32_t>(startNonce);
             }
         }
     }
