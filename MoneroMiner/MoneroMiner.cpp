@@ -675,7 +675,7 @@ bool isHashValid(const std::vector<uint8_t>& hash, const std::string& targetHex)
     // Convert hash to uint64_t (first 8 bytes in little-endian)
     uint64_t hash64 = 0;
     for (int i = 0; i < 8; i++) {
-        hash64 |= static_cast<uint64_t>(hash[7-i]) << (i * 8);  // Read in reverse order for proper comparison
+        hash64 |= static_cast<uint64_t>(hash[i]) << (i * 8);  // Read in little-endian order
     }
 
     // Only log first hash and every 10000th hash in debug mode
@@ -693,11 +693,11 @@ bool isHashValid(const std::vector<uint8_t>& hash, const std::string& targetHex)
 
         // Add byte-by-byte comparison for the first hash
         if (currentCount == 1) {
-            ss << "\n\nByte-by-byte comparison (big-endian order):";
+            ss << "\n\nByte-by-byte comparison (little-endian order):";
             for (int i = 0; i < 8; i++) {
                 ss << "\n  Byte " << i << ": Hash=0x" << std::hex << std::setw(2) << std::setfill('0') 
                    << static_cast<int>(hash[i]) << " Target=0x" << std::hex << std::setw(2) 
-                   << std::setfill('0') << (i < 4 ? static_cast<int>(targetBytes[3-i]) : 0);
+                   << std::setfill('0') << (i < 4 ? static_cast<int>(targetBytes[i]) : 0);
             }
         }
         threadSafePrint(ss.str(), true);
