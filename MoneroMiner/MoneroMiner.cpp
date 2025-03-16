@@ -387,19 +387,21 @@ public:
                 return false;
             }
 
-            // Define all required RandomX flags
+            // Define RandomX flags - use full memory mode with JIT and hardware AES
             const randomx_flags flags = static_cast<randomx_flags>(
                 RANDOMX_FLAG_FULL_MEM |    // Use full memory mode
                 RANDOMX_FLAG_JIT |         // Enable JIT compilation
-                RANDOMX_FLAG_HARD_AES      // Use hardware AES
+                RANDOMX_FLAG_HARD_AES |    // Use hardware AES
+                RANDOMX_FLAG_LARGE_PAGES   // Use large pages if available
             );
 
             if (debugMode) {
                 std::stringstream ss;
-                ss << "Creating RandomX VM with flags:"
+                ss << "Creating RandomX VM for thread " << threadId << " with flags:"
                    << "\n  RANDOMX_FLAG_FULL_MEM: " << ((flags & RANDOMX_FLAG_FULL_MEM) ? "YES" : "NO")
                    << "\n  RANDOMX_FLAG_JIT: " << ((flags & RANDOMX_FLAG_JIT) ? "YES" : "NO")
-                   << "\n  RANDOMX_FLAG_HARD_AES: " << ((flags & RANDOMX_FLAG_HARD_AES) ? "YES" : "NO");
+                   << "\n  RANDOMX_FLAG_HARD_AES: " << ((flags & RANDOMX_FLAG_HARD_AES) ? "YES" : "NO")
+                   << "\n  RANDOMX_FLAG_LARGE_PAGES: " << ((flags & RANDOMX_FLAG_LARGE_PAGES) ? "YES" : "NO");
                 threadSafePrint(ss.str(), true);
             }
 
@@ -412,7 +414,7 @@ public:
 
             vmInitialized = true;
             if (debugMode) {
-                threadSafePrint("RandomX VM created successfully");
+                threadSafePrint("RandomX VM created successfully for thread " + std::to_string(threadId));
             }
             return true;
         } catch (const std::exception& e) {
@@ -429,14 +431,33 @@ public:
         }
 
         try {
+            // Debug logging for blob content
+            if (debugMode && (currentDebugCounter == 1 || currentDebugCounter % 10000 == 0)) {
+                std::stringstream ss;
+                ss << "Calculating hash for blob:"
+                   << "\n  Size: " << blob.size() << " bytes"
+                   << "\n  Content: " << bytesToHex(blob)
+                   << "\n  Nonce position (39-42): " 
+                   << bytesToHex(std::vector<uint8_t>(blob.begin() + 39, blob.begin() + 43));
+                threadSafePrint(ss.str(), true);
+            }
+
+            // Verify blob size
+            if (blob.size() < 76) {
+                threadSafePrint("Invalid blob size: " + std::to_string(blob.size()), true);
+                return false;
+            }
+
+            // Calculate hash using RandomX
             randomx_calculate_hash(vm, blob.data(), blob.size(), hash);
 
-            // Only log first hash and every 10000th hash in debug mode to reduce log spam
+            // Only log first hash and every 10000th hash in debug mode
             if (debugMode && (currentDebugCounter == 1 || currentDebugCounter % 10000 == 0)) {
                 std::stringstream ss;
                 ss << "Thread " << threadId << " | Hash #" << currentDebugCounter 
-                   << " | Nonce=0x" << bytesToHex(std::vector<uint8_t>(blob.begin() + 39, blob.begin() + 43))
-                   << " | Hash=0x" << bytesToHex(std::vector<uint8_t>(hash, hash + RANDOMX_HASH_SIZE));
+                   << "\n  Nonce: 0x" << bytesToHex(std::vector<uint8_t>(blob.begin() + 39, blob.begin() + 43))
+                   << "\n  Input blob: " << bytesToHex(blob)
+                   << "\n  Output hash: 0x" << bytesToHex(std::vector<uint8_t>(hash, hash + RANDOMX_HASH_SIZE));
                 threadSafePrint(ss.str(), true);
             }
 
