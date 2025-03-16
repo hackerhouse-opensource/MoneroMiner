@@ -60,15 +60,44 @@ The miner supports two types of logging:
 1. Console logging: All mining activity is displayed in real-time on the console
 2. File logging: When enabled with `--logfile`, all console output is also saved to the specified file
 
-Debug logging (`--debug`) provides additional information such as:
+### File Logging Features
+
+- **Default Log File**: If no filename is specified with `--logfile`, the miner will create and use 'monerominer.log' in the current directory
+- **Append Mode**: The log file is opened in append mode, preserving previous mining sessions' logs
+- **Timestamped Entries**: Each log entry includes a timestamp in the format [YYYY-MM-DD HH:MM:SS]
+- **Synchronized Output**: All console output is automatically synchronized with the log file
+- **Thread-Safe**: Log file access is thread-safe, ensuring no log entries are lost or corrupted
+- **Automatic Flushing**: The log file is flushed after each write to prevent data loss
+
+### Debug Logging
+
+When `--debug` is enabled, the log file will contain additional information such as:
 
 - Detailed hash validation results
 - Share submission details
 - Pool communication
 - Thread-specific performance metrics
 - RandomX initialization details
+- Nonce updates and hash calculations
+- Job processing information
+- Share acceptance/rejection details
 
-The log file is opened in append mode, so it preserves previous mining sessions' logs.
+### Log File Format
+
+Each log entry follows this format:
+
+```
+[2024-03-21 15:30:45] Message content
+```
+
+Example log entries:
+
+```
+[2024-03-21 15:30:45] Initializing with 4 mining threads...
+[2024-03-21 15:30:46] Connected to pool.
+[2024-03-21 15:30:47] New job received - Height: 3368719, Job ID: 310631, Target: f3220000
+[2024-03-21 15:30:48] Thread 00 | HR: 1234.56 H/s | Job: 310631 | Nonce: 0x12345678
+```
 
 ## Performance Considerations
 
