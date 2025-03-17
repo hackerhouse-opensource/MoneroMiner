@@ -63,7 +63,7 @@ extern "C" {
 #else
 #define PICOJSON_USE_RVALUE_REFERENCE 0
 #endif
-#endif // PICOJSON_USE_RVALUE_REFERENCE
+#endif
 
 #ifndef PICOJSON_NOEXCEPT
 #if PICOJSON_USE_RVALUE_REFERENCE
@@ -453,17 +453,17 @@ inline value &value::get(const size_t idx) {
 }
 
 inline const value &value::get(const std::string &key) const {
-  static value s_null;
-  PICOJSON_ASSERT(is<object>());
-  object::const_iterator i = u_.object_->find(key);
-  return i != u_.object_->end() ? i->second : s_null;
+    static value s_null;
+    PICOJSON_ASSERT(is<object>());
+    object::const_iterator i = u_.object_->find(key);
+    return i != u_.object_->end() ? i->second : s_null;
 }
 
 inline value &value::get(const std::string &key) {
-  static value s_null;
-  PICOJSON_ASSERT(is<object>());
-  object::iterator i = u_.object_->find(key);
-  return i != u_.object_->end() ? i->second : s_null;
+    static value s_null;
+    PICOJSON_ASSERT(is<object>());
+    object::iterator i = u_.object_->find(key);
+    return i != u_.object_->end() ? i->second : s_null;
 }
 
 inline bool value::contains(const size_t idx) const {

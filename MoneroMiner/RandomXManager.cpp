@@ -11,6 +11,11 @@
 #include <iomanip>
 #include "RandomXFlags.h"
 
+// RandomX constants
+#define RANDOMX_DATASET_SIZE (RANDOMX_DATASET_ITEM_COUNT * RANDOMX_DATASET_ITEM_SIZE)
+#define RANDOMX_DATASET_ITEM_COUNT 262144
+#define RANDOMX_DATASET_ITEM_SIZE 64
+
 // Global variables declared in MoneroMiner.h
 extern bool debugMode;
 extern std::atomic<bool> showedInitMessage;
@@ -61,106 +66,98 @@ namespace RandomXManager {
         }
     }
 
-    bool isDatasetValid(const std::string& filename, const std::string& currentSeedHash) {
-        std::ifstream file(filename, std::ios::binary);
+    bool isDatasetValid(const std::string& seedHash) {
+        std::ifstream file("randomx_dataset.bin.seed", std::ios::binary);
         if (!file.is_open()) {
+            threadSafePrint("No existing dataset found", true);
             return false;
         }
 
-        // Read seed hash from file
         std::string storedSeedHash;
         std::getline(file, storedSeedHash);
-        
-        // Compare with current seed hash
-        return storedSeedHash == currentSeedHash;
+        file.close();
+
+        // Remove any trailing whitespace
+        while (!storedSeedHash.empty() && (storedSeedHash.back() == '\n' || storedSeedHash.back() == '\r')) {
+            storedSeedHash.pop_back();
+        }
+
+        if (storedSeedHash != seedHash) {
+            threadSafePrint("Dataset seed hash mismatch", true);
+            return false;
+        }
+
+        // Check if dataset file exists and has correct size
+        std::ifstream datasetFile("randomx_dataset.bin", std::ios::binary | std::ios::ate);
+        if (!datasetFile.is_open()) {
+            threadSafePrint("Dataset file not found", true);
+            return false;
+        }
+
+        std::streamsize size = datasetFile.tellg();
+        datasetFile.close();
+
+        if (size != RANDOMX_DATASET_SIZE) {
+            threadSafePrint("Dataset file has incorrect size", true);
+            return false;
+        }
+
+        threadSafePrint("Found valid dataset for seed hash: " + seedHash, true);
+        return true;
     }
 
-    void saveDataset(randomx_dataset* dataset, const std::string& filename, const std::string& seedHash) {
-        std::ofstream file(filename, std::ios::binary);
-        if (!file.is_open()) {
-            threadSafePrint("Failed to open dataset file for writing: " + filename);
-            return;
+    bool saveDataset(const std::string& seedHash) {
+        if (!currentDataset) {
+            threadSafePrint("Cannot save dataset: no dataset allocated", true);
+            return false;
         }
 
-        // Write seed hash
-        file << seedHash << std::endl;
+        // Save seed hash
+        std::ofstream seedFile("randomx_dataset.bin.seed", std::ios::binary);
+        if (!seedFile.is_open()) {
+            threadSafePrint("Failed to open seed hash file for writing", true);
+            return false;
+        }
+        seedFile << seedHash << std::endl;
+        seedFile.close();
 
-        // Write dataset data
-        const uint8_t* data = static_cast<const uint8_t*>(randomx_get_dataset_memory(dataset));
-        if (!data) {
-            threadSafePrint("Failed to get dataset memory");
-            return;
+        // Save dataset
+        std::ofstream datasetFile("randomx_dataset.bin", std::ios::binary);
+        if (!datasetFile.is_open()) {
+            threadSafePrint("Failed to open dataset file for writing", true);
+            return false;
         }
 
-        file.write(reinterpret_cast<const char*>(data), randomx_dataset_item_count() * RANDOMX_DATASET_ITEM_SIZE);
-        threadSafePrint("Dataset saved to: " + filename);
+        const uint8_t* data = static_cast<const uint8_t*>(randomx_get_dataset_memory(currentDataset));
+        datasetFile.write(reinterpret_cast<const char*>(data), RANDOMX_DATASET_SIZE);
+        datasetFile.close();
+
+        threadSafePrint("Dataset saved successfully", true);
+        return true;
     }
 
-    void loadDataset(randomx_dataset* dataset, const std::string& filename) {
-        std::ifstream file(filename, std::ios::binary);
-        if (!file.is_open()) {
-            threadSafePrint("Failed to open dataset file: " + filename);
-            return;
+    bool loadDataset(const std::string& seedHash) {
+        if (!currentDataset) {
+            threadSafePrint("Cannot load dataset: no dataset allocated", true);
+            return false;
         }
 
-        // Skip seed hash line
-        std::string line;
-        std::getline(file, line);
-
-        // Read dataset data
-        uint8_t* data = static_cast<uint8_t*>(randomx_get_dataset_memory(dataset));
-        if (!data) {
-            threadSafePrint("Failed to get dataset memory");
-            return;
+        std::ifstream datasetFile("randomx_dataset.bin", std::ios::binary);
+        if (!datasetFile.is_open()) {
+            threadSafePrint("Failed to open dataset file for reading", true);
+            return false;
         }
 
-        file.read(reinterpret_cast<char*>(data), randomx_dataset_item_count() * RANDOMX_DATASET_ITEM_SIZE);
-        threadSafePrint("Dataset loaded from: " + filename);
+        uint8_t* data = static_cast<uint8_t*>(randomx_get_dataset_memory(currentDataset));
+        datasetFile.read(reinterpret_cast<char*>(data), RANDOMX_DATASET_SIZE);
+        datasetFile.close();
+
+        threadSafePrint("Dataset loaded successfully", true);
+        return true;
     }
 
     bool initializeRandomX(const std::string& seedHash) {
         std::lock_guard<std::mutex> lock(initMutex);
-        
-        // Check if we already have a dataset for this seed hash
-        if (!currentSeedHash.empty() && currentSeedHash == seedHash) {
-            threadSafePrint("Dataset already initialized for seed hash: " + seedHash, true);
-            return true;
-        }
-        
-        // Try to load existing dataset
-        std::string datasetFile = "randomx_dataset_" + seedHash + ".bin";
-        if (isDatasetValid(datasetFile, seedHash)) {
-            threadSafePrint("Found valid dataset file: " + datasetFile, true);
-            
-            // Allocate and initialize cache
-            currentCache = randomx_alloc_cache(static_cast<randomx_flags>(RANDOMX_FLAG_DEFAULT));
-            if (!currentCache) {
-                threadSafePrint("Failed to allocate RandomX cache");
-                return false;
-            }
-            
-            threadSafePrint("Allocated RandomX cache");
-            
-            // Initialize cache with seed hash
-            randomx_init_cache(currentCache, hexToBytes(seedHash).data(), seedHash.length() / 2);
-            threadSafePrint("Initialized RandomX cache with seed hash");
-            
-            // Allocate dataset
-            currentDataset = randomx_alloc_dataset(static_cast<randomx_flags>(RANDOMX_FLAG_DEFAULT));
-            if (!currentDataset) {
-                threadSafePrint("Failed to allocate RandomX dataset");
-                return false;
-            }
-            
-            threadSafePrint("Allocated RandomX dataset");
-            
-            // Load dataset from file
-            loadDataset(currentDataset, datasetFile);
-            
-            // Store the seed hash
-            currentSeedHash = seedHash;
-            return true;
-        }
         
         // Clean up existing state
         if (currentVM) {
@@ -175,64 +172,112 @@ namespace RandomXManager {
             randomx_release_cache(currentCache);
             currentCache = nullptr;
         }
-        
-        // Allocate and initialize cache
-        currentCache = randomx_alloc_cache(static_cast<randomx_flags>(RANDOMX_FLAG_DEFAULT));
+
+        // Check if we have a valid dataset for this seed hash
+        if (isDatasetValid(seedHash)) {
+            threadSafePrint("Using existing dataset", true);
+            currentCache = randomx_alloc_cache(RANDOMX_FLAG_DEFAULT);
+            if (!currentCache) {
+                threadSafePrint("Failed to allocate RandomX cache", true);
+                return false;
+            }
+            threadSafePrint("Allocated RandomX cache", true);
+
+            currentDataset = randomx_alloc_dataset(RANDOMX_FLAG_DEFAULT);
+            if (!currentDataset) {
+                threadSafePrint("Failed to allocate RandomX dataset", true);
+                randomx_release_cache(currentCache);
+                currentCache = nullptr;
+                return false;
+            }
+            threadSafePrint("Allocated RandomX dataset", true);
+
+            if (!loadDataset(seedHash)) {
+                threadSafePrint("Failed to load dataset", true);
+                randomx_release_dataset(currentDataset);
+                randomx_release_cache(currentCache);
+                currentDataset = nullptr;
+                currentCache = nullptr;
+                return false;
+            }
+
+            currentVM = randomx_create_vm(RANDOMX_FLAG_DEFAULT, currentCache, currentDataset);
+            if (!currentVM) {
+                threadSafePrint("Failed to create RandomX VM", true);
+                randomx_release_dataset(currentDataset);
+                randomx_release_cache(currentCache);
+                currentDataset = nullptr;
+                currentCache = nullptr;
+                return false;
+            }
+            threadSafePrint("Created RandomX VM", true);
+            return true;
+        }
+
+        // Initialize new dataset
+        currentCache = randomx_alloc_cache(RANDOMX_FLAG_DEFAULT);
         if (!currentCache) {
-            threadSafePrint("Failed to allocate RandomX cache");
+            threadSafePrint("Failed to allocate RandomX cache", true);
             return false;
         }
-        
-        threadSafePrint("Allocated RandomX cache");
-        
-        // Initialize cache with seed hash
-        randomx_init_cache(currentCache, hexToBytes(seedHash).data(), seedHash.length() / 2);
-        threadSafePrint("Initialized RandomX cache with seed hash");
-        
-        // Allocate and initialize dataset
-        currentDataset = randomx_alloc_dataset(static_cast<randomx_flags>(RANDOMX_FLAG_DEFAULT));
+        threadSafePrint("Allocated RandomX cache", true);
+
+        currentDataset = randomx_alloc_dataset(RANDOMX_FLAG_DEFAULT);
         if (!currentDataset) {
-            threadSafePrint("Failed to allocate RandomX dataset");
+            threadSafePrint("Failed to allocate RandomX dataset", true);
+            randomx_release_cache(currentCache);
+            currentCache = nullptr;
             return false;
         }
-        
-        threadSafePrint("Allocated RandomX dataset");
-        
+        threadSafePrint("Allocated RandomX dataset", true);
+
+        // Initialize cache with seed hash
+        randomx_init_cache(currentCache, seedHash.c_str(), seedHash.length());
+        threadSafePrint("Initialized RandomX cache with seed hash", true);
+
         // Initialize dataset using multiple threads
-        const int threadCount = std::thread::hardware_concurrency();
+        const int numThreads = std::thread::hardware_concurrency();
+        threadSafePrint("Initializing dataset using " + std::to_string(numThreads) + " threads...", true);
+        
         std::vector<std::thread> threads;
-        
-        threadSafePrint("Initializing dataset using " + std::to_string(threadCount) + " threads...");
-        
-        // Create local variables for the lambda
-        randomx_dataset* dataset = currentDataset;
-        randomx_cache* cache = currentCache;
-        
-        for (int i = 0; i < threadCount; ++i) {
-            threads.emplace_back([i, threadCount, dataset, cache]() {
+        for (int i = 0; i < numThreads; i++) {
+            threads.emplace_back([i, numThreads]() {
                 try {
-                    uint32_t startItem = (i * randomx_dataset_item_count()) / threadCount;
-                    uint32_t itemCount = (randomx_dataset_item_count() / threadCount);
-                    randomx_init_dataset(dataset, cache, startItem, itemCount);
+                    uint64_t startItem = (RANDOMX_DATASET_ITEM_COUNT * i) / numThreads;
+                    uint64_t itemCount = (RANDOMX_DATASET_ITEM_COUNT * (i + 1)) / numThreads - startItem;
+                    randomx_init_dataset(currentDataset, currentCache, 
+                        static_cast<unsigned long>(startItem), 
+                        static_cast<unsigned long>(itemCount));
                 } catch (const std::exception& e) {
-                    threadSafePrint("Error in dataset initialization thread: " + std::string(e.what()));
+                    threadSafePrint("Error in dataset initialization thread: " + std::string(e.what()), true);
                 }
             });
         }
-        
-        // Wait for all threads to complete
+
         for (auto& thread : threads) {
             thread.join();
         }
-        
-        threadSafePrint("Dataset initialization complete");
-        
-        // Save dataset to file
-        saveDataset(currentDataset, datasetFile, seedHash);
-        
-        // Store the seed hash
-        currentSeedHash = seedHash;
-        
+
+        // Save the dataset for future use
+        if (!saveDataset(seedHash)) {
+            threadSafePrint("Failed to save dataset", true);
+            randomx_release_dataset(currentDataset);
+            randomx_release_cache(currentCache);
+            currentDataset = nullptr;
+            currentCache = nullptr;
+            return false;
+        }
+
+        currentVM = randomx_create_vm(RANDOMX_FLAG_DEFAULT, currentCache, currentDataset);
+        if (!currentVM) {
+            threadSafePrint("Failed to create RandomX VM", true);
+            randomx_release_dataset(currentDataset);
+            randomx_release_cache(currentCache);
+            currentDataset = nullptr;
+            currentCache = nullptr;
+            return false;
+        }
+        threadSafePrint("Created RandomX VM", true);
         return true;
     }
 

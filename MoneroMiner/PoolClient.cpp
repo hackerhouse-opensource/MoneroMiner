@@ -234,61 +234,87 @@ namespace PoolClient {
             return;
         }
         
+        if (!v.is<picojson::object>()) {
+            threadSafePrint("Invalid JSON response: not an object");
+            return;
+        }
+        
         // Handle login response
-        if (v.contains("result") && v.get("result").contains("job")) {
-            const auto& job = v.get("result").get("job");
-            std::string jobId = job.get("job_id").to_str();
-            std::string blob = job.get("blob").to_str();
-            std::string target = job.get("target").to_str();
-            uint64_t height = static_cast<uint64_t>(job.get("height").get<double>());
-            std::string seedHash = job.get("seed_hash").to_str();
-            
-            threadSafePrint("Session ID: " + v.get("result").get("id").to_str());
-            threadSafePrint("New job details: Height=" + std::to_string(height) + " JobID=" + jobId + " Target=" + target);
-            
-            // Queue the job
-            {
-                std::lock_guard<std::mutex> lock(jobMutex);
-                Job newJob;
-                newJob.setId(jobId);
-                newJob.setBlob(hexToBytes(blob));
-                newJob.setTarget(target);
-                newJob.setHeight(height);
-                newJob.setSeedHash(seedHash);
-                jobQueue.push(newJob);
+        if (v.contains("result") && v.get("result").is<picojson::object>()) {
+            const auto& result = v.get("result");
+            if (result.contains("job") && result.get("job").is<picojson::object>()) {
+                const auto& job = result.get("job");
+                if (!job.contains("job_id") || !job.contains("blob") || !job.contains("target") || 
+                    !job.contains("height") || !job.contains("seed_hash")) {
+                    threadSafePrint("Invalid job format in login response");
+                    return;
+                }
+                
+                std::string jobId = job.get("job_id").to_str();
+                std::string blob = job.get("blob").to_str();
+                std::string target = job.get("target").to_str();
+                uint64_t height = static_cast<uint64_t>(job.get("height").get<double>());
+                std::string seedHash = job.get("seed_hash").to_str();
+                
+                if (result.contains("id")) {
+                    threadSafePrint("Session ID: " + result.get("id").to_str());
+                }
+                threadSafePrint("New job details: Height=" + std::to_string(height) + " JobID=" + jobId + " Target=" + target);
+                
+                // Queue the job
+                {
+                    std::lock_guard<std::mutex> lock(jobMutex);
+                    Job newJob;
+                    newJob.setId(jobId);
+                    newJob.setBlob(hexToBytes(blob));
+                    newJob.setTarget(target);
+                    newJob.setHeight(height);
+                    newJob.setSeedHash(seedHash);
+                    jobQueue.push(newJob);
+                }
+                jobAvailable.notify_one();
+                
+                // Handle seed hash change
+                handleSeedHashChange(seedHash);
             }
-            jobAvailable.notify_one();
-            
-            // Handle seed hash change
-            handleSeedHashChange(seedHash);
         }
         // Handle new job notification
-        else if (v.contains("method") && v.get("method").to_str() == "job") {
-            const auto& job = v.get("params").get("job");
-            std::string jobId = job.get("job_id").to_str();
-            std::string blob = job.get("blob").to_str();
-            std::string target = job.get("target").to_str();
-            uint64_t height = static_cast<uint64_t>(job.get("height").get<double>());
-            std::string seedHash = job.get("seed_hash").to_str();
-            
-            threadSafePrint("New job received - Height: " + std::to_string(height) + 
-                           ", Job ID: " + jobId + ", Target: " + target);
-            
-            // Queue the job
-            {
-                std::lock_guard<std::mutex> lock(jobMutex);
-                Job newJob;
-                newJob.setId(jobId);
-                newJob.setBlob(hexToBytes(blob));
-                newJob.setTarget(target);
-                newJob.setHeight(height);
-                newJob.setSeedHash(seedHash);
-                jobQueue.push(newJob);
+        else if (v.contains("method") && v.get("method").to_str() == "job" && 
+                 v.contains("params") && v.get("params").is<picojson::object>()) {
+            const auto& params = v.get("params");
+            if (params.contains("job") && params.get("job").is<picojson::object>()) {
+                const auto& job = params.get("job");
+                if (!job.contains("job_id") || !job.contains("blob") || !job.contains("target") || 
+                    !job.contains("height") || !job.contains("seed_hash")) {
+                    threadSafePrint("Invalid job format in notification");
+                    return;
+                }
+                
+                std::string jobId = job.get("job_id").to_str();
+                std::string blob = job.get("blob").to_str();
+                std::string target = job.get("target").to_str();
+                uint64_t height = static_cast<uint64_t>(job.get("height").get<double>());
+                std::string seedHash = job.get("seed_hash").to_str();
+                
+                threadSafePrint("New job received - Height: " + std::to_string(height) + 
+                               ", Job ID: " + jobId + ", Target: " + target);
+                
+                // Queue the job
+                {
+                    std::lock_guard<std::mutex> lock(jobMutex);
+                    Job newJob;
+                    newJob.setId(jobId);
+                    newJob.setBlob(hexToBytes(blob));
+                    newJob.setTarget(target);
+                    newJob.setHeight(height);
+                    newJob.setSeedHash(seedHash);
+                    jobQueue.push(newJob);
+                }
+                jobAvailable.notify_one();
+                
+                // Handle seed hash change
+                handleSeedHashChange(seedHash);
             }
-            jobAvailable.notify_one();
-            
-            // Handle seed hash change
-            handleSeedHashChange(seedHash);
         }
     }
 
