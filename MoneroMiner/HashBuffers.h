@@ -1,5 +1,6 @@
 #pragma once
 
+#include <vector>
 #include <cstdint>
 #include <cstring>
 #include "Constants.h"
@@ -22,9 +23,14 @@ public:
         std::memset(tempHash, 0, sizeof(tempHash));
         std::memset(hash, 0, sizeof(hash));
         std::memset(scratchpad, 0, sizeof(scratchpad));
+        inputBuffer.resize(76);  // Standard Monero input size
+        outputBuffer.resize(32); // Standard hash output size
     }
 
     uint64_t* getTempHash() { return tempHash; }
     uint8_t* getHash() { return hash; }
     uint8_t* getScratchpad() { return scratchpad; }
+
+    std::vector<uint8_t> inputBuffer;
+    std::vector<uint8_t> outputBuffer;
 }; 

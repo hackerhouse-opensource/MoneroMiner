@@ -86,11 +86,17 @@ namespace PoolClient {
         }
         response[bytesReceived] = '\0';
 
-        threadSafePrint("Received response: " + std::string(response));
+        // Clean up response
+        std::string cleanResponse = response;
+        while (!cleanResponse.empty() && (cleanResponse.back() == '\n' || cleanResponse.back() == '\r')) {
+            cleanResponse.pop_back();
+        }
+        
+        threadSafePrint("Received response: " + cleanResponse);
 
         // Parse login response
         picojson::value v;
-        std::string err = picojson::parse(v, response);
+        std::string err = picojson::parse(v, cleanResponse);
         if (!err.empty()) {
             threadSafePrint("JSON parse error: " + err);
             return false;
@@ -111,21 +117,28 @@ namespace PoolClient {
             if (result.count("job")) {
                 const picojson::object& job = result.at("job").get<picojson::object>();
                 if (job.count("blob") && job.count("job_id") && job.count("target") && 
-                    job.count("height")) {
+                    job.count("height") && job.count("seed_hash")) {
                     std::string blob = job.at("blob").get<std::string>();
                     std::string jobId = job.at("job_id").get<std::string>();
                     std::string target = job.at("target").get<std::string>();
-                    double height = job.at("height").get<double>();
+                    uint64_t height = static_cast<uint64_t>(job.at("height").get<double>());
+                    std::string seedHash = job.at("seed_hash").get<std::string>();
                     
-                    threadSafePrint("New job details: Height=" + std::to_string(static_cast<int64_t>(height)) + 
-                                  " JobID=" + jobId + " Target=" + target);
+                    threadSafePrint("New job details:");
+                    threadSafePrint("  Height: " + std::to_string(height));
+                    threadSafePrint("  Job ID: " + jobId);
+                    threadSafePrint("  Target: 0x" + target);
+                    threadSafePrint("  Blob: " + blob);
+                    threadSafePrint("  Seed Hash: " + seedHash);
+                    threadSafePrint("  Difficulty: " + std::to_string(static_cast<double>(0xFFFFFFFFFFFFFFFF) / std::stoull(target, nullptr, 16)));
 
                     // Add job to queue
                     Job newJob;
                     newJob.setId(jobId);
                     newJob.setBlob(hexToBytes(blob));
                     newJob.setTarget(target);
-                    newJob.setHeight(static_cast<uint64_t>(height));
+                    newJob.setHeight(height);
+                    newJob.setSeedHash(seedHash);
                     {
                         std::lock_guard<std::mutex> lock(jobMutex);
                         jobQueue.push(newJob);
@@ -214,7 +227,7 @@ namespace PoolClient {
     }
 
     void processNewJob(const char* response) {
-        // Clean up the response by removing trailing newlines
+        // Clean up the response by removing trailing newlines and carriage returns
         std::string cleanResponse = response;
         while (!cleanResponse.empty() && (cleanResponse.back() == '\n' || cleanResponse.back() == '\r')) {
             cleanResponse.pop_back();
@@ -224,8 +237,6 @@ namespace PoolClient {
             threadSafePrint("Received empty response from pool", true);
             return;
         }
-        
-        threadSafePrint("Processing response: " + cleanResponse, true);
         
         picojson::value v;
         std::string err = picojson::parse(v, cleanResponse);
@@ -255,11 +266,6 @@ namespace PoolClient {
                 std::string target = job.get("target").to_str();
                 uint64_t height = static_cast<uint64_t>(job.get("height").get<double>());
                 std::string seedHash = job.get("seed_hash").to_str();
-                
-                if (result.contains("id")) {
-                    threadSafePrint("Session ID: " + result.get("id").to_str());
-                }
-                threadSafePrint("New job details: Height=" + std::to_string(height) + " JobID=" + jobId + " Target=" + target);
                 
                 // Queue the job
                 {
@@ -295,9 +301,6 @@ namespace PoolClient {
                 std::string target = job.get("target").to_str();
                 uint64_t height = static_cast<uint64_t>(job.get("height").get<double>());
                 std::string seedHash = job.get("seed_hash").to_str();
-                
-                threadSafePrint("New job received - Height: " + std::to_string(height) + 
-                               ", Job ID: " + jobId + ", Target: " + target);
                 
                 // Queue the job
                 {

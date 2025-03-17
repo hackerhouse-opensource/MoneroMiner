@@ -13,68 +13,78 @@ std::vector<MiningThreadData*> threadData;
 GlobalStats globalStats;
 MinerConfig config;
 std::atomic<bool> shouldStop;
+std::chrono::steady_clock::time_point lastUpdate;
+double currentHashrate;
 
 void updateThreadStats(MiningThreadData* thread) {
-    // Update individual thread statistics
-    auto now = std::chrono::steady_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - globalStats.startTime).count();
-    thread->setElapsedSeconds(static_cast<int>(elapsed));
-}
-
-void globalStatsMonitor() {
-    while (!PoolClient::shouldStop) {
-        std::this_thread::sleep_for(std::chrono::seconds(10));
-        
-        // Calculate total hashes and hashrate
-        uint64_t totalHashes = 0;
-        double totalHashrate = 0.0;
-        int activeThreads = 0;
-        
-        std::stringstream ss;
-        ss << "Global Stats: ";
-        
-        // Count active threads and calculate total hashrate
-        for (const auto& data : threadData) {
-            if (data && data->isRunning) {
-                activeThreads++;
-                totalHashes += data->getTotalHashCount();
-                totalHashrate += data->getHashrate();
-            }
-        }
-        
-        // Format global stats
-        ss << activeThreads << "/" << threadData.size() << " threads active | ";
-        ss << "HR: " << std::fixed << std::setprecision(1) << totalHashrate << " H/s | ";
-        ss << "Shares: " << globalStats.acceptedShares << "/" << globalStats.rejectedShares << " | ";
-        ss << "Hashes: 0x" << std::hex << totalHashes;
-        
-        threadSafePrint(ss.str());
-        
-        // Print thread summary
-        threadSafePrint("Thread Summary:");
-        for (size_t i = 0; i < threadData.size(); i++) {
-            if (i % 4 == 0) {
-                ss.str("");
-                ss.clear();
-            }
-            if (threadData[i]) {
-                ss << "T" << std::setw(2) << std::setfill('0') << i << ": " 
-                   << std::fixed << std::setprecision(1) << std::setw(7) 
-                   << threadData[i]->getHashrate() << " H/s  ";
-            }
-            if (i % 4 == 3 || i == threadData.size() - 1) {
-                threadSafePrint(ss.str());
-            }
-        }
+    std::lock_guard<std::mutex> lock(statsMutex);
+    if (thread && thread->getId() < threadData.size()) {
+        threadData[thread->getId()] = thread;
+        thread->isRunning = true;
     }
 }
 
-void initializeStats() {
+void globalStatsMonitor() {
+    while (!shouldStop) {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        
+        std::lock_guard<std::mutex> lock(statsMutex);
+        
+        // Calculate total hashrate and active threads
+        uint64_t totalHashes = 0;
+        int activeThreads = 0;
+        uint64_t totalShares = 0;
+        uint64_t acceptedShares = 0;
+        uint64_t rejectedShares = 0;
+        double totalHashrate = 0.0;
+        
+        for (const auto& data : threadData) {
+            if (data && data->isRunning) {
+                totalHashes += data->hashes;
+                activeThreads++;
+                totalShares += data->shares;
+                acceptedShares += data->acceptedShares;
+                rejectedShares += data->rejectedShares;
+                
+                // Calculate thread hashrate
+                auto now = std::chrono::steady_clock::now();
+                auto duration = std::chrono::duration_cast<std::chrono::seconds>(now - data->lastUpdate).count();
+                if (duration > 0) {
+                    totalHashrate += static_cast<double>(data->hashes) / duration;
+                }
+            }
+        }
+        
+        // Update global stats
+        globalStats.totalHashes = totalHashes;
+        globalStats.currentHashrate = totalHashrate;
+        globalStats.totalShares = totalShares;
+        globalStats.acceptedShares = acceptedShares;
+        globalStats.rejectedShares = rejectedShares;
+        
+        // Print stats
+        std::stringstream ss;
+        ss << "\rGlobal Stats: ";
+        ss << "Threads: " << activeThreads << "/" << config.numThreads << " | ";
+        ss << "Hashrate: " << formatHashrate(totalHashrate) << " | ";
+        ss << "Shares: " << acceptedShares << "/" << totalShares << " | ";
+        ss << "Rejected: " << rejectedShares << " | ";
+        ss << "Total Hashes: 0x" << std::hex << totalHashes;
+        threadSafePrint(ss.str(), false);
+        
+        lastUpdate = std::chrono::steady_clock::now();
+    }
+}
+
+void initializeStats(const MinerConfig& cfg) {
+    config = cfg;
     globalStats.startTime = std::chrono::steady_clock::now();
     globalStats.totalHashes = 0;
     globalStats.acceptedShares = 0;
     globalStats.rejectedShares = 0;
     globalStats.currentHashrate = 0.0;
+    threadData.clear();
+    threadData.resize(config.numThreads, nullptr);
 }
 
 void updateGlobalHashrate() {
@@ -102,11 +112,49 @@ void updateGlobalHashrate() {
 }
 
 void incrementAcceptedShares() {
+    std::lock_guard<std::mutex> lock(statsMutex);
     ++globalStats.acceptedShares;
 }
 
 void incrementRejectedShares() {
+    std::lock_guard<std::mutex> lock(statsMutex);
     ++globalStats.rejectedShares;
+}
+
+void updateGlobalStats(MiningThreadData* data) {
+    std::lock_guard<std::mutex> lock(statsMutex);
+    
+    // Update thread-specific stats
+    if (data && data->getId() >= 0 && data->getId() < static_cast<int>(threadData.size())) {
+        threadData[data->getId()] = data;
+        data->isRunning = true;
+    }
+    
+    // Calculate total hashrate and active threads
+    uint64_t totalHashes = 0;
+    int activeThreads = 0;
+    uint64_t totalShares = 0;
+    double totalHashrate = 0.0;
+    
+    for (const auto& thread : threadData) {
+        if (thread && thread->isRunning) {
+            totalHashes += thread->hashes;
+            activeThreads++;
+            totalShares += thread->shares;
+            
+            // Calculate thread hashrate
+            auto now = std::chrono::steady_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::seconds>(now - thread->lastUpdate).count();
+            if (duration > 0) {
+                totalHashrate += static_cast<double>(thread->hashes) / duration;
+            }
+        }
+    }
+    
+    // Update global stats
+    globalStats.totalHashes = totalHashes;
+    globalStats.currentHashrate = totalHashrate;
+    globalStats.totalShares = totalShares;
 }
 
 } 

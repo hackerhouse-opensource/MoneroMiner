@@ -1,10 +1,12 @@
 #include "Utils.h"
+#include "Globals.h"
 #include <sstream>
 #include <iomanip>
 #include <mutex>
 #include <iostream>
 #include <fstream>
 #include <chrono>
+#include "Types.h"
 
 extern std::mutex consoleMutex;
 extern std::mutex logfileMutex;
@@ -26,7 +28,12 @@ template std::string bytesToHex<const uint8_t*>(
 );
 
 std::string bytesToHex(const std::vector<uint8_t>& bytes) {
-    return bytesToHex(bytes.begin(), bytes.end());
+    std::stringstream ss;
+    ss << std::hex << std::setfill('0');
+    for (const auto& byte : bytes) {
+        ss << std::setw(2) << static_cast<int>(byte);
+    }
+    return ss.str();
 }
 
 template<typename Iterator>
@@ -85,14 +92,45 @@ std::string getCurrentTimestamp() {
     return ss.str();
 }
 
-void threadSafePrint(const std::string& message, bool debugOnly) {
-    if (debugOnly && !debugMode) {
-        return;
-    }
+void threadSafePrint(const std::string& message, bool addNewline) {
     std::lock_guard<std::mutex> lock(consoleMutex);
-    std::cout << getCurrentTimestamp() << message << std::endl;
+    std::cout << message;
+    if (addNewline) std::cout << std::endl;
     if (logFile.is_open()) {
-        std::lock_guard<std::mutex> logLock(logfileMutex);
-        logFile << getCurrentTimestamp() << message << std::endl;
+        logFile << message;
+        if (addNewline) logFile << std::endl;
+    }
+}
+
+std::string formatHashrate(double hashrate) {
+    std::stringstream ss;
+    ss << std::fixed << std::setprecision(2);
+    if (hashrate >= 1e9) {
+        ss << hashrate / 1e9 << " GH/s";
+    } else if (hashrate >= 1e6) {
+        ss << hashrate / 1e6 << " MH/s";
+    } else if (hashrate >= 1e3) {
+        ss << hashrate / 1e3 << " KH/s";
+    } else {
+        ss << hashrate << " H/s";
+    }
+    return ss.str();
+}
+
+void initializeLogging(const std::string& filename) {
+    std::lock_guard<std::mutex> lock(consoleMutex);
+    if (logFile.is_open()) {
+        logFile.close();
+    }
+    logFile.open(filename, std::ios::app);
+    if (!logFile.is_open()) {
+        std::cerr << "Failed to open log file: " << filename << std::endl;
+    }
+}
+
+void cleanupLogging() {
+    std::lock_guard<std::mutex> lock(consoleMutex);
+    if (logFile.is_open()) {
+        logFile.close();
     }
 } 

@@ -9,9 +9,9 @@
 #include <cstdint>
 #include "Types.h"
 #include "Globals.h"
+#include "HashBuffers.h"
 
 // Forward declarations
-class HashBuffers;
 struct randomx_vm;
 namespace RandomXManager {
     randomx_vm* createVM();
@@ -36,8 +36,28 @@ public:
     static const unsigned int BATCH_SIZE = 256;
     std::atomic<bool> isRunning;
     std::chrono::steady_clock::time_point startTime;
+    std::atomic<uint64_t> hashes;
+    std::atomic<uint64_t> shares;
+    std::atomic<uint64_t> acceptedShares;
+    std::atomic<uint64_t> rejectedShares;
+    std::chrono::steady_clock::time_point lastUpdate;
 
-    MiningThreadData(int id);
+    MiningThreadData(int id) 
+        : threadId(id)
+        , vm(nullptr)
+        , vmInitialized(false)
+        , hashCount(0)
+        , totalHashCount(0)
+        , elapsedSeconds(0)
+        , currentNonce(0)
+        , isRunning(false)
+        , hashes(0)
+        , shares(0)
+        , acceptedShares(0)
+        , rejectedShares(0)
+        , hashBuffers(std::make_unique<HashBuffers>())
+    {}
+
     ~MiningThreadData();
 
     int getThreadId() const { return threadId; }
@@ -68,4 +88,6 @@ public:
     MiningThreadData& operator=(const MiningThreadData&) = delete;
     MiningThreadData(MiningThreadData&&) = delete;
     MiningThreadData& operator=(MiningThreadData&&) = delete;
+
+    int getId() const { return threadId; }
 }; 

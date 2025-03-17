@@ -17,7 +17,7 @@ namespace MiningStats {
     // Function declarations
     void updateThreadStats(MiningThreadData* thread);
     void globalStatsMonitor();
-    void initializeStats();
+    void initializeStats(const MinerConfig& cfg);
     void updateGlobalHashrate();
     void incrementAcceptedShares();
     void incrementRejectedShares();

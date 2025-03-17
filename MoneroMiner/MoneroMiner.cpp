@@ -76,9 +76,13 @@ bool parseCommandLine(int argc, char* argv[]) {
                 config.logFile = argv[++i];
             }
         } else if (arg == "--threads" && i + 1 < argc) {
-            config.numThreads = std::atoi(argv[++i]);
-            if (config.numThreads <= 0) {
+            int threads = std::atoi(argv[++i]);
+            if (threads <= 0) {
                 config.numThreads = std::thread::hardware_concurrency();
+                threadSafePrint("Invalid thread count, using " + std::to_string(config.numThreads) + " threads");
+            } else {
+                config.numThreads = threads;
+                threadSafePrint("Using " + std::to_string(config.numThreads) + " mining threads");
             }
         } else if (arg == "--pool-address" && i + 1 < argc) {
             config.poolAddress = argv[++i];
@@ -125,6 +129,9 @@ int main(int argc, char* argv[]) {
 
     threadSafePrint("Initializing with " + std::to_string(config.numThreads) + " mining threads...", false);
     threadSafePrint("Waiting for dataset initialization...", false);
+
+    // Initialize mining stats
+    MiningStats::initializeStats(config);
 
     if (!PoolClient::initialize()) {
         threadSafePrint("Failed to initialize network", false);

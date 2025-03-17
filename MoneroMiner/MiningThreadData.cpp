@@ -12,22 +12,10 @@
 #include <sstream>
 #include <thread>
 #include <chrono>
+#include <cstring>
 
 // Global variables declared in MoneroMiner.h
 extern bool debugMode;
-
-MiningThreadData::MiningThreadData(int id) 
-    : threadId(id), 
-      isRunning(false),
-      hashCount(0),
-      totalHashCount(0),
-      elapsedSeconds(0),
-      currentJobId(""),
-      currentNonce(0),
-      vm(nullptr),
-      vmInitialized(false),
-      hashBuffers(std::make_unique<HashBuffers>()) {
-}
 
 MiningThreadData::~MiningThreadData() {
     cleanup();
@@ -36,29 +24,38 @@ MiningThreadData::~MiningThreadData() {
 bool MiningThreadData::initializeVM() {
     std::lock_guard<std::mutex> lock(vmMutex);
     if (!vmInitialized) {
-        threadSafePrint("Initializing VM for thread " + std::to_string(threadId));
         vm = RandomXManager::createVM();
-        vmInitialized = (vm != nullptr);
-        if (vmInitialized) {
-            threadSafePrint("VM initialized successfully for thread " + std::to_string(threadId));
+        if (vm) {
+            vmInitialized = true;
+            return true;
         }
     }
-    return vmInitialized;
+    return false;
 }
 
 bool MiningThreadData::calculateHash(const std::vector<uint8_t>& blob, uint8_t* outputHash, uint32_t currentDebugCounter) {
-    if (!vmInitialized && !initializeVM()) {
+    if (!vm || !vmInitialized) {
         return false;
     }
 
     std::lock_guard<std::mutex> lock(vmMutex);
-    RandomXManager::calculateHash(vm, blob.data(), blob.size(), outputHash);
+    
+    // Copy blob to input buffer
+    std::memcpy(hashBuffers->inputBuffer.data(), blob.data(), blob.size());
+    
+    // Calculate hash
+    RandomXManager::calculateHash(vm, hashBuffers->inputBuffer.data(), hashBuffers->inputBuffer.size(), outputHash);
+    
+    // Update counters
+    hashCount++;
+    totalHashCount++;
+    
     return true;
 }
 
 void MiningThreadData::cleanup() {
     std::lock_guard<std::mutex> lock(vmMutex);
-    if (vmInitialized && vm) {
+    if (vm && vmInitialized) {
         RandomXManager::destroyVM(vm);
         vm = nullptr;
         vmInitialized = false;

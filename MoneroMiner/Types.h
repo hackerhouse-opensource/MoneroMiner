@@ -6,11 +6,15 @@
 #include <chrono>
 #include <mutex>
 
+// Forward declaration of formatHashrate function
+std::string formatHashrate(double hashrate);
+
 // Global statistics structure
 struct GlobalStats {
     std::atomic<uint64_t> totalHashes{0};
     std::atomic<uint64_t> acceptedShares{0};
     std::atomic<uint64_t> rejectedShares{0};
+    std::atomic<uint64_t> totalShares{0};
     std::atomic<double> currentHashrate{0.0};
     std::chrono::steady_clock::time_point startTime;
 };
