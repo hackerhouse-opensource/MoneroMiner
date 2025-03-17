@@ -361,3 +361,5 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+/MoneroMiner/randomx_dataset.bin
+/MoneroMiner/randomx_dataset.bin.seed
