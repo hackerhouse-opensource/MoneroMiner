@@ -43,19 +43,26 @@ MiningThreadData::~MiningThreadData() {
 
 bool MiningThreadData::initializeVM() {
     std::lock_guard<std::mutex> lock(vmMutex);
-    if (!vmInitialized) {
-        vm = RandomXManager::createVM();
-        if (vm) {
-            vmInitialized = true;
-            return true;
-        }
+    
+    if (vmInitialized) {
+        return true;
     }
-    return false;
+
+    vm = RandomXManager::createVM(threadId);
+    if (!vm) {
+        threadSafePrint("Failed to initialize VM for thread " + std::to_string(threadId), true);
+        return false;
+    }
+
+    vmInitialized = true;
+    return true;
 }
 
 bool MiningThreadData::calculateHash(const std::vector<uint8_t>& blob, uint8_t* outputHash, uint32_t currentDebugCounter) {
     if (!vm || !vmInitialized) {
-        return false;
+        if (!initializeVM()) {
+            return false;
+        }
     }
 
     std::lock_guard<std::mutex> lock(vmMutex);
@@ -77,11 +84,13 @@ bool MiningThreadData::calculateHash(const std::vector<uint8_t>& blob, uint8_t* 
 
 void MiningThreadData::cleanup() {
     std::lock_guard<std::mutex> lock(vmMutex);
-    if (vm && vmInitialized) {
+    
+    if (vm) {
         RandomXManager::destroyVM(vm);
         vm = nullptr;
-        vmInitialized = false;
     }
+    
+    vmInitialized = false;
 }
 
 void MiningThreadData::updateJob(const Job& newJob) {

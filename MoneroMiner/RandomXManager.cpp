@@ -31,7 +31,8 @@ std::string RandomXManager::currentSeedHash;
 std::mutex RandomXManager::seedHashMutex;
 std::mutex RandomXManager::initMutex;
 std::vector<MiningThreadData*> RandomXManager::threadData;
-randomx_vm* RandomXManager::currentVM = nullptr;
+std::map<int, randomx_vm*> RandomXManager::threadVMs;
+std::mutex RandomXManager::vmMutex;
 
 bool RandomXManager::initializeDataset() {
     std::lock_guard<std::mutex> lock(mutex);
@@ -91,35 +92,47 @@ void RandomXManager::cleanup() {
     initialized = false;
 }
 
-randomx_vm* RandomXManager::createVM() {
-    std::lock_guard<std::mutex> lock(mutex);
+randomx_vm* RandomXManager::createVM(int threadId) {
+    std::lock_guard<std::mutex> lock(vmMutex);
+    
+    // Check if VM already exists for this thread
+    auto it = threadVMs.find(threadId);
+    if (it != threadVMs.end()) {
+        return it->second;
+    }
     
     if (!initialized || !cache || !dataset) {
         threadSafePrint("Cannot create VM: cache or dataset not initialized", true);
         return nullptr;
     }
 
-    // If we already have a VM, return it
-    if (currentVM) {
-        return currentVM;
-    }
-
     // Create new VM with consistent flags
     RandomXFlags flags(RANDOMX_FLAG_JIT | RANDOMX_FLAG_HARD_AES | RANDOMX_FLAG_FULL_MEM);
-    currentVM = randomx_create_vm(flags.get(), cache, dataset);
+    randomx_vm* vm = randomx_create_vm(flags.get(), cache, dataset);
     
-    if (!currentVM) {
-        threadSafePrint("Failed to create RandomX VM", true);
+    if (!vm) {
+        threadSafePrint("Failed to create RandomX VM for thread " + std::to_string(threadId), true);
         return nullptr;
     }
 
-    return currentVM;
+    threadVMs[threadId] = vm;
+    return vm;
 }
 
 void RandomXManager::destroyVM(randomx_vm* vm) {
-    if (vm) {
-        randomx_destroy_vm(vm);
+    if (!vm) return;
+
+    std::lock_guard<std::mutex> lock(vmMutex);
+    
+    // Find and remove the VM from threadVMs
+    for (auto it = threadVMs.begin(); it != threadVMs.end(); ++it) {
+        if (it->second == vm) {
+            threadVMs.erase(it);
+            break;
+        }
     }
+    
+    randomx_destroy_vm(vm);
 }
 
 bool RandomXManager::calculateHash(randomx_vm* vm, const uint8_t* input, size_t inputSize, uint8_t* output) {
@@ -133,7 +146,7 @@ bool RandomXManager::calculateHash(randomx_vm* vm, const uint8_t* input, size_t 
 
 bool RandomXManager::verifyHash(const std::vector<uint8_t>& input, const uint8_t* expectedHash) {
     uint8_t calculatedHash[32];
-    randomx_vm* vm = createVM();
+    randomx_vm* vm = createVM(0); // Use thread ID 0 for verification
     if (!vm) {
         return false;
     }
@@ -242,10 +255,16 @@ bool RandomXManager::initializeRandomX(const std::string& seedHash) {
     std::lock_guard<std::mutex> lock(initMutex);
     
     // Clean up existing state
-    if (currentVM) {
-        randomx_destroy_vm(currentVM);
-        currentVM = nullptr;
+    {
+        std::lock_guard<std::mutex> vmLock(vmMutex);
+        for (auto& pair : threadVMs) {
+            if (pair.second) {
+                randomx_destroy_vm(pair.second);
+            }
+        }
+        threadVMs.clear();
     }
+
     if (dataset) {
         randomx_release_dataset(dataset);
         dataset = nullptr;
@@ -291,8 +310,8 @@ bool RandomXManager::initializeRandomX(const std::string& seedHash) {
         randomx_init_cache(cache, seedHash.c_str(), seedHash.length());
 
         // Create VM
-        currentVM = randomx_create_vm(flags.get(), cache, dataset);
-        if (!currentVM) {
+        randomx_vm* vm = randomx_create_vm(flags.get(), cache, dataset);
+        if (!vm) {
             threadSafePrint("Failed to create RandomX VM", true);
             randomx_release_dataset(dataset);
             randomx_release_cache(cache);
@@ -361,8 +380,8 @@ bool RandomXManager::initializeRandomX(const std::string& seedHash) {
     }
 
     // Create VM
-    currentVM = randomx_create_vm(flags.get(), cache, dataset);
-    if (!currentVM) {
+    randomx_vm* vm = randomx_create_vm(flags.get(), cache, dataset);
+    if (!vm) {
         threadSafePrint("Failed to create RandomX VM", true);
         randomx_release_dataset(dataset);
         randomx_release_cache(cache);
@@ -382,10 +401,15 @@ void RandomXManager::handleSeedHashChange(const std::string& newSeedHash) {
         threadSafePrint("Seed hash changed from " + (currentSeedHash.empty() ? "none" : currentSeedHash) + " to " + newSeedHash, true);
         currentSeedHash = newSeedHash;
         
-        // Clean up existing state
-        if (currentVM) {
-            randomx_destroy_vm(currentVM);
-            currentVM = nullptr;
+        // Clean up existing VMs
+        {
+            std::lock_guard<std::mutex> vmLock(vmMutex);
+            for (auto& pair : threadVMs) {
+                if (pair.second) {
+                    randomx_destroy_vm(pair.second);
+                }
+            }
+            threadVMs.clear();
         }
         
         // Initialize with new seed hash

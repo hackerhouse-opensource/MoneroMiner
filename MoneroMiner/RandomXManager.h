@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <mutex>
+#include <map>
 
 // Forward declaration
 class MiningThreadData;
@@ -12,7 +13,7 @@ class RandomXManager {
 public:
     static bool initializeDataset();
     static void cleanup();
-    static randomx_vm* createVM();
+    static randomx_vm* createVM(int threadId);
     static void destroyVM(randomx_vm* vm);
     static bool calculateHash(randomx_vm* vm, const uint8_t* input, size_t inputSize, uint8_t* output);
     static bool verifyHash(const std::vector<uint8_t>& input, const uint8_t* expectedHash);
@@ -31,5 +32,6 @@ private:
     static std::mutex seedHashMutex;
     static std::mutex initMutex;
     static std::vector<MiningThreadData*> threadData;
-    static randomx_vm* currentVM;
+    static std::map<int, randomx_vm*> threadVMs;
+    static std::mutex vmMutex;
 }; 
