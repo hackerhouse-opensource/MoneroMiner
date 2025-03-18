@@ -38,14 +38,21 @@ namespace RandomXManager {
             return nullptr;
         }
 
-        RandomXFlags flags(RANDOMX_FLAG_JIT | RANDOMX_FLAG_HARD_AES | RANDOMX_FLAG_FULL_MEM);
+        // Use Monero's required flags: JIT, LARGE_PAGES, HARD_AES, FULL_MEM
+        RandomXFlags flags(RANDOMX_FLAG_JIT | RANDOMX_FLAG_HARD_AES | RANDOMX_FLAG_FULL_MEM | RANDOMX_FLAG_LARGE_PAGES);
         randomx_vm* vm = randomx_create_vm(flags.get(), currentCache, currentDataset);
         
         if (!vm) {
-            threadSafePrint("Failed to create RandomX VM");
-        } else {
-            threadSafePrint("Successfully created RandomX VM");
+            // If large pages fail, try without them
+            flags = RandomXFlags(RANDOMX_FLAG_JIT | RANDOMX_FLAG_HARD_AES | RANDOMX_FLAG_FULL_MEM);
+            vm = randomx_create_vm(flags.get(), currentCache, currentDataset);
+            if (!vm) {
+                threadSafePrint("Failed to create RandomX VM");
+                return nullptr;
+            }
         }
+        
+        threadSafePrint("Successfully created RandomX VM");
         
         return vm;
     }
