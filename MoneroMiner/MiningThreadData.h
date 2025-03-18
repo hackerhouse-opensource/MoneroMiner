@@ -22,23 +22,20 @@ namespace RandomXManager {
 }
 
 class MiningThreadData {
-private:
-    std::unique_ptr<HashBuffers> hashBuffers;
-    randomx_vm* vm;
-    std::mutex vmMutex;
-    bool vmInitialized;
-    int threadId;
-    uint64_t hashCount{0};
-    uint64_t totalHashCount{0};
-    int elapsedSeconds{0};
-    std::string currentJobId;
-    uint32_t currentNonce{0};
-    std::atomic<bool> shouldStop;
-    std::thread thread;
-    std::mutex jobMutex;
-    std::shared_ptr<Job> currentJob;
-
 public:
+    MiningThreadData(int threadId);
+    ~MiningThreadData();
+
+    bool initializeVM();
+    void cleanup();
+    void mine();
+    void submitShare(const uint8_t* hash);
+    int getThreadId() const { return threadId; }
+    uint64_t getTotalHashCount() const { return totalHashCount; }
+    void updateJob(const Job& newJob);
+    bool needsVMReinit(const std::string& newSeedHash) const;
+    bool calculateHash(const std::vector<uint8_t>& blob, uint8_t* outputHash, uint32_t currentDebugCounter = 0);
+
     static const unsigned int BATCH_SIZE = 256;
     std::atomic<bool> isRunning;
     std::chrono::steady_clock::time_point startTime;
@@ -48,28 +45,7 @@ public:
     std::atomic<uint64_t> rejectedShares;
     std::chrono::steady_clock::time_point lastUpdate;
 
-    MiningThreadData(int id) 
-        : threadId(id)
-        , vm(nullptr)
-        , vmInitialized(false)
-        , hashCount(0)
-        , totalHashCount(0)
-        , elapsedSeconds(0)
-        , currentNonce(0)
-        , isRunning(false)
-        , hashes(0)
-        , shares(0)
-        , acceptedShares(0)
-        , rejectedShares(0)
-        , hashBuffers(std::make_unique<HashBuffers>())
-        , shouldStop(false)
-    {}
-
-    ~MiningThreadData();
-
-    int getThreadId() const { return threadId; }
     uint64_t getHashCount() const { return hashCount; }
-    uint64_t getTotalHashCount() const { return totalHashCount; }
     int getElapsedSeconds() const { return elapsedSeconds; }
     std::string getCurrentJobId() const { return currentJobId; }
     uint32_t getCurrentNonce() const { return currentNonce; }
@@ -86,17 +62,7 @@ public:
     void setCurrentJobId(const std::string& jobId) { currentJobId = jobId; }
     void setCurrentNonce(uint32_t nonce) { currentNonce = nonce; }
 
-    bool initializeVM();
-    bool calculateHash(const std::vector<uint8_t>& blob, uint8_t* outputHash, uint32_t currentDebugCounter = 0);
-    void cleanup();
     randomx_vm* getVM() const { return vm; }
-
-    MiningThreadData(const MiningThreadData&) = delete;
-    MiningThreadData& operator=(const MiningThreadData&) = delete;
-    MiningThreadData(MiningThreadData&&) = delete;
-    MiningThreadData& operator=(MiningThreadData&&) = delete;
-
-    int getId() const { return threadId; }
 
     void start() {
         thread = std::thread(&MiningThreadData::mine, this);
@@ -115,6 +81,22 @@ public:
     }
 
 private:
-    void mine();
-    void submitShare(const uint8_t* hash);
+    int threadId;
+    randomx_vm* vm = nullptr;
+    bool vmInitialized = false;
+    std::mutex vmMutex;
+    std::mutex jobMutex;
+    std::unique_ptr<HashBuffers> hashBuffers;
+    uint64_t hashCount = 0;
+    uint64_t totalHashCount = 0;
+    std::shared_ptr<Job> currentJob;
+    uint32_t currentNonce = 0;
+    uint32_t nonceStart = 0;
+    uint32_t nonceEnd = 0;
+    std::string currentJobId;
+    std::atomic<bool> shouldStop;
+    std::thread thread;
+    int elapsedSeconds = 0;
+    uint32_t currentDebugCounter = 0;
+    std::string currentSeedHash;
 }; 

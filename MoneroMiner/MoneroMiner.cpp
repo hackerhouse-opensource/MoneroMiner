@@ -98,6 +98,18 @@ void signalHandler(int signum) {
     shouldStop = true;
 }
 
+void printConfig() {
+    std::cout << "Current Configuration:\n"
+              << "  Pool Address: " << config.poolAddress << ":" << config.poolPort << "\n"
+              << "  Wallet: " << config.walletAddress << "\n"
+              << "  Worker Name: " << config.workerName << "\n"
+              << "  User Agent: " << config.userAgent << "\n"
+              << "  Threads: " << config.numThreads << "\n"
+              << "  Debug Mode: " << (config.debugMode ? "Yes" : "No") << "\n"
+              << "  Log File: " << (config.useLogFile ? config.logFile : "Disabled") << "\n"
+              << std::endl;
+}
+
 int main(int argc, char* argv[]) {
     if (!parseCommandLine(argc, argv)) {
         return 1;
@@ -107,6 +119,8 @@ int main(int argc, char* argv[]) {
         printHelp();
         return 1;
     }
+
+    printConfig();
 
     if (config.useLogFile) {
         logFile.open(config.logFile, std::ios::app);

@@ -2,10 +2,15 @@
 #include "Utils.h"
 #include "Constants.h"
 #include "RandomXManager.h"
+#include "MiningThreadData.h"
+#include "HashValidation.h"
 #include <sstream>
 #include <cstring>
 #include <ws2tcpip.h>
+#include "picojson.h"
 #pragma comment(lib, "ws2_32.lib")
+
+using namespace picojson;
 
 namespace PoolClient {
     // Static member definitions
@@ -17,10 +22,51 @@ namespace PoolClient {
     std::string currentSeedHash;
     std::string sessionId;
     std::string currentTargetHex;
+    std::vector<std::shared_ptr<MiningThreadData>> threadData;
 
     // Forward declarations
     bool sendRequest(const std::string& request);
     void processNewJob(const char* response);
+
+    std::string receiveData(SOCKET socket) {
+        char buffer[4096];
+        std::string messageBuffer;
+        
+        int bytesReceived = recv(socket, buffer, sizeof(buffer) - 1, 0);
+        if (bytesReceived <= 0) {
+            if (bytesReceived == 0) {
+                threadSafePrint("Connection closed by pool");
+            } else {
+                threadSafePrint("Error receiving data from pool");
+            }
+            return "";
+        }
+        buffer[bytesReceived] = '\0';
+        
+        // Add received data to message buffer
+        messageBuffer += buffer;
+
+        // Process complete messages (separated by newlines)
+        size_t pos = 0;
+        while ((pos = messageBuffer.find('\n')) != std::string::npos) {
+            std::string message = messageBuffer.substr(0, pos);
+            messageBuffer = messageBuffer.substr(pos + 1);
+
+            // Skip empty messages
+            if (message.empty()) {
+                continue;
+            }
+
+            // Remove any trailing carriage return
+            if (!message.empty() && message.back() == '\r') {
+                message.pop_back();
+            }
+
+            return message;
+        }
+        
+        return "";
+    }
 
     bool initialize() {
         WSADATA wsaData;
@@ -95,34 +141,34 @@ namespace PoolClient {
         threadSafePrint("Received response: " + cleanResponse);
 
         // Parse login response
-        picojson::value v;
-        std::string err = picojson::parse(v, cleanResponse);
+        value v;
+        std::string err = parse(v, cleanResponse);
         if (!err.empty()) {
             threadSafePrint("JSON parse error: " + err);
             return false;
         }
 
-        if (!v.is<picojson::object>()) {
+        if (!v.is<object>()) {
             threadSafePrint("Invalid JSON response: not an object");
             return false;
         }
 
-        const picojson::object& obj = v.get<picojson::object>();
+        const object& obj = v.get<object>();
         if (obj.count("result")) {
-            const picojson::object& result = obj.at("result").get<picojson::object>();
+            const object& result = obj.at("result").get<object>();
             if (result.count("id")) {
-                sessionId = result.at("id").get<std::string>();
+                sessionId = result.at("id").to_str();
                 threadSafePrint("Session ID: " + sessionId);
             }
             if (result.count("job")) {
-                const picojson::object& job = result.at("job").get<picojson::object>();
+                const object& job = result.at("job").get<object>();
                 if (job.count("blob") && job.count("job_id") && job.count("target") && 
                     job.count("height") && job.count("seed_hash")) {
-                    std::string blob = job.at("blob").get<std::string>();
-                    std::string jobId = job.at("job_id").get<std::string>();
-                    std::string target = job.at("target").get<std::string>();
+                    std::string blob = job.at("blob").to_str();
+                    std::string jobId = job.at("job_id").to_str();
+                    std::string target = job.at("target").to_str();
                     uint64_t height = static_cast<uint64_t>(job.at("height").get<double>());
-                    std::string seedHash = job.at("seed_hash").get<std::string>();
+                    std::string seedHash = job.at("seed_hash").to_str();
                     
                     threadSafePrint("New job details:");
                     threadSafePrint("  Height: " + std::to_string(height));
@@ -149,7 +195,7 @@ namespace PoolClient {
             return true;
         }
 
-        threadSafePrint("Login failed: " + (obj.count("error") ? obj.at("error").get<std::string>() : "Unknown error"));
+        threadSafePrint("Login failed: " + (obj.count("error") ? obj.at("error").to_str() : "Unknown error"));
         return false;
     }
 
@@ -179,45 +225,47 @@ namespace PoolClient {
     }
 
     void listenForNewJobs(SOCKET socket) {
-        char buffer[4096];
-        std::string messageBuffer;
-        
         while (!shouldStop) {
-            int bytesReceived = recv(socket, buffer, sizeof(buffer) - 1, 0);
-            if (bytesReceived <= 0) {
-                if (bytesReceived == 0) {
-                    threadSafePrint("Connection closed by pool");
-                } else {
-                    threadSafePrint("Error receiving data from pool");
-                }
-                break;
+            std::string response = receiveData(socket);
+            if (response.empty()) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                continue;
             }
-            buffer[bytesReceived] = '\0';
 
-            // Add received data to message buffer
-            messageBuffer += buffer;
+            // Parse response
+            value v;
+            std::string err = parse(v, response);
+            if (!err.empty()) {
+                threadSafePrint("JSON parse error: " + err);
+                continue;
+            }
 
-            // Process complete messages (separated by newlines)
-            size_t pos = 0;
-            while ((pos = messageBuffer.find('\n')) != std::string::npos) {
-                std::string message = messageBuffer.substr(0, pos);
-                messageBuffer = messageBuffer.substr(pos + 1);
+            if (v.contains("method") && v.get("method").to_str() == "job") {
+                const object& params = v.get("params").get<object>();
+                Job newJob;
+                newJob.jobId = params.at("job_id").to_str();
+                newJob.height = static_cast<uint64_t>(params.at("height").get<double>());
+                newJob.target = params.at("target").to_str();
+                newJob.blob = hexToBytes(params.at("blob").to_str());
+                newJob.seedHash = params.at("seed_hash").to_str();
 
-                // Skip empty messages
-                if (message.empty()) {
-                    continue;
+                // Update job for all mining threads
+                std::lock_guard<std::mutex> lock(jobMutex);
+                for (auto& threadData : threadData) {
+                    threadData->updateJob(newJob);
                 }
 
-                // Remove any trailing carriage return
-                if (!message.empty() && message.back() == '\r') {
-                    message.pop_back();
+                if (debugMode) {
+                    threadSafePrint("New job details:", true);
+                    threadSafePrint("  Height: " + std::to_string(newJob.height), true);
+                    threadSafePrint("  Job ID: " + newJob.jobId, true);
+                    threadSafePrint("  Target: 0x" + newJob.target, true);
+                    threadSafePrint("  Blob: " + bytesToHex(newJob.blob), true);
+                    threadSafePrint("  Seed Hash: " + newJob.seedHash, true);
+                    threadSafePrint("  Difficulty: " + std::to_string(HashValidation::getTargetDifficulty(newJob.target)), true);
                 }
-
-                threadSafePrint("Received from pool: " + message);
-                processNewJob(message.c_str());
             }
         }
-        threadSafePrint("Job listener thread stopped");
     }
 
     void processNewJob(const char* response) {
@@ -232,22 +280,22 @@ namespace PoolClient {
             return;
         }
         
-        picojson::value v;
-        std::string err = picojson::parse(v, cleanResponse);
+        value v;
+        std::string err = parse(v, cleanResponse);
         if (!err.empty()) {
             threadSafePrint("Failed to parse JSON: " + err);
             return;
         }
         
-        if (!v.is<picojson::object>()) {
+        if (!v.is<object>()) {
             threadSafePrint("Invalid JSON response: not an object");
             return;
         }
         
         // Handle login response
-        if (v.contains("result") && v.get("result").is<picojson::object>()) {
+        if (v.contains("result") && v.get("result").is<object>()) {
             const auto& result = v.get("result");
-            if (result.contains("job") && result.get("job").is<picojson::object>()) {
+            if (result.contains("job") && result.get("job").is<object>()) {
                 const auto& job = result.get("job");
                 if (!job.contains("job_id") || !job.contains("blob") || !job.contains("target") || 
                     !job.contains("height") || !job.contains("seed_hash")) {
@@ -289,9 +337,9 @@ namespace PoolClient {
         }
         // Handle new job notification
         else if (v.contains("method") && v.get("method").to_str() == "job" && 
-                 v.contains("params") && v.get("params").is<picojson::object>()) {
+                 v.contains("params") && v.get("params").is<object>()) {
             const auto& params = v.get("params");
-            if (params.contains("job") && params.get("job").is<picojson::object>()) {
+            if (params.contains("job") && params.get("job").is<object>()) {
                 const auto& job = params.get("job");
                 if (!job.contains("job_id") || !job.contains("blob") || !job.contains("target") || 
                     !job.contains("height") || !job.contains("seed_hash")) {

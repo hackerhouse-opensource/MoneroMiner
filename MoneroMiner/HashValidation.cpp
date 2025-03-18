@@ -13,26 +13,22 @@ static bool firstHashShown = false;
 static uint64_t hashCount = 0;
 
 bool checkHash(const uint8_t* hash, const std::string& targetHex) {
-    if (!hash || targetHex.empty()) {
-        return false;
-    }
+    std::string target = targetHex;
+    if (target.substr(0, 2) == "0x") target = target.substr(2);
+    uint32_t compact = std::stoul(target, nullptr, 16); // 0xf3220000
 
-    std::vector<uint8_t> target = expandTarget(targetHex);
-    if (target.empty()) {
-        return false;
-    }
+    // Last 4 bytes of hash (little-endian)
+    uint32_t hashTail = (hash[31] << 24) | (hash[30] << 16) | (hash[29] << 8) | hash[28];
+    bool valid = hashTail <= compact;
 
-    // Compare hash with target (big-endian)
-    for (size_t i = 0; i < 32; ++i) {
-        if (hash[i] < target[i]) {
-            return true;
-        }
-        if (hash[i] > target[i]) {
-            return false;
-        }
+    if (debugMode) {
+        std::stringstream ss;
+        ss << "Hash tail: 0x" << std::hex << std::setw(8) << std::setfill('0') << hashTail
+           << " vs Target: 0x" << std::hex << std::setw(8) << std::setfill('0') << compact
+           << " -> " << (valid ? "Valid" : "Invalid") << std::endl;
+        threadSafePrint(ss.str(), true);
     }
-
-    return true; // Equal is considered valid
+    return valid;
 }
 
 bool meetsTarget(const std::vector<uint8_t>& hash, const std::vector<uint8_t>& target) {
@@ -236,32 +232,11 @@ bool validateHash(const std::string& hashHex, const std::string& targetHex) {
 }
 
 uint64_t getTargetDifficulty(const std::string& targetHex) {
-    // Remove any "0x" prefix if present
     std::string target = targetHex;
-    if (target.length() >= 2 && target.substr(0, 2) == "0x") {
-        target = target.substr(2);
-    }
-
-    // Ensure the target is exactly 8 hex characters (4 bytes)
-    if (target.length() != 8) {
-        return 0;
-    }
-
-    // Convert hex string to uint32_t
-    uint32_t compact;
-    try {
-        compact = std::stoul(target, nullptr, 16);
-    } catch (const std::exception& e) {
-        return 0;
-    }
-
-    if (compact == 0) {
-        return 0;
-    }
-
-    // For RandomX pool mining, difficulty = 2^32 / target
-    // This is an approximation for 4-byte targets
-    return 0xFFFFFFFFULL / compact;
+    if (target.substr(0, 2) == "0x") target = target.substr(2);
+    uint32_t compact = std::stoul(target, nullptr, 16);
+    if (compact == 0) return 0;
+    return 0xFFFFFFFFULL / compact; // ~1053 for f3220000
 }
 
 bool checkHashDifficulty(const uint8_t* hash, uint64_t difficulty) {

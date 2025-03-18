@@ -18,6 +18,25 @@
 // Global variables declared in MoneroMiner.h
 extern bool debugMode;
 
+MiningThreadData::MiningThreadData(int id) 
+    : threadId(id)
+    , vm(nullptr)
+    , vmInitialized(false)
+    , hashCount(0)
+    , totalHashCount(0)
+    , acceptedShares(0)
+    , rejectedShares(0)
+    , currentJob(nullptr)
+    , currentNonce(0)
+    , nonceStart(0)
+    , nonceEnd(0)
+    , hashBuffers(std::make_unique<HashBuffers>())
+    , shouldStop(false)
+    , elapsedSeconds(0)
+    , currentDebugCounter(0)
+{
+}
+
 MiningThreadData::~MiningThreadData() {
     cleanup();
 }
@@ -63,12 +82,32 @@ void MiningThreadData::cleanup() {
     }
 }
 
-void MiningThreadData::mine() {
-    uint64_t hashes = 0;
-    uint64_t shares = 0;
-    uint64_t rejectedShares = 0;
-    auto lastStatsUpdate = std::chrono::steady_clock::now();
+void MiningThreadData::updateJob(const Job& newJob) {
+    std::lock_guard<std::mutex> lock(jobMutex);
+    
+    // Check if we need to reinitialize the VM due to seed hash change
+    if (needsVMReinit(newJob.seedHash)) {
+        cleanup();
+        initializeVM();
+        currentSeedHash = newJob.seedHash;
+    }
 
+    // Update job using shared_ptr
+    currentJob = std::make_shared<Job>(newJob);
+    
+    // Calculate nonce range for this thread
+    uint32_t totalThreads = config.numThreads;
+    uint32_t nonceRange = UINT32_MAX / totalThreads;
+    nonceStart = threadId * nonceRange;
+    nonceEnd = (threadId == totalThreads - 1) ? UINT32_MAX : (threadId + 1) * nonceRange;
+    currentNonce = nonceStart;
+}
+
+bool MiningThreadData::needsVMReinit(const std::string& newSeedHash) const {
+    return currentSeedHash != newSeedHash;
+}
+
+void MiningThreadData::mine() {
     while (!shouldStop) {
         // Get current job
         std::lock_guard<std::mutex> lock(jobMutex);
@@ -79,9 +118,14 @@ void MiningThreadData::mine() {
 
         // Mine for a batch of hashes
         for (int i = 0; i < 1000 && !shouldStop; i++) {
+            // Update nonce in blob
+            std::vector<uint8_t> blob = currentJob->blob;
+            uint32_t* noncePtr = reinterpret_cast<uint32_t*>(&blob[39]); // Nonce starts at offset 39
+            *noncePtr = currentNonce;
+
             // Calculate hash
             uint8_t hash[32];
-            if (!calculateHash(currentJob->blob, hash)) {
+            if (!calculateHash(blob, hash)) {
                 continue;
             }
 
@@ -90,25 +134,29 @@ void MiningThreadData::mine() {
 
             // Check if hash meets target
             if (HashValidation::validateHash(hashHex, currentJob->target)) {
-                shares++;
+                acceptedShares.fetch_add(1);
                 // Submit share to pool
                 submitShare(hash);
             } else {
-                rejectedShares++;
+                rejectedShares.fetch_add(1);
             }
 
-            hashes++;
+            hashCount++;
+            totalHashCount++;
+
+            // Update nonce and check range
             currentNonce++;
-
-            // Update stats every second
-            auto now = std::chrono::steady_clock::now();
-            if (now - lastStatsUpdate >= std::chrono::seconds(1)) {
-                MiningStats::updateThreadStats(this);
-                hashes = 0;
-                shares = 0;
-                rejectedShares = 0;
-                lastStatsUpdate = now;
+            if (currentNonce >= nonceEnd) {
+                currentNonce = nonceStart;
             }
+        }
+
+        // Update stats periodically
+        auto now = std::chrono::steady_clock::now();
+        auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdate).count();
+        if (elapsed >= 5) {
+            MiningStats::updateThreadStats(this);
+            lastUpdate = now;
         }
     }
 }

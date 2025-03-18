@@ -74,7 +74,17 @@ namespace MiningStats {
                          << (currentHashrate / 1000.0) << " kH/s | "
                          << "Shares: " << globalStats.acceptedShares << "/" 
                          << (globalStats.acceptedShares + globalStats.rejectedShares) << " | "
-                         << "Total Hashes: " << currentHashrate * elapsed << std::flush;
+                         << "Total Hashes: " << globalStats.totalHashes << std::endl;
+
+                // Print thread stats
+                for (size_t i = 0; i < threadStats.size(); ++i) {
+                    const auto& stats = threadStats[i];
+                    std::cout << "Thread " << i << " Hash Rate: " << std::fixed << std::setprecision(2)
+                             << (stats->currentHashrate / 1000.0) << " kH/s | "
+                             << "Hashes: " << stats->totalHashes << " | "
+                             << "Shares: " << stats->acceptedShares << "/"
+                             << (stats->acceptedShares + stats->rejectedShares) << std::endl;
+                }
             }
             std::this_thread::sleep_for(std::chrono::seconds(5));
         }
