@@ -124,8 +124,8 @@ void miningThread(MiningThreadData* data) {
                 }
                 std::string hashHex = HashValidation::formatHash(std::vector<uint8_t>(hash, hash + 32));
 
-                // Show detailed debug info for first hash
-                if (debugMode && firstHash) {
+                // Force debug output for first hash
+                if (firstHash) {
                     std::stringstream ss;
                     ss << "\nFirst hash attempt:" << std::endl;
                     ss << "  Job ID: " << job.getId() << std::endl;

@@ -8,6 +8,8 @@
 
 namespace HashValidation {
 
+static bool firstHashShown = false;
+
 bool checkHash(const uint8_t* hash, const std::string& targetHex) {
     if (!hash || targetHex.empty()) {
         return false;
@@ -73,11 +75,13 @@ bool meetsTarget(const std::vector<uint8_t>& hash, const std::vector<uint8_t>& t
 }
 
 std::vector<uint8_t> expandTarget(const std::string& compactTarget) {
-    if (debugMode) {
-        std::stringstream ss;
+    // Only show debug output for first hash attempt
+    static bool firstTargetExpansion = true;
+    std::stringstream ss;
+    
+    if (firstTargetExpansion && !firstHashShown) {
         ss << "\nExpanding target:" << std::endl;
         ss << "  Compact target: " << compactTarget << std::endl;
-        ss << "  Target difficulty: " << std::dec << getTargetDifficulty(compactTarget) << std::endl;
         threadSafePrint(ss.str(), true);
     }
 
@@ -89,7 +93,9 @@ std::vector<uint8_t> expandTarget(const std::string& compactTarget) {
 
     // Ensure the target is exactly 8 hex characters (4 bytes)
     if (target.length() != 8) {
-        threadSafePrint("Error: Target must be 8 hex characters (4 bytes), got: " + target, true);
+        if (firstTargetExpansion && !firstHashShown) {
+            threadSafePrint("Error: Target must be 8 hex characters (4 bytes), got: " + target, true);
+        }
         return std::vector<uint8_t>();
     }
 
@@ -103,12 +109,16 @@ std::vector<uint8_t> expandTarget(const std::string& compactTarget) {
             targetBytes.push_back(static_cast<uint8_t>(std::stoi(byteString, nullptr, 16)));
         }
     } catch (const std::exception& e) {
-        threadSafePrint("Error converting target to bytes: " + std::string(e.what()), true);
+        if (firstTargetExpansion && !firstHashShown) {
+            threadSafePrint("Error converting target to bytes: " + std::string(e.what()), true);
+        }
         return std::vector<uint8_t>();
     }
 
     if (targetBytes.size() != 4) {
-        threadSafePrint("Error: Invalid target size (expected 4 bytes), got: " + std::to_string(targetBytes.size()), true);
+        if (firstTargetExpansion && !firstHashShown) {
+            threadSafePrint("Error: Invalid target size (expected 4 bytes), got: " + std::to_string(targetBytes.size()), true);
+        }
         return std::vector<uint8_t>();
     }
 
@@ -121,8 +131,9 @@ std::vector<uint8_t> expandTarget(const std::string& compactTarget) {
     expandedTarget[30] = targetBytes[2];
     expandedTarget[31] = targetBytes[3];
 
-    if (debugMode) {
-        std::stringstream ss;
+    // Only show debug output for first hash attempt
+    if (firstTargetExpansion && !firstHashShown) {
+        ss.str("");
         ss << "Target expansion details:" << std::endl;
         ss << "  Original target: " << compactTarget << std::endl;
         ss << "  Cleaned target: " << target << std::endl;
@@ -137,8 +148,8 @@ std::vector<uint8_t> expandTarget(const std::string& compactTarget) {
             ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(byte) << " ";
         }
         ss << std::endl;
-        ss << "  Target difficulty: " << std::dec << getTargetDifficulty(compactTarget) << std::endl;
         threadSafePrint(ss.str(), true);
+        firstTargetExpansion = false;
     }
 
     return expandedTarget;
@@ -154,8 +165,10 @@ std::string formatHash(const std::vector<uint8_t>& hash) {
 }
 
 bool validateHash(const std::string& hashHex, const std::string& targetHex) {
-    if (debugMode) {
-        std::stringstream ss;
+    std::stringstream ss;
+    
+    // Only show debug output for first hash attempt
+    if (!firstHashShown) {
         ss << "\nValidating hash:" << std::endl;
         ss << "  Hash: " << hashHex << std::endl;
         ss << "  Target: " << targetHex << std::endl;
@@ -168,12 +181,15 @@ bool validateHash(const std::string& hashHex, const std::string& targetHex) {
     std::vector<uint8_t> targetBytes = expandTarget(targetHex);
     
     if (hashBytes.empty() || targetBytes.empty()) {
-        threadSafePrint("Invalid hash or target format", true);
+        if (!firstHashShown) {
+            threadSafePrint("Invalid hash or target format", true);
+        }
         return false;
     }
     
-    if (debugMode) {
-        std::stringstream ss;
+    // Only show debug output for first hash attempt
+    if (!firstHashShown) {
+        ss.str("");
         ss << "Hash validation:" << std::endl;
         ss << "  Hash bytes: " << bytesToHex(hashBytes) << std::endl;
         ss << "  Target bytes: " << bytesToHex(targetBytes) << std::endl;
@@ -193,46 +209,73 @@ bool validateHash(const std::string& hashHex, const std::string& targetHex) {
     // Compare in big-endian order
     for (size_t i = 0; i < hashBytes.size(); i++) {
         if (hashBytes[i] < targetBytes[i]) {
-            if (debugMode) {
-                std::stringstream ss;
+            if (!firstHashShown) {
+                ss.str("");
                 ss << "Hash is less than target at byte " << i << ":" << std::endl;
                 ss << "  Hash byte: 0x" << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hashBytes[i]) << std::endl;
                 ss << "  Target byte: 0x" << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(targetBytes[i]) << std::endl;
                 ss << "  Hash value: " << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hashBytes[i]) << std::endl;
                 ss << "  Target value: " << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(targetBytes[i]) << std::endl;
                 threadSafePrint(ss.str(), true);
+                firstHashShown = true;
             }
             return true;
         }
         if (hashBytes[i] > targetBytes[i]) {
-            if (debugMode) {
-                std::stringstream ss;
+            if (!firstHashShown) {
+                ss.str("");
                 ss << "Hash is greater than target at byte " << i << ":" << std::endl;
                 ss << "  Hash byte: 0x" << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hashBytes[i]) << std::endl;
                 ss << "  Target byte: 0x" << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(targetBytes[i]) << std::endl;
                 ss << "  Hash value: " << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hashBytes[i]) << std::endl;
                 ss << "  Target value: " << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(targetBytes[i]) << std::endl;
                 threadSafePrint(ss.str(), true);
+                firstHashShown = true;
             }
             return false;
         }
     }
     
-    if (debugMode) {
+    if (!firstHashShown) {
         threadSafePrint("Hash equals target", true);
+        firstHashShown = true;
     }
     return true;
 }
 
 uint64_t getTargetDifficulty(const std::string& targetHex) {
-    std::vector<uint8_t> target = expandTarget(targetHex);
-    if (target.empty()) {
+    // Remove any "0x" prefix if present
+    std::string target = targetHex;
+    if (target.length() >= 2 && target.substr(0, 2) == "0x") {
+        target = target.substr(2);
+    }
+
+    // Ensure the target is exactly 8 hex characters (4 bytes)
+    if (target.length() != 8) {
         return 0;
     }
 
+    // Convert hex string to bytes directly without using expandTarget
+    std::vector<uint8_t> targetBytes;
+    targetBytes.reserve(4);
+    
+    try {
+        for (size_t i = 0; i < target.length(); i += 2) {
+            std::string byteString = target.substr(i, 2);
+            targetBytes.push_back(static_cast<uint8_t>(std::stoi(byteString, nullptr, 16)));
+        }
+    } catch (const std::exception& e) {
+        return 0;
+    }
+
+    if (targetBytes.size() != 4) {
+        return 0;
+    }
+
+    // Calculate difficulty from the 4 bytes
     uint64_t difficulty = 0;
-    for (size_t i = 0; i < 8; ++i) {
-        difficulty = (difficulty << 8) | target[i];
+    for (size_t i = 0; i < 4; ++i) {
+        difficulty = (difficulty << 8) | targetBytes[i];
     }
 
     return difficulty;
