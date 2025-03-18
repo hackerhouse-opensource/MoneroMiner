@@ -139,6 +139,13 @@ int main(int argc, char* argv[]) {
     // Initialize mining stats
     MiningStats::initializeStats(config);
 
+    // Initialize RandomX dataset
+    if (!RandomXManager::initializeDataset()) {
+        threadSafePrint("Failed to initialize RandomX dataset", true);
+        return 1;
+    }
+    threadSafePrint("RandomX dataset initialized successfully", true);
+
     if (!PoolClient::initialize()) {
         threadSafePrint("Failed to initialize network", true);
         return 1;
@@ -176,11 +183,21 @@ int main(int argc, char* argv[]) {
     threadData.resize(config.numThreads);
     std::vector<std::thread> miningThreads;
     
+    // Initialize and start all mining threads
     for (int i = 0; i < config.numThreads; i++) {
         threadData[i] = new MiningThreadData(i);
+        if (!threadData[i]->initializeVM()) {
+            threadSafePrint("Failed to initialize VM for thread " + std::to_string(i), true);
+            continue;
+        }
         miningThreads.emplace_back(miningThread, threadData[i]);
+        threadSafePrint("Mining thread " + std::to_string(i) + " started", true);
     }
     
+    // Initialize threadData in MiningStats namespace
+    MiningStats::threadData = threadData;
+    
+    // Wait for all threads to complete
     for (auto& thread : miningThreads) {
         thread.join();
     }
@@ -188,6 +205,7 @@ int main(int argc, char* argv[]) {
     jobListener.join();
     statsMonitor.join();
     
+    // Cleanup
     for (auto data : threadData) {
         delete data;
     }

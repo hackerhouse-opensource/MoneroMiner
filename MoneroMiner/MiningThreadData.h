@@ -15,11 +15,7 @@
 
 // Forward declarations
 struct randomx_vm;
-namespace RandomXManager {
-    randomx_vm* createVM();
-    void calculateHash(randomx_vm* vm, const uint8_t* input, size_t inputSize, uint8_t* output);
-    void destroyVM(randomx_vm* vm);
-}
+class RandomXManager;
 
 class MiningThreadData {
 public:

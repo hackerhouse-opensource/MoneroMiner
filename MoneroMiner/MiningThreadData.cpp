@@ -64,7 +64,9 @@ bool MiningThreadData::calculateHash(const std::vector<uint8_t>& blob, uint8_t* 
     std::memcpy(hashBuffers->inputBuffer.data(), blob.data(), blob.size());
     
     // Calculate hash
-    RandomXManager::calculateHash(vm, hashBuffers->inputBuffer.data(), hashBuffers->inputBuffer.size(), outputHash);
+    if (!RandomXManager::calculateHash(vm, hashBuffers->inputBuffer.data(), hashBuffers->inputBuffer.size(), outputHash)) {
+        return false;
+    }
     
     // Update counters
     hashCount++;
@@ -134,11 +136,11 @@ void MiningThreadData::mine() {
 
             // Check if hash meets target
             if (HashValidation::validateHash(hashHex, currentJob->target)) {
-                acceptedShares.fetch_add(1);
+                acceptedShares++;
                 // Submit share to pool
                 submitShare(hash);
             } else {
-                rejectedShares.fetch_add(1);
+                rejectedShares++;
             }
 
             hashCount++;
@@ -191,8 +193,8 @@ void miningThread(MiningThreadData* data) {
         }
 
         // Initialize RandomX with the seed hash from the job
-        if (!RandomXManager::initializeRandomX(job.getSeedHash())) {
-            threadSafePrint("Failed to initialize RandomX with seed hash: " + job.getSeedHash());
+        if (!RandomXManager::initializeDataset()) {
+            threadSafePrint("Failed to initialize RandomX dataset");
             continue;
         }
 

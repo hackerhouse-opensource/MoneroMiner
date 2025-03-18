@@ -1,8 +1,6 @@
 #pragma once
 
 #include "randomx.h"
-#include "MiningThreadData.h"
-#include "Utils.h"
 #include <string>
 #include <vector>
 #include <mutex>
@@ -10,32 +8,28 @@
 // Forward declaration
 class MiningThreadData;
 
-// Error handling macros
-#define CHECK_NULL(x, msg) if(x == nullptr) { \
-    threadSafePrint(msg); \
-    return false; \
-}
+class RandomXManager {
+public:
+    static bool initializeDataset();
+    static void cleanup();
+    static randomx_vm* createVM();
+    static void destroyVM(randomx_vm* vm);
+    static bool calculateHash(randomx_vm* vm, const uint8_t* input, size_t inputSize, uint8_t* output);
+    static bool verifyHash(const std::vector<uint8_t>& input, const uint8_t* expectedHash);
+    static void handleSeedHashChange(const std::string& newSeedHash);
+    static bool initializeRandomX(const std::string& seedHash);
+    static bool isDatasetValid(const std::string& seedHash);
+    static bool saveDataset(const std::string& seedHash);
+    static bool loadDataset(const std::string& seedHash);
 
-namespace RandomXManager {
-    // Global RandomX state
-    extern randomx_cache* currentCache;
-    extern randomx_dataset* currentDataset;
-    extern std::string currentSeedHash;
-    extern std::mutex cacheMutex;
-    extern std::mutex seedHashMutex;
-    extern std::vector<MiningThreadData*> threadData;
-
-    // Core RandomX functions
-    bool initializeRandomX(const std::string& seedHash);
-    void cleanupRandomX();
-    bool isDatasetValid(const std::string& filename, const std::string& currentSeedHash);
-    void saveDataset(randomx_dataset* dataset, const std::string& filename, const std::string& seedHash);
-    void loadDataset(randomx_dataset* dataset, const std::string& filename);
-
-    // VM Management functions
-    randomx_vm* createVM();
-    void calculateHash(randomx_vm* vm, const uint8_t* input, size_t inputSize, uint8_t* output);
-    void destroyVM(randomx_vm* vm);
-    void handleSeedHashChange(const std::string& newSeedHash);
-    std::vector<MiningThreadData*> getThreadData();
-} 
+private:
+    static randomx_cache* cache;
+    static randomx_dataset* dataset;
+    static std::mutex mutex;
+    static bool initialized;
+    static std::string currentSeedHash;
+    static std::mutex seedHashMutex;
+    static std::mutex initMutex;
+    static std::vector<MiningThreadData*> threadData;
+    static randomx_vm* currentVM;
+}; 
