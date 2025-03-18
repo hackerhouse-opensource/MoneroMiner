@@ -13,6 +13,7 @@
 #include <thread>
 #include <chrono>
 #include <cstring>
+#include <iomanip>
 
 // Global variables declared in MoneroMiner.h
 extern bool debugMode;
@@ -97,62 +98,91 @@ void miningThread(MiningThreadData* data) {
             data->initializeVM();
         }
 
-        // Expand target for comparison
-        std::string expandedTarget = HashValidation::expandTarget(job.getTarget());
+        // Get the target from the job
+        std::string target = job.getTarget();
         
         // Mining loop
         uint32_t nonce = 0;
         uint64_t hashes = 0;
         auto lastHashTime = std::chrono::steady_clock::now();
         std::vector<uint8_t> mutableBlob = job.getBlob();
+        bool firstHash = true;
 
         while (!PoolClient::shouldStop) {
-            // Update nonce in blob
-            mutableBlob[39] = (nonce >> 0) & 0xFF;
-            mutableBlob[40] = (nonce >> 8) & 0xFF;
-            mutableBlob[41] = (nonce >> 16) & 0xFF;
-            mutableBlob[42] = (nonce >> 24) & 0xFF;
+            try {
+                // Set nonce in the blob
+                mutableBlob[39] = (nonce >> 24) & 0xFF;
+                mutableBlob[40] = (nonce >> 16) & 0xFF;
+                mutableBlob[41] = (nonce >> 8) & 0xFF;
+                mutableBlob[42] = nonce & 0xFF;
 
-            // Calculate hash
-            uint8_t hash[32];
-            RandomXManager::calculateHash(data->getVM(), mutableBlob.data(), mutableBlob.size(), hash);
-            std::string hashHex = bytesToHex(std::vector<uint8_t>(hash, hash + 32));
+                // Calculate hash
+                uint8_t hash[32];
+                if (!data->calculateHash(mutableBlob, hash)) {
+                    threadSafePrint("Failed to calculate hash");
+                    continue;
+                }
+                std::string hashHex = HashValidation::formatHash(std::vector<uint8_t>(hash, hash + 32));
 
-            if (debugMode && hashes % 1000 == 0) {
-                threadSafePrint("Hash calculation:");
-                threadSafePrint("  Nonce: 0x" + bytesToHex(std::vector<uint8_t>(mutableBlob.begin() + 39, mutableBlob.begin() + 43)));
-                threadSafePrint("  Hash: " + hashHex);
-                threadSafePrint("  Target: " + expandedTarget);
-            }
+                // Show detailed debug info for first hash
+                if (debugMode && firstHash) {
+                    std::stringstream ss;
+                    ss << "\nFirst hash attempt:" << std::endl;
+                    ss << "  Job ID: " << job.getId() << std::endl;
+                    ss << "  Height: " << job.getHeight() << std::endl;
+                    ss << "  Target: " << target << std::endl;
+                    ss << "  Nonce: 0x" << bytesToHex(std::vector<uint8_t>(mutableBlob.begin() + 39, mutableBlob.begin() + 43)) << std::endl;
+                    ss << "  Blob: " << bytesToHex(mutableBlob) << std::endl;
+                    ss << "  Hash: " << hashHex << std::endl;
+                    ss << "  Hash bytes: ";
+                    for (int i = 0; i < 32; i++) {
+                        ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hash[i]) << " ";
+                    }
+                    ss << std::endl;
+                    ss << "  Target difficulty: " << std::dec << HashValidation::getTargetDifficulty(target) << std::endl;
+                    threadSafePrint(ss.str(), true);
+                    firstHash = false;
+                }
 
-            // Check if hash meets target
-            if (HashValidation::validateHash(hashHex, expandedTarget)) {
-                threadSafePrint("Share found!");
-                threadSafePrint("  Job ID: " + job.getId());
-                threadSafePrint("  Nonce: 0x" + bytesToHex(std::vector<uint8_t>(mutableBlob.begin() + 39, mutableBlob.begin() + 43)));
-                threadSafePrint("  Hash: " + hashHex);
-                threadSafePrint("  Target: " + expandedTarget);
+                // Check if hash meets target
+                if (HashValidation::validateHash(hashHex, target)) {
+                    threadSafePrint("\nShare found!");
+                    threadSafePrint("  Job ID: " + job.getId());
+                    threadSafePrint("  Nonce: 0x" + bytesToHex(std::vector<uint8_t>(mutableBlob.begin() + 39, mutableBlob.begin() + 43)));
+                    threadSafePrint("  Hash: " + hashHex);
+                    threadSafePrint("  Target: " + target);
 
-                // Submit share
-                PoolClient::submitShare(job.getId(), 
-                    bytesToHex(std::vector<uint8_t>(mutableBlob.begin() + 39, mutableBlob.begin() + 43)),
-                    hashHex, "rx/0");
-            }
+                    // Submit share
+                    if (!PoolClient::submitShare(job.getId(), 
+                        bytesToHex(std::vector<uint8_t>(mutableBlob.begin() + 39, mutableBlob.begin() + 43)),
+                        hashHex, "rx/0")) {
+                        threadSafePrint("Failed to submit share");
+                    }
+                }
 
-            // Update statistics
-            hashes++;
-            if (hashes % 1000 == 0) {
+                // Update nonce and hash counter
+                nonce++;
+                hashes++;
+
+                // Log thread stats every second
                 auto now = std::chrono::steady_clock::now();
-                auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastHashTime).count();
-                double hashrate = (1000.0 * 1000.0) / duration; // H/s
-                threadSafePrint("Thread " + std::to_string(data->getThreadId()) + 
-                              " - Hashes: " + std::to_string(hashes) + 
-                              ", Nonce: 0x" + bytesToHex(std::vector<uint8_t>(mutableBlob.begin() + 39, mutableBlob.begin() + 43)) +
-                              ", Hashrate: " + std::to_string(hashrate) + " H/s");
-                lastHashTime = now;
+                if (std::chrono::duration_cast<std::chrono::seconds>(now - lastHashTime).count() >= 1) {
+                    // Update global stats
+                    data->hashes = hashes;
+                    data->lastUpdate = now;
+                    MiningStats::updateThreadStats(data);
+                    
+                    std::stringstream ss;
+                    ss << "Thread " << data->getThreadId() << " stats: Hashes: " << hashes << " | Nonce: 0x" 
+                       << bytesToHex(std::vector<uint8_t>(mutableBlob.begin() + 39, mutableBlob.begin() + 43));
+                    threadSafePrint(ss.str(), true);
+                    hashes = 0;
+                    lastHashTime = now;
+                }
+            } catch (const std::exception& e) {
+                threadSafePrint("\nError in mining loop: " + std::string(e.what()));
+                break;
             }
-
-            nonce++;
         }
     }
 } 

@@ -267,6 +267,15 @@ namespace PoolClient {
                 uint64_t height = static_cast<uint64_t>(job.get("height").get<double>());
                 std::string seedHash = job.get("seed_hash").to_str();
                 
+                // Format target to ensure it's 8 hex characters
+                if (target.length() > 2 && target.substr(0, 2) == "0x") {
+                    target = target.substr(2);
+                }
+                if (target.length() != 8) {
+                    threadSafePrint("Invalid target format: " + target, true);
+                    return;
+                }
+                
                 // Queue the job
                 {
                     std::lock_guard<std::mutex> lock(jobMutex);
@@ -301,6 +310,15 @@ namespace PoolClient {
                 std::string target = job.get("target").to_str();
                 uint64_t height = static_cast<uint64_t>(job.get("height").get<double>());
                 std::string seedHash = job.get("seed_hash").to_str();
+                
+                // Format target to ensure it's 8 hex characters
+                if (target.length() > 2 && target.substr(0, 2) == "0x") {
+                    target = target.substr(2);
+                }
+                if (target.length() != 8) {
+                    threadSafePrint("Invalid target format: " + target, true);
+                    return;
+                }
                 
                 // Queue the job
                 {

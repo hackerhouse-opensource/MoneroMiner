@@ -79,10 +79,10 @@ bool parseCommandLine(int argc, char* argv[]) {
             int threads = std::atoi(argv[++i]);
             if (threads <= 0) {
                 config.numThreads = std::thread::hardware_concurrency();
-                threadSafePrint("Invalid thread count, using " + std::to_string(config.numThreads) + " threads");
+                threadSafePrint("Invalid thread count, using " + std::to_string(config.numThreads) + " threads", true);
             } else {
                 config.numThreads = threads;
-                threadSafePrint("Using " + std::to_string(config.numThreads) + " mining threads");
+                threadSafePrint("Using " + std::to_string(config.numThreads) + " mining threads", true);
             }
         } else if (arg == "--pool-address" && i + 1 < argc) {
             config.poolAddress = argv[++i];
@@ -119,7 +119,7 @@ int main(int argc, char* argv[]) {
     if (config.useLogFile) {
         logFile.open(config.logFile, std::ios::app);
         if (!logFile.is_open()) {
-            threadSafePrint("Failed to open log file: " + config.logFile, false);
+            threadSafePrint("Failed to open log file: " + config.logFile, true);
             return 1;
         }
     }
@@ -127,42 +127,42 @@ int main(int argc, char* argv[]) {
     signal(SIGINT, signalHandler);
     signal(SIGTERM, signalHandler);
 
-    threadSafePrint("Initializing with " + std::to_string(config.numThreads) + " mining threads...", false);
-    threadSafePrint("Waiting for dataset initialization...", false);
+    threadSafePrint("Initializing with " + std::to_string(config.numThreads) + " mining threads...", true);
+    threadSafePrint("Waiting for dataset initialization...", true);
 
     // Initialize mining stats
     MiningStats::initializeStats(config);
 
     if (!PoolClient::initialize()) {
-        threadSafePrint("Failed to initialize network", false);
+        threadSafePrint("Failed to initialize network", true);
         return 1;
     }
 
-    threadSafePrint("Resolving " + config.poolAddress + ":" + config.poolPort + "...", false);
+    threadSafePrint("Resolving " + config.poolAddress + ":" + config.poolPort + "...", true);
     if (!PoolClient::connect(config.poolAddress, config.poolPort)) {
-        threadSafePrint("Failed to connect to pool", false);
+        threadSafePrint("Failed to connect to pool", true);
         PoolClient::cleanup();
         return 1;
     }
 
-    threadSafePrint("Connected to pool.", false);
+    threadSafePrint("Connected to pool.", true);
 
     std::string loginPayload = "{\"id\":1,\"jsonrpc\":\"2.0\",\"method\":\"login\",\"params\":{\"agent\":\"" + 
                               config.userAgent + "\",\"login\":\"" + config.walletAddress + 
                               "\",\"pass\":\"" + config.password + "\",\"worker\":\"" + config.workerName + "\"}}";
     
-    threadSafePrint("Sending login payload: " + loginPayload, false);
-    threadSafePrint("Pool send: " + loginPayload, false);
+    threadSafePrint("Sending login payload: " + loginPayload, true);
+    threadSafePrint("Pool send: " + loginPayload, true);
 
     if (!PoolClient::login(config.walletAddress, config.password, 
                           config.workerName, config.userAgent)) {
-        threadSafePrint("Failed to send login request", false);
+        threadSafePrint("Failed to send login request", true);
         PoolClient::cleanup();
         return 1;
     }
 
-    threadSafePrint("Starting job listener thread...", false);
-    threadSafePrint("Starting mining threads...", false);
+    threadSafePrint("Starting job listener thread...", true);
+    threadSafePrint("Starting mining threads...", true);
 
     std::thread jobListener(PoolClient::listenForNewJobs, PoolClient::poolSocket);
     std::thread statsMonitor(MiningStats::globalStatsMonitor);

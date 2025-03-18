@@ -37,58 +37,40 @@ void miningThread(MiningThreadData* data) {
 
             // Initialize target and nonce
             std::vector<uint8_t> targetBytes = hexToBytes(job.target);
-            uint32_t compactTarget = (targetBytes[0] << 24) | (targetBytes[1] << 16) | 
-                                   (targetBytes[2] << 8) | targetBytes[3];
-            
-            // Convert compact target to 256-bit target
-            uint32_t exponent = compactTarget >> 24;
-            uint32_t mantissa = compactTarget & 0x00FFFFFF;
-            
-            if (config.debugMode) {
-                std::stringstream ss;
-                ss << "Converting compact target: " << job.target << std::endl;
-                ss << "Compact target components - Exponent: " << exponent << ", Mantissa: 0x" 
-                   << std::hex << mantissa << std::endl;
-                threadSafePrint(ss.str());
+            if (targetBytes.size() != 4) {
+                threadSafePrint("Error: Invalid target size", true);
+                continue;
             }
 
-            // Calculate the actual target
-            uint256_t target;
-            if (exponent >= 3) {
-                // For exponents >= 3, we can directly shift the mantissa
-                target = uint256_t(mantissa) << (8 * (exponent - 3));
-            } else {
-                // For smaller exponents, we need to handle the case where the mantissa
-                // would be shifted right
-                target = uint256_t(mantissa) >> (8 * (3 - exponent));
-            }
+            // Create 256-bit target (32 bytes)
+            std::vector<uint8_t> expandedTarget(32, 0);
+
+            // Place the compact target in the least significant 4 bytes (big-endian)
+            expandedTarget[28] = targetBytes[0];
+            expandedTarget[29] = targetBytes[1];
+            expandedTarget[30] = targetBytes[2];
+            expandedTarget[31] = targetBytes[3];
 
             if (config.debugMode) {
                 std::stringstream ss;
-                ss << "Converted to 256-bit target: " << target << std::endl;
-                threadSafePrint(ss.str());
+                ss << "[" << getCurrentTimestamp() << "] randomx  new job:" << std::endl;
+                ss << "  Height: " << job.height << std::endl;
+                ss << "  Target: 0x" << job.target << std::endl;
+                ss << "  Target bytes: " << bytesToHex(targetBytes) << std::endl;
+                ss << "  Expanded target: " << bytesToHex(expandedTarget) << std::endl;
+                ss << "  Difficulty: " << job.difficulty << std::endl;
+                ss << "  Blob: " << job.blob << std::endl;
+                ss << "  Seed Hash: " << job.seedHash << std::endl;
+                threadSafePrint(ss.str(), true);
             }
 
             // Set nonce to 0 for this job
             uint32_t nonce = 0;
 
-            // Debug output for first hash calculation
-            if (config.debugMode) {
-                std::stringstream ss;
-                ss << "Starting first hash calculation:" << std::endl;
-                ss << "  Job ID: " << job.jobId << std::endl;
-                ss << "  Height: " << job.height << std::endl;
-                ss << "  Target: 0x" << job.target << std::endl;
-                ss << "  Blob: " << job.blob << std::endl;
-                ss << "  Seed Hash: " << job.seedHash << std::endl;
-                ss << "  Difficulty: " << job.difficulty << std::endl;
-                threadSafePrint(ss.str());
-            }
-
             // Prepare input for hashing
             std::vector<uint8_t> input = hexToBytes(job.blob);
             if (input.size() != 76) {
-                threadSafePrint("Error: Invalid blob size");
+                threadSafePrint("Error: Invalid blob size", true);
                 continue;
             }
 
@@ -98,16 +80,24 @@ void miningThread(MiningThreadData* data) {
             input[41] = (nonce >> 8) & 0xFF;
             input[42] = nonce & 0xFF;
 
+            if (config.debugMode) {
+                std::stringstream ss;
+                ss << "[" << getCurrentTimestamp() << "] randomx  first hash:" << std::endl;
+                ss << "  Input: " << bytesToHex(input) << std::endl;
+                ss << "  Nonce: 0x" << std::hex << nonce << std::endl;
+                threadSafePrint(ss.str(), true);
+            }
+
             // Calculate first hash
             uint256_t hash = calculateHash(input);
 
             if (config.debugMode) {
                 std::stringstream ss;
-                ss << "First hash result:" << std::endl;
-                ss << "  Hash: 0x" << hash << std::endl;
-                ss << "  Target: 0x" << target << std::endl;
-                ss << "  Meets target: " << (hash <= target ? "Yes" : "No") << std::endl;
-                threadSafePrint(ss.str());
+                ss << "[" << getCurrentTimestamp() << "] randomx  hash result:" << std::endl;
+                ss << "  Hash: 0x" << std::hex << hash << std::endl;
+                ss << "  Target: 0x" << bytesToHex(expandedTarget) << std::endl;
+                ss << "  Meets target: " << (meetsTarget(hash, expandedTarget) ? "Yes" : "No") << std::endl;
+                threadSafePrint(ss.str(), true);
             }
 
             // Update thread stats
@@ -144,14 +134,14 @@ void miningThread(MiningThreadData* data) {
                 }
 
                 // Check if hash meets target
-                if (hash <= target) {
+                if (meetsTarget(hash, expandedTarget)) {
                     // Found a valid share
                     std::stringstream ss;
                     ss << "Found share!" << std::endl;
-                    ss << "  Hash: 0x" << hash << std::endl;
-                    ss << "  Target: 0x" << target << std::endl;
+                    ss << "  Hash: 0x" << std::hex << hash << std::endl;
+                    ss << "  Target: 0x" << bytesToHex(expandedTarget) << std::endl;
                     ss << "  Nonce: 0x" << std::hex << nonce << std::endl;
-                    threadSafePrint(ss.str());
+                    threadSafePrint(ss.str(), true);
 
                     // Submit share
                     submitShare(job, nonce);

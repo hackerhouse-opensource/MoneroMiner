@@ -64,13 +64,13 @@ void globalStatsMonitor() {
         
         // Print stats
         std::stringstream ss;
-        ss << "\rGlobal Stats: ";
+        ss << "\nGlobal Stats: ";
         ss << "Threads: " << activeThreads << "/" << config.numThreads << " | ";
-        ss << "Hashrate: " << formatHashrate(totalHashrate) << " | ";
+        ss << "Hashrate: " << std::fixed << std::setprecision(2) << totalHashrate << " H/s | ";
         ss << "Shares: " << acceptedShares << "/" << totalShares << " | ";
         ss << "Rejected: " << rejectedShares << " | ";
         ss << "Total Hashes: 0x" << std::hex << totalHashes;
-        threadSafePrint(ss.str(), false);
+        threadSafePrint(ss.str(), true);
         
         lastUpdate = std::chrono::steady_clock::now();
     }
