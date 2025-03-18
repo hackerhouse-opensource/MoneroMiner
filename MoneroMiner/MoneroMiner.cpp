@@ -40,16 +40,8 @@ void printHelp() {
 }
 
 bool validateConfig() {
-    if (config.poolAddress.empty()) {
-        threadSafePrint("Error: Pool address is required", false);
-        return false;
-    }
-    if (config.poolPort.empty()) {
-        threadSafePrint("Error: Pool port is required", false);
-        return false;
-    }
     if (config.walletAddress.empty()) {
-        threadSafePrint("Error: Wallet address is required", false);
+        threadSafePrint("Error: Wallet address is required\n", false);
         return false;
     }
     if (config.numThreads <= 0) {

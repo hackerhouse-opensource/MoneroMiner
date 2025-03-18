@@ -63,6 +63,61 @@ void MiningThreadData::cleanup() {
     }
 }
 
+void MiningThreadData::mine() {
+    uint64_t hashes = 0;
+    uint64_t shares = 0;
+    uint64_t rejectedShares = 0;
+    auto lastStatsUpdate = std::chrono::steady_clock::now();
+
+    while (!shouldStop) {
+        // Get current job
+        std::lock_guard<std::mutex> lock(jobMutex);
+        if (!currentJob) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            continue;
+        }
+
+        // Mine for a batch of hashes
+        for (int i = 0; i < 1000 && !shouldStop; i++) {
+            // Calculate hash
+            uint8_t hash[32];
+            if (!calculateHash(currentJob->blob, hash)) {
+                continue;
+            }
+
+            // Convert hash to hex string for validation
+            std::string hashHex = bytesToHex(std::vector<uint8_t>(hash, hash + 32));
+
+            // Check if hash meets target
+            if (HashValidation::validateHash(hashHex, currentJob->target)) {
+                shares++;
+                // Submit share to pool
+                submitShare(hash);
+            } else {
+                rejectedShares++;
+            }
+
+            hashes++;
+            currentNonce++;
+
+            // Update stats every second
+            auto now = std::chrono::steady_clock::now();
+            if (now - lastStatsUpdate >= std::chrono::seconds(1)) {
+                MiningStats::updateThreadStats(this);
+                hashes = 0;
+                shares = 0;
+                rejectedShares = 0;
+                lastStatsUpdate = now;
+            }
+        }
+    }
+}
+
+void MiningThreadData::submitShare(const uint8_t* hash) {
+    // TODO: Implement share submission to pool
+    // This should send the share to the pool and handle the response
+}
+
 void miningThread(MiningThreadData* data) {
     threadSafePrint("Mining thread " + std::to_string(data->getThreadId()) + " started");
     

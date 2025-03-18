@@ -10,6 +10,8 @@
 #include "Types.h"
 #include "Globals.h"
 #include "HashBuffers.h"
+#include "Job.h"
+#include <thread>
 
 // Forward declarations
 struct randomx_vm;
@@ -31,6 +33,10 @@ private:
     int elapsedSeconds{0};
     std::string currentJobId;
     uint32_t currentNonce{0};
+    std::atomic<bool> shouldStop;
+    std::thread thread;
+    std::mutex jobMutex;
+    std::shared_ptr<Job> currentJob;
 
 public:
     static const unsigned int BATCH_SIZE = 256;
@@ -56,6 +62,7 @@ public:
         , acceptedShares(0)
         , rejectedShares(0)
         , hashBuffers(std::make_unique<HashBuffers>())
+        , shouldStop(false)
     {}
 
     ~MiningThreadData();
@@ -90,4 +97,24 @@ public:
     MiningThreadData& operator=(MiningThreadData&&) = delete;
 
     int getId() const { return threadId; }
+
+    void start() {
+        thread = std::thread(&MiningThreadData::mine, this);
+    }
+    
+    void stop() {
+        shouldStop = true;
+        if (thread.joinable()) {
+            thread.join();
+        }
+    }
+    
+    void setJob(const Job& job) {
+        std::lock_guard<std::mutex> lock(jobMutex);
+        currentJob = std::make_shared<Job>(job);
+    }
+
+private:
+    void mine();
+    void submitShare(const uint8_t* hash);
 }; 

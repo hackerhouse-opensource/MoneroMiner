@@ -1,24 +1,16 @@
 #pragma once
 
-#include <atomic>
-#include <chrono>
-#include <mutex>
-#include <vector>
-#include "Types.h"
+#include "Config.h"
 #include "MiningThreadData.h"
+#include <string>
+#include <vector>
+#include <chrono>
 
 namespace MiningStats {
-    extern std::mutex statsMutex;
-    extern std::vector<MiningThreadData*> threadData;
-    extern GlobalStats globalStats;
-    extern MinerConfig config;
-    extern std::atomic<bool> shouldStop;
 
-    // Function declarations
-    void updateThreadStats(MiningThreadData* thread);
-    void globalStatsMonitor();
-    void initializeStats(const MinerConfig& cfg);
-    void updateGlobalHashrate();
-    void incrementAcceptedShares();
-    void incrementRejectedShares();
-} 
+void initializeStats(const Config& config);
+void updateThreadStats(MiningThreadData* threadData);
+void globalStatsMonitor();
+void stopStatsMonitor();
+
+} // namespace MiningStats 

@@ -1,4 +1,5 @@
 #include "MoneroMiner.h"
+#include "Config.h"
 #include "randomx.h"
 #include "MiningThreadData.h"
 #include <mutex>
@@ -40,7 +41,7 @@ std::atomic<uint32_t> activeJobId(0);
 std::vector<MiningThreadData*> threadData;
 
 // Global configuration and stats
-MinerConfig config;
+Config config;
 GlobalStats globalStats;
 
 // RandomX globals

@@ -5,6 +5,7 @@
 #include "HashBuffers.h"
 #include "MiningThreadData.h"
 #include "Job.h"
+#include "Config.h"
 #include <WinSock2.h>
 #include <WS2tcpip.h>
 #include <queue>
@@ -39,7 +40,6 @@ extern std::atomic<bool> newJobAvailable;
 extern std::atomic<bool> showedInitMessage;
 extern std::atomic<uint32_t> activeJobId;
 extern std::vector<MiningThreadData*> threadData;
-extern MinerConfig config;
 extern GlobalStats globalStats;
 
 // Function declarations
