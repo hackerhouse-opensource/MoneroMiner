@@ -186,17 +186,20 @@ namespace RandomXManager {
             currentCache = nullptr;
         }
 
+        // Use consistent flags across all RandomX operations
+        RandomXFlags flags(RANDOMX_FLAG_JIT | RANDOMX_FLAG_HARD_AES | RANDOMX_FLAG_FULL_MEM);
+
         // Check if we have a valid dataset for this seed hash
         if (isDatasetValid(seedHash)) {
             threadSafePrint("Using existing dataset", true);
-            currentCache = randomx_alloc_cache(RANDOMX_FLAG_DEFAULT);
+            currentCache = randomx_alloc_cache(flags.get());
             if (!currentCache) {
                 threadSafePrint("Failed to allocate RandomX cache", true);
                 return false;
             }
             threadSafePrint("Allocated RandomX cache", true);
 
-            currentDataset = randomx_alloc_dataset(RANDOMX_FLAG_DEFAULT);
+            currentDataset = randomx_alloc_dataset(flags.get());
             if (!currentDataset) {
                 threadSafePrint("Failed to allocate RandomX dataset", true);
                 randomx_release_cache(currentCache);
@@ -214,7 +217,10 @@ namespace RandomXManager {
                 return false;
             }
 
-            currentVM = randomx_create_vm(RANDOMX_FLAG_DEFAULT, currentCache, currentDataset);
+            // Initialize cache with seed hash
+            randomx_init_cache(currentCache, seedHash.c_str(), seedHash.length());
+
+            currentVM = randomx_create_vm(flags.get(), currentCache, currentDataset);
             if (!currentVM) {
                 threadSafePrint("Failed to create RandomX VM", true);
                 randomx_release_dataset(currentDataset);
@@ -228,14 +234,14 @@ namespace RandomXManager {
         }
 
         // Initialize new dataset
-        currentCache = randomx_alloc_cache(RANDOMX_FLAG_DEFAULT);
+        currentCache = randomx_alloc_cache(flags.get());
         if (!currentCache) {
             threadSafePrint("Failed to allocate RandomX cache", true);
             return false;
         }
         threadSafePrint("Allocated RandomX cache", true);
 
-        currentDataset = randomx_alloc_dataset(RANDOMX_FLAG_DEFAULT);
+        currentDataset = randomx_alloc_dataset(flags.get());
         if (!currentDataset) {
             threadSafePrint("Failed to allocate RandomX dataset", true);
             randomx_release_cache(currentCache);
@@ -258,8 +264,8 @@ namespace RandomXManager {
                 try {
                     uint64_t startItem = (RANDOMX_DATASET_ITEM_COUNT * i) / numThreads;
                     uint64_t itemCount = (RANDOMX_DATASET_ITEM_COUNT * (i + 1)) / numThreads - startItem;
-                    randomx_init_dataset(currentDataset, currentCache, 
-                        static_cast<unsigned long>(startItem), 
+                    randomx_init_dataset(currentDataset, currentCache,
+                        static_cast<unsigned long>(startItem),
                         static_cast<unsigned long>(itemCount));
                 } catch (const std::exception& e) {
                     threadSafePrint("Error in dataset initialization thread: " + std::string(e.what()), true);
@@ -281,7 +287,7 @@ namespace RandomXManager {
             return false;
         }
 
-        currentVM = randomx_create_vm(RANDOMX_FLAG_DEFAULT, currentCache, currentDataset);
+        currentVM = randomx_create_vm(flags.get(), currentCache, currentDataset);
         if (!currentVM) {
             threadSafePrint("Failed to create RandomX VM", true);
             randomx_release_dataset(currentDataset);

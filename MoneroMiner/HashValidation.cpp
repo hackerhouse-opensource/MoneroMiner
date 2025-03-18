@@ -10,6 +10,7 @@
 namespace HashValidation {
 
 static bool firstHashShown = false;
+static uint64_t hashCount = 0;
 
 bool checkHash(const uint8_t* hash, const std::string& targetHex) {
     if (!hash || targetHex.empty()) {
@@ -35,7 +36,10 @@ bool checkHash(const uint8_t* hash, const std::string& targetHex) {
 }
 
 bool meetsTarget(const std::vector<uint8_t>& hash, const std::vector<uint8_t>& target) {
-    if (debugMode) {
+    hashCount++;
+    bool shouldShowDebug = !firstHashShown || hashCount == 10000;
+
+    if (debugMode && shouldShowDebug) {
         std::stringstream ss;
         ss << "[" << getCurrentTimestamp() << "] randomx  hash comparison:" << std::endl;
         ss << "  Hash: " << bytesToHex(hash) << std::endl;
@@ -46,7 +50,7 @@ bool meetsTarget(const std::vector<uint8_t>& hash, const std::vector<uint8_t>& t
     // Compare hash with target in big-endian order
     for (size_t i = 0; i < hash.size(); i++) {
         if (hash[i] < target[i]) {
-            if (debugMode) {
+            if (debugMode && shouldShowDebug) {
                 std::stringstream ss;
                 ss << "[" << getCurrentTimestamp() << "] randomx  share found:" << std::endl;
                 ss << "  Hash byte " << i << ": 0x" << std::hex << (int)hash[i] << std::endl;
@@ -56,7 +60,7 @@ bool meetsTarget(const std::vector<uint8_t>& hash, const std::vector<uint8_t>& t
             return true;
         }
         if (hash[i] > target[i]) {
-            if (debugMode) {
+            if (debugMode && shouldShowDebug) {
                 std::stringstream ss;
                 ss << "[" << getCurrentTimestamp() << "] randomx  hash rejected:" << std::endl;
                 ss << "  Hash byte " << i << ": 0x" << std::hex << (int)hash[i] << std::endl;
@@ -67,7 +71,7 @@ bool meetsTarget(const std::vector<uint8_t>& hash, const std::vector<uint8_t>& t
         }
     }
     
-    if (debugMode) {
+    if (debugMode && shouldShowDebug) {
         std::stringstream ss;
         ss << "[" << getCurrentTimestamp() << "] randomx  hash equals target" << std::endl;
         threadSafePrint(ss.str(), true);
@@ -79,7 +83,9 @@ std::vector<uint8_t> expandTarget(const std::string& compactTarget) {
     static bool firstTargetExpansion = true;
     std::stringstream ss;
     
-    if (firstTargetExpansion && !firstHashShown) {
+    bool shouldShowDebug = !firstHashShown || hashCount == 10000;
+    
+    if (firstTargetExpansion && shouldShowDebug) {
         ss << "\nExpanding target:" << std::endl;
         ss << "  Compact target: " << compactTarget << std::endl;
         threadSafePrint(ss.str(), true);
@@ -93,7 +99,7 @@ std::vector<uint8_t> expandTarget(const std::string& compactTarget) {
 
     // Ensure the target is exactly 8 hex characters (4 bytes)
     if (target.length() != 8) {
-        if (firstTargetExpansion && !firstHashShown) {
+        if (firstTargetExpansion && shouldShowDebug) {
             threadSafePrint("Error: Target must be 8 hex characters (4 bytes), got: " + target, true);
         }
         return std::vector<uint8_t>();
@@ -104,53 +110,30 @@ std::vector<uint8_t> expandTarget(const std::string& compactTarget) {
     try {
         compact = std::stoul(target, nullptr, 16);
     } catch (const std::exception& e) {
-        if (firstTargetExpansion && !firstHashShown) {
+        if (firstTargetExpansion && shouldShowDebug) {
             threadSafePrint("Error converting target to uint32: " + std::string(e.what()), true);
         }
         return std::vector<uint8_t>();
     }
 
     // Create 256-bit target (32 bytes)
-    std::vector<uint8_t> expandedTarget(32, 0);
+    std::vector<uint8_t> expandedTarget(32, 0); // Initialize with zeros
 
-    // Extract size and mantissa from compact target
-    uint8_t size = (compact >> 24) & 0xFF;
-    uint32_t mantissa = compact & 0x00FFFFFF;
+    // For RandomX pool mining, the target is the last 4 bytes of the 256-bit target
+    // Assuming little-endian pool target (f3220000 = 00 00 22 f3)
+    expandedTarget[28] = (compact >> 24) & 0xFF; // 0xf3
+    expandedTarget[29] = (compact >> 16) & 0xFF; // 0x22
+    expandedTarget[30] = (compact >> 8) & 0xFF;  // 0x00
+    expandedTarget[31] = compact & 0xFF;         // 0x00
 
-    // For target f3220000:
-    // size = 0xf3 (243)
-    // mantissa = 0x220000
-    // The target is calculated as: mantissa * 2^(8 * (32 - size))
-
-    // Calculate the number of bytes to shift mantissa
-    int shift = 32 - size;
-    if (shift < 0) shift = 0;
-    if (shift > 31) shift = 31;
-
-    // Place mantissa at the correct position (big-endian)
-    if (shift <= 28) { // We need at least 4 bytes for mantissa
-        expandedTarget[shift] = (mantissa >> 16) & 0xFF;
-        expandedTarget[shift + 1] = (mantissa >> 8) & 0xFF;
-        expandedTarget[shift + 2] = mantissa & 0xFF;
-    }
-
-    // Fill remaining bytes with 0xFF
-    for (int i = shift + 3; i < 32; i++) {
-        expandedTarget[i] = 0xFF;
-    }
-
-    // Only show debug output for first hash attempt
-    if (firstTargetExpansion && !firstHashShown) {
+    // Only show debug output for first hash attempt or 10,000th hash
+    if (firstTargetExpansion && shouldShowDebug) {
         ss.str("");
         ss << "Target expansion details:" << std::endl;
         ss << "  Original target: " << compactTarget << std::endl;
         ss << "  Cleaned target: " << target << std::endl;
         ss << "  Compact value: 0x" << std::hex << std::setw(8) << std::setfill('0') << compact << std::endl;
-        ss << "  Size: 0x" << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(size) 
-           << " (" << std::dec << static_cast<int>(size) << ")" << std::endl;
-        ss << "  Mantissa: 0x" << std::hex << std::setw(6) << std::setfill('0') << mantissa << std::endl;
-        ss << "  Shift: " << std::dec << shift << " bytes" << std::endl;
-        ss << "  Pool difficulty: " << std::dec << getTargetDifficulty(compactTarget) << std::endl;
+        ss << "  Pool difficulty: " << std::dec << (0xFFFFFFFFULL / compact) << std::endl;
         ss << "  Expanded target (hex): " << bytesToHex(expandedTarget) << std::endl;
         ss << "  Expanded target bytes: ";
         for (const auto& byte : expandedTarget) {
@@ -272,46 +255,13 @@ uint64_t getTargetDifficulty(const std::string& targetHex) {
         return 0;
     }
 
-    // Extract size and mantissa
-    uint8_t size = (compact >> 24) & 0xFF;
-    uint32_t mantissa = compact & 0x00FFFFFF;
-
-    if (mantissa == 0) {
+    if (compact == 0) {
         return 0;
     }
 
-    // In Monero:
-    // difficulty = 2^256 / (mantissa * 2^(8 * (32 - size)))
-    
-    // For f3220000:
-    // size = 0xf3 (243)
-    // mantissa = 0x220000
-    // difficulty = 2^256 / (0x220000 * 2^(8 * (32 - 243)))
-    
-    // Calculate difficulty using 64-bit arithmetic
-    uint64_t difficulty;
-    
-    // Calculate shift based on size
-    int shift = 32 - size;
-    if (shift < 0) {
-        // Target is too large, return minimum difficulty
-        return 1;
-    }
-
-    // Calculate difficulty = 2^256 / (mantissa * 2^(8 * shift))
-    // = (2^256 / 2^(8 * shift)) / mantissa
-    // = 2^(256 - 8 * shift) / mantissa
-    int bits = 256 - (8 * shift);
-    
-    if (bits <= 64) {
-        // We can calculate this directly
-        difficulty = (1ULL << bits) / mantissa;
-    } else {
-        // For large values, approximate using max uint64
-        difficulty = 0xFFFFFFFFFFFFFFFFULL / mantissa;
-    }
-
-    return difficulty;
+    // For RandomX pool mining, difficulty = 2^32 / target
+    // This is an approximation for 4-byte targets
+    return 0xFFFFFFFFULL / compact;
 }
 
 bool checkHashDifficulty(const uint8_t* hash, uint64_t difficulty) {
