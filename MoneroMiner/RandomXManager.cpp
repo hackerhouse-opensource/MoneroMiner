@@ -56,7 +56,13 @@ namespace RandomXManager {
             return;
         }
 
+        // First hash
+        uint8_t firstHash[32];
         randomx_calculate_hash_first(vm, input, inputSize);
+        randomx_calculate_hash_last(vm, firstHash);
+
+        // Second hash - hash the result of the first hash
+        randomx_calculate_hash_first(vm, firstHash, 32);
         randomx_calculate_hash_last(vm, output);
     }
 
