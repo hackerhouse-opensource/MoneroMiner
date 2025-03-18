@@ -5,6 +5,7 @@
 #include <cstring>
 #include <sstream>
 #include <iomanip>
+#include <cmath>
 
 namespace HashValidation {
 
@@ -75,7 +76,6 @@ bool meetsTarget(const std::vector<uint8_t>& hash, const std::vector<uint8_t>& t
 }
 
 std::vector<uint8_t> expandTarget(const std::string& compactTarget) {
-    // Only show debug output for first hash attempt
     static bool firstTargetExpansion = true;
     std::stringstream ss;
     
@@ -99,25 +99,13 @@ std::vector<uint8_t> expandTarget(const std::string& compactTarget) {
         return std::vector<uint8_t>();
     }
 
-    // Convert hex string to bytes
-    std::vector<uint8_t> targetBytes;
-    targetBytes.reserve(4);
-    
+    // Convert hex string to uint32_t
+    uint32_t compact;
     try {
-        for (size_t i = 0; i < target.length(); i += 2) {
-            std::string byteString = target.substr(i, 2);
-            targetBytes.push_back(static_cast<uint8_t>(std::stoi(byteString, nullptr, 16)));
-        }
+        compact = std::stoul(target, nullptr, 16);
     } catch (const std::exception& e) {
         if (firstTargetExpansion && !firstHashShown) {
-            threadSafePrint("Error converting target to bytes: " + std::string(e.what()), true);
-        }
-        return std::vector<uint8_t>();
-    }
-
-    if (targetBytes.size() != 4) {
-        if (firstTargetExpansion && !firstHashShown) {
-            threadSafePrint("Error: Invalid target size (expected 4 bytes), got: " + std::to_string(targetBytes.size()), true);
+            threadSafePrint("Error converting target to uint32: " + std::string(e.what()), true);
         }
         return std::vector<uint8_t>();
     }
@@ -125,11 +113,31 @@ std::vector<uint8_t> expandTarget(const std::string& compactTarget) {
     // Create 256-bit target (32 bytes)
     std::vector<uint8_t> expandedTarget(32, 0);
 
-    // Place the compact target in the least significant 4 bytes (big-endian)
-    expandedTarget[28] = targetBytes[0];
-    expandedTarget[29] = targetBytes[1];
-    expandedTarget[30] = targetBytes[2];
-    expandedTarget[31] = targetBytes[3];
+    // Extract size and mantissa from compact target
+    uint8_t size = (compact >> 24) & 0xFF;
+    uint32_t mantissa = compact & 0x00FFFFFF;
+
+    // For target f3220000:
+    // size = 0xf3 (243)
+    // mantissa = 0x220000
+    // The target is calculated as: mantissa * 2^(8 * (32 - size))
+
+    // Calculate the number of bytes to shift mantissa
+    int shift = 32 - size;
+    if (shift < 0) shift = 0;
+    if (shift > 31) shift = 31;
+
+    // Place mantissa at the correct position (big-endian)
+    if (shift <= 28) { // We need at least 4 bytes for mantissa
+        expandedTarget[shift] = (mantissa >> 16) & 0xFF;
+        expandedTarget[shift + 1] = (mantissa >> 8) & 0xFF;
+        expandedTarget[shift + 2] = mantissa & 0xFF;
+    }
+
+    // Fill remaining bytes with 0xFF
+    for (int i = shift + 3; i < 32; i++) {
+        expandedTarget[i] = 0xFF;
+    }
 
     // Only show debug output for first hash attempt
     if (firstTargetExpansion && !firstHashShown) {
@@ -137,13 +145,14 @@ std::vector<uint8_t> expandTarget(const std::string& compactTarget) {
         ss << "Target expansion details:" << std::endl;
         ss << "  Original target: " << compactTarget << std::endl;
         ss << "  Cleaned target: " << target << std::endl;
-        ss << "  Target bytes (hex): ";
-        for (const auto& byte : targetBytes) {
-            ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(byte) << " ";
-        }
-        ss << std::endl;
+        ss << "  Compact value: 0x" << std::hex << std::setw(8) << std::setfill('0') << compact << std::endl;
+        ss << "  Size: 0x" << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(size) 
+           << " (" << std::dec << static_cast<int>(size) << ")" << std::endl;
+        ss << "  Mantissa: 0x" << std::hex << std::setw(6) << std::setfill('0') << mantissa << std::endl;
+        ss << "  Shift: " << std::dec << shift << " bytes" << std::endl;
+        ss << "  Pool difficulty: " << std::dec << getTargetDifficulty(compactTarget) << std::endl;
         ss << "  Expanded target (hex): " << bytesToHex(expandedTarget) << std::endl;
-        ss << "  Expanded target bytes (hex): ";
+        ss << "  Expanded target bytes: ";
         for (const auto& byte : expandedTarget) {
             ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(byte) << " ";
         }
@@ -255,27 +264,51 @@ uint64_t getTargetDifficulty(const std::string& targetHex) {
         return 0;
     }
 
-    // Convert hex string to bytes directly without using expandTarget
-    std::vector<uint8_t> targetBytes;
-    targetBytes.reserve(4);
-    
+    // Convert hex string to uint32_t
+    uint32_t compact;
     try {
-        for (size_t i = 0; i < target.length(); i += 2) {
-            std::string byteString = target.substr(i, 2);
-            targetBytes.push_back(static_cast<uint8_t>(std::stoi(byteString, nullptr, 16)));
-        }
+        compact = std::stoul(target, nullptr, 16);
     } catch (const std::exception& e) {
         return 0;
     }
 
-    if (targetBytes.size() != 4) {
+    // Extract size and mantissa
+    uint8_t size = (compact >> 24) & 0xFF;
+    uint32_t mantissa = compact & 0x00FFFFFF;
+
+    if (mantissa == 0) {
         return 0;
     }
 
-    // Calculate difficulty from the 4 bytes
-    uint64_t difficulty = 0;
-    for (size_t i = 0; i < 4; ++i) {
-        difficulty = (difficulty << 8) | targetBytes[i];
+    // In Monero:
+    // difficulty = 2^256 / (mantissa * 2^(8 * (32 - size)))
+    
+    // For f3220000:
+    // size = 0xf3 (243)
+    // mantissa = 0x220000
+    // difficulty = 2^256 / (0x220000 * 2^(8 * (32 - 243)))
+    
+    // Calculate difficulty using 64-bit arithmetic
+    uint64_t difficulty;
+    
+    // Calculate shift based on size
+    int shift = 32 - size;
+    if (shift < 0) {
+        // Target is too large, return minimum difficulty
+        return 1;
+    }
+
+    // Calculate difficulty = 2^256 / (mantissa * 2^(8 * shift))
+    // = (2^256 / 2^(8 * shift)) / mantissa
+    // = 2^(256 - 8 * shift) / mantissa
+    int bits = 256 - (8 * shift);
+    
+    if (bits <= 64) {
+        // We can calculate this directly
+        difficulty = (1ULL << bits) / mantissa;
+    } else {
+        // For large values, approximate using max uint64
+        difficulty = 0xFFFFFFFFFFFFFFFFULL / mantissa;
     }
 
     return difficulty;

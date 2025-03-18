@@ -175,12 +175,6 @@ namespace PoolClient {
             return false;
         }
         
-        // Flush the socket
-        if (shutdown(poolSocket, SD_SEND) == SOCKET_ERROR) {
-            threadSafePrint("shutdown failed: " + std::to_string(WSAGetLastError()));
-            return false;
-        }
-        
         return true;
     }
 
