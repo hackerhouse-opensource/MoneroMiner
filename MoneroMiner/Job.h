@@ -3,17 +3,22 @@
 #include <string>
 #include <vector>
 #include <cstdint>
+#include <sstream>
+#include <iomanip>
 
 // Mining job structure
-struct Job {
+class Job {
+public:
+    std::string jobId;
+    std::string blobHex;
     std::vector<uint8_t> blob;
     std::string target;
-    std::string jobId;
     uint64_t height;
     std::string seedHash;
+    uint64_t nonce;
 
     // Default constructor
-    Job() : height(0) {}
+    Job() : height(0), nonce(0) {}
 
     // Copy constructor
     Job(const Job& other) = default;
@@ -28,23 +33,47 @@ struct Job {
     Job& operator=(Job&& other) = default;
 
     // Getters
-    const std::string& getId() const { return jobId; }
+    const std::string& getJobId() const { return jobId; }
+    const std::string& getBlobHex() const { return blobHex; }
     const std::vector<uint8_t>& getBlob() const { return blob; }
     const std::string& getTarget() const { return target; }
     uint64_t getHeight() const { return height; }
     const std::string& getSeedHash() const { return seedHash; }
+    uint64_t getNonce() const { return nonce; }
 
     // Setters
     void setId(const std::string& id) { jobId = id; }
-    void setBlob(const std::vector<uint8_t>& blobData) { blob = blobData; }
+    void setBlobHex(const std::string& blobHexData) { 
+        blobHex = blobHexData;
+        // Convert hex to bytes
+        blob.clear();
+        for (size_t i = 0; i < blobHexData.length(); i += 2) {
+            std::string byteString = blobHexData.substr(i, 2);
+            blob.push_back(static_cast<uint8_t>(std::stoi(byteString, nullptr, 16)));
+        }
+    }
+    void setBlob(const std::vector<uint8_t>& blobData) { 
+        blob = blobData;
+        // Convert bytes to hex
+        std::stringstream ss;
+        for (uint8_t byte : blob) {
+            ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(byte);
+        }
+        blobHex = ss.str();
+    }
     void setTarget(const std::string& targetData) { target = targetData; }
     void setHeight(uint64_t jobHeight) { height = jobHeight; }
     void setSeedHash(const std::string& hash) { seedHash = hash; }
+    void setNonce(uint64_t n) { nonce = n; }
+    void incrementNonce() { nonce++; }
 
     // Check if job is empty
     bool empty() const {
-        return blob.empty() || target.empty() || jobId.empty() || height == 0 || seedHash.empty();
+        return blobHex.empty() || target.empty() || jobId.empty() || height == 0 || seedHash.empty();
     }
+
+    Job(const std::string& id, const std::string& blob, const std::string& tgt, uint64_t h)
+        : jobId(id), blobHex(blob), target(tgt), height(h) {}
 };
 
 // Job-related functions

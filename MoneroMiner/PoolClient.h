@@ -32,4 +32,7 @@ namespace PoolClient {
     extern std::string currentTargetHex;
     
     void handleSeedHashChange(const std::string& newSeedHash);
+    void processNewJob(const picojson::object& jobObj);
+
+    static inline SOCKET getSocket() { return poolSocket; }
 } 

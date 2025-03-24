@@ -16,6 +16,9 @@ struct GlobalStats {
     std::atomic<uint64_t> rejectedShares{0};
     std::atomic<uint64_t> totalShares{0};
     std::atomic<double> currentHashrate{0.0};
+    std::atomic<int> elapsedSeconds{0};
+    std::string currentJobId;
+    std::atomic<uint32_t> currentNonce{0};
     std::chrono::steady_clock::time_point startTime;
 };
 

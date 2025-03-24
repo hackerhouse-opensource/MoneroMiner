@@ -1,37 +1,43 @@
 #pragma once
 
-#include "randomx.h"
-#include <string>
 #include <vector>
+#include <string>
 #include <mutex>
-#include <map>
+#include <memory>
+#include <unordered_map>
+#include "randomx.h"
+#include "HashValidation.h"
 
 // Forward declaration
 class MiningThreadData;
 
 class RandomXManager {
 public:
-    static bool initializeDataset();
+    static bool initialize(const std::string& seedHash);
     static void cleanup();
     static randomx_vm* createVM(int threadId);
     static void destroyVM(randomx_vm* vm);
-    static bool calculateHash(randomx_vm* vm, const uint8_t* input, size_t inputSize, uint8_t* output);
-    static bool verifyHash(const std::vector<uint8_t>& input, const uint8_t* expectedHash);
-    static void handleSeedHashChange(const std::string& newSeedHash);
-    static bool initializeRandomX(const std::string& seedHash);
-    static bool isDatasetValid(const std::string& seedHash);
-    static bool saveDataset(const std::string& seedHash);
+    static bool calculateHash(randomx_vm* vm, const std::vector<uint8_t>& blob, uint64_t nonce);
+    static bool verifyHash(const uint8_t* input, size_t inputSize, const uint8_t* expectedHash, int threadId);
+    static bool isInitialized() { return initialized; }
+    static std::string getCurrentSeedHash() { return currentSeedHash; }
+    static void initializeDataset(const std::string& seedHash);
     static bool loadDataset(const std::string& seedHash);
+    static bool saveDataset(const std::string& seedHash);
+    static bool validateDataset(const std::string& seedHash);
+    static void handleSeedHashChange(const std::string& newSeedHash);
 
 private:
+    static std::mutex vmMutex;
+    static std::mutex datasetMutex;
+    static std::mutex seedHashMutex;
+    static std::unordered_map<int, randomx_vm*> vms;
     static randomx_cache* cache;
     static randomx_dataset* dataset;
-    static std::mutex mutex;
-    static bool initialized;
     static std::string currentSeedHash;
-    static std::mutex seedHashMutex;
-    static std::mutex initMutex;
+    static bool initialized;
+    static std::string datasetPath;
     static std::vector<MiningThreadData*> threadData;
-    static std::map<int, randomx_vm*> threadVMs;
-    static std::mutex vmMutex;
+    
+    static std::string getDatasetPath(const std::string& seedHash);
 }; 

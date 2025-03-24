@@ -145,9 +145,8 @@ std::vector<uint8_t> expandTarget(const std::string& compactTarget) {
 
 std::string formatHash(const std::vector<uint8_t>& hash) {
     std::stringstream ss;
-    ss << std::hex << std::setfill('0');
-    for (const auto& byte : hash) {
-        ss << std::setw(2) << static_cast<int>(byte);
+    for (uint8_t byte : hash) {
+        ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(byte) << " ";
     }
     return ss.str();
 }
@@ -235,8 +234,7 @@ uint64_t getTargetDifficulty(const std::string& targetHex) {
     std::string target = targetHex;
     if (target.substr(0, 2) == "0x") target = target.substr(2);
     uint32_t compact = std::stoul(target, nullptr, 16);
-    if (compact == 0) return 0;
-    return 0xFFFFFFFFULL / compact; // ~1053 for f3220000
+    return compact ? (0xFFFFFFFFULL / compact) : 0;
 }
 
 bool checkHashDifficulty(const uint8_t* hash, uint64_t difficulty) {
@@ -250,6 +248,75 @@ bool checkHashDifficulty(const uint8_t* hash, uint64_t difficulty) {
     }
 
     return hashValue <= difficulty;
+}
+
+std::string hashToHex(const uint8_t* hash, size_t size) {
+    std::stringstream ss;
+    for (size_t i = 0; i < size; i++) {
+        ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hash[i]);
+    }
+    return ss.str();
+}
+
+std::vector<uint8_t> hexToBytes(const std::string& hex) {
+    std::vector<uint8_t> bytes;
+    std::string h = hex;
+    if (h.substr(0, 2) == "0x") h = h.substr(2);
+    for (size_t i = 0; i < h.length(); i += 2) {
+        std::string byteString = h.substr(i, 2);
+        bytes.push_back(static_cast<uint8_t>(std::stoul(byteString, nullptr, 16)));
+    }
+    return bytes;
+}
+
+void printHashValidation(const std::string& hashHex, const std::string& targetHex) {
+    std::cout << "\nValidating hash:" << std::endl;
+    std::cout << "  Hash: " << hashHex << std::endl;
+    std::cout << "  Target: " << targetHex << std::endl;
+    std::cout << "  Target difficulty: " << getTargetDifficulty(targetHex) << std::endl;
+}
+
+void printTargetExpansion(const std::string& targetHex) {
+    std::cout << "\nExpanding target:" << std::endl;
+    std::cout << "  Compact target: " << targetHex << std::endl;
+    std::cout << "\nTarget expansion details:" << std::endl;
+    std::cout << "  Original target: " << targetHex << std::endl;
+    std::string target = targetHex;
+    if (target.substr(0, 2) == "0x") target = target.substr(2);
+    std::cout << "  Cleaned target: " << target << std::endl;
+    uint32_t compact = std::stoul(target, nullptr, 16);
+    std::cout << "  Compact value: 0x" << std::hex << std::setw(8) << std::setfill('0') << compact << std::endl;
+    std::cout << "  Pool difficulty: " << std::dec << getTargetDifficulty(targetHex) << std::endl;
+
+    // Create expanded target (32 bytes)
+    std::vector<uint8_t> expanded(32, 0);
+    expanded[28] = (compact >> 24) & 0xFF;
+    expanded[29] = (compact >> 16) & 0xFF;
+    expanded[30] = (compact >> 8) & 0xFF;
+    expanded[31] = compact & 0xFF;
+
+    std::cout << "  Expanded target (hex): " << hashToHex(expanded.data(), 32) << std::endl;
+    std::cout << "  Expanded target bytes: " << formatHash(expanded) << std::endl;
+}
+
+void printHashComparison(const uint8_t* hash, const uint8_t* target) {
+    std::cout << "\nHash validation:" << std::endl;
+    std::cout << "  Hash bytes: " << hashToHex(hash, 32) << std::endl;
+    std::cout << "  Target bytes: " << hashToHex(target, 32) << std::endl;
+    std::cout << "  Hash bytes (hex): " << formatHash(std::vector<uint8_t>(hash, hash + 32)) << std::endl;
+    std::cout << "  Target bytes (hex): " << formatHash(std::vector<uint8_t>(target, target + 32)) << std::endl;
+
+    // Find first byte where hash differs from target
+    for (int i = 0; i < 32; i++) {
+        if (hash[i] != target[i]) {
+            std::cout << "\nHash is greater than target at byte " << i << ":" << std::endl;
+            std::cout << "  Hash byte: 0x" << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hash[i]) << std::endl;
+            std::cout << "  Target byte: 0x" << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(target[i]) << std::endl;
+            std::cout << "  Hash value: " << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hash[i]) << std::endl;
+            std::cout << "  Target value: " << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(target[i]) << std::endl;
+            break;
+        }
+    }
 }
 
 } 

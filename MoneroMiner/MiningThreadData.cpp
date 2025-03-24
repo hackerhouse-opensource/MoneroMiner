@@ -17,286 +17,235 @@
 
 // Global variables declared in MoneroMiner.h
 extern bool debugMode;
+extern std::queue<Job> jobQueue;
+extern std::condition_variable jobQueueCV;
+extern std::atomic<uint32_t> activeJobId;
+extern std::atomic<bool> shouldStop;
+extern Config config;
 
-MiningThreadData::MiningThreadData(int id) 
-    : threadId(id)
-    , vm(nullptr)
-    , vmInitialized(false)
-    , hashCount(0)
-    , totalHashCount(0)
-    , acceptedShares(0)
-    , rejectedShares(0)
-    , currentJob(nullptr)
-    , currentNonce(0)
-    , nonceStart(0)
-    , nonceEnd(0)
-    , hashBuffers(std::make_unique<HashBuffers>())
-    , shouldStop(false)
-    , elapsedSeconds(0)
-    , currentDebugCounter(0)
-{
+MiningThreadData::MiningThreadData(int threadId) 
+    : threadId(threadId), vm(nullptr), hashCount(0), totalHashCount(0), 
+      startTime(std::chrono::steady_clock::now()), currentJobId(""), 
+      currentNonce(0), acceptedShares(0), rejectedShares(0), elapsedSeconds(0) {
+    threadSafePrint("Created mining thread data for thread " + std::to_string(threadId), true);
 }
 
 MiningThreadData::~MiningThreadData() {
-    cleanup();
-}
-
-bool MiningThreadData::initializeVM() {
-    std::lock_guard<std::mutex> lock(vmMutex);
-    
-    if (vmInitialized) {
-        return true;
-    }
-
-    vm = RandomXManager::createVM(threadId);
-    if (!vm) {
-        threadSafePrint("Failed to initialize VM for thread " + std::to_string(threadId), true);
-        return false;
-    }
-
-    vmInitialized = true;
-    return true;
-}
-
-bool MiningThreadData::calculateHash(const std::vector<uint8_t>& blob, uint8_t* outputHash, uint32_t currentDebugCounter) {
-    if (!vm || !vmInitialized) {
-        if (!initializeVM()) {
-            return false;
-        }
-    }
-
-    std::lock_guard<std::mutex> lock(vmMutex);
-    
-    // Copy blob to input buffer
-    std::memcpy(hashBuffers->inputBuffer.data(), blob.data(), blob.size());
-    
-    // Calculate hash
-    if (!RandomXManager::calculateHash(vm, hashBuffers->inputBuffer.data(), hashBuffers->inputBuffer.size(), outputHash)) {
-        return false;
-    }
-    
-    // Update counters
-    hashCount++;
-    totalHashCount++;
-    
-    return true;
-}
-
-void MiningThreadData::cleanup() {
-    std::lock_guard<std::mutex> lock(vmMutex);
-    
     if (vm) {
         RandomXManager::destroyVM(vm);
         vm = nullptr;
     }
-    
-    vmInitialized = false;
 }
 
-void MiningThreadData::updateJob(const Job& newJob) {
-    std::lock_guard<std::mutex> lock(jobMutex);
-    
-    // Check if we need to reinitialize the VM due to seed hash change
-    if (needsVMReinit(newJob.seedHash)) {
-        cleanup();
-        initializeVM();
-        currentSeedHash = newJob.seedHash;
+bool MiningThreadData::initializeVM() {
+    if (vm) {
+        RandomXManager::destroyVM(vm);
+        vm = nullptr;
     }
 
-    // Update job using shared_ptr
-    currentJob = std::make_shared<Job>(newJob);
+    vm = RandomXManager::createVM(threadId);
+    if (!vm) {
+        threadSafePrint("Failed to create VM for thread " + std::to_string(threadId), true);
+        return false;
+    }
+
+    threadSafePrint("VM initialized successfully for thread " + std::to_string(threadId), true);
+    return true;
+}
+
+bool MiningThreadData::calculateHash(const std::vector<uint8_t>& blob, uint64_t nonce, uint8_t* output) {
+    if (!vm) {
+        threadSafePrint("Cannot calculate hash: VM is null for thread " + std::to_string(threadId), true);
+        return false;
+    }
+
+    // Create input buffer with nonce
+    std::vector<uint8_t> input = blob;
+    if (input.size() >= 39) {  // Ensure we have space for the nonce
+        input[39] = (nonce >> 0) & 0xFF;
+        input[40] = (nonce >> 8) & 0xFF;
+        input[41] = (nonce >> 16) & 0xFF;
+        input[42] = (nonce >> 24) & 0xFF;
+    }
+
+    // Calculate hash
+    randomx_calculate_hash(vm, input.data(), input.size(), output);
+    hashCount++;
+    totalHashCount++;
+    return true;
+}
+
+void MiningThreadData::updateJob(const Job& job) {
+    threadSafePrint("Thread " + std::to_string(threadId) + " updating job to ID: " + job.getJobId(), true);
     
-    // Calculate nonce range for this thread
-    uint32_t totalThreads = config.numThreads;
-    uint32_t nonceRange = UINT32_MAX / totalThreads;
-    nonceStart = threadId * nonceRange;
-    nonceEnd = (threadId == totalThreads - 1) ? UINT32_MAX : (threadId + 1) * nonceRange;
-    currentNonce = nonceStart;
+    // Create a new job object
+    currentJob = std::make_shared<Job>(job);
+    currentJobId = job.getJobId();
+    currentNonce = job.getNonce();
+    hashCount = 0;
+    
+    // Check if we need to reinitialize VM
+    if (needsVMReinit(job.getSeedHash())) {
+        threadSafePrint("Thread " + std::to_string(threadId) + " needs VM reinitialization for new seed hash", true);
+        if (!initializeVM()) {
+            threadSafePrint("Failed to initialize VM for thread " + std::to_string(threadId), true);
+            return;
+        }
+        currentSeedHash = job.getSeedHash();
+    }
+}
+
+void MiningThreadData::mine() {
+    running = true;
+    startTime = std::chrono::steady_clock::now();
+    lastUpdate = startTime;
+
+    threadSafePrint("Mining thread " + std::to_string(threadId) + " starting...", true);
+
+    while (!shouldStop) {
+        // Wait for a job
+        threadSafePrint("Thread " + std::to_string(threadId) + " waiting for job...", true);
+        std::unique_lock<std::mutex> jobLock(jobMutex);
+        
+        // Debug job queue state
+        threadSafePrint("Thread " + std::to_string(threadId) + 
+                       " job queue size: " + std::to_string(jobQueue.size()), true);
+        
+        jobQueueCV.wait(jobLock, [this]() { 
+            bool hasJob = !jobQueue.empty();
+            if (hasJob) {
+                threadSafePrint("Thread " + std::to_string(threadId) + 
+                              " job queue is not empty, waking up", true);
+            }
+            return hasJob || shouldStop; 
+        });
+
+        if (shouldStop) {
+            threadSafePrint("Thread " + std::to_string(threadId) + " stopping...", true);
+            break;
+        }
+
+        // Get current job
+        Job currentJob = jobQueue.front();
+        jobLock.unlock();
+
+        threadSafePrint("Thread " + std::to_string(threadId) + 
+                       " processing job ID: " + currentJob.getJobId() +
+                       "\n  Height: " + std::to_string(currentJob.getHeight()) +
+                       "\n  Target: " + currentJob.getTarget() +
+                       "\n  Seed Hash: " + currentJob.getSeedHash(), true);
+
+        // Initialize VM with the job's seed hash
+        threadSafePrint("Thread " + std::to_string(threadId) + " initializing VM...", true);
+        if (!initializeVM()) {
+            threadSafePrint("Failed to initialize VM for thread " + std::to_string(threadId), true);
+            continue;
+        }
+        threadSafePrint("Thread " + std::to_string(threadId) + " VM initialized successfully", true);
+
+        // Process the job
+        uint64_t hashCount = 0;
+        auto startTime = std::chrono::steady_clock::now();
+
+        while (!shouldStop && currentJob.getJobId() == currentJobId) {
+            try {
+                // Calculate hash for current nonce
+                uint8_t hash[32];
+                if (!calculateHash(currentJob.getBlob(), currentNonce, hash)) {
+                    threadSafePrint("Hash calculation failed for thread " + std::to_string(threadId), true);
+                    break;
+                }
+
+                hashCount++;
+                if (hashCount % 1000 == 0) {
+                    auto now = std::chrono::steady_clock::now();
+                    auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - startTime).count();
+                    if (elapsed > 0) {
+                        double hashrate = static_cast<double>(hashCount) / elapsed;
+                        threadSafePrint("Thread " + std::to_string(threadId) + 
+                                      " hashrate: " + std::to_string(hashrate) + " H/s" +
+                                      "\n  Nonce: 0x" + std::to_string(currentNonce), true);
+                    }
+                }
+
+                // Convert hash to hex string
+                std::string hashHex = HashValidation::hashToHex(hash, 32);
+
+                // Check if hash meets target
+                if (HashValidation::validateHash(hashHex, currentJob.getTarget())) {
+                    threadSafePrint("Thread " + std::to_string(threadId) + " found valid share!" +
+                                  "\n  Job ID: " + currentJob.getJobId() +
+                                  "\n  Nonce: 0x" + std::to_string(currentNonce) +
+                                  "\n  Hash: " + hashHex, true);
+
+                    submitShare(hash);
+                }
+
+                // Update nonce and hash count
+                currentNonce++;
+                totalHashCount++;
+
+                // Update stats every second
+                auto now = std::chrono::steady_clock::now();
+                auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - startTime).count();
+                if (elapsed >= 1) {
+                    MiningStats::updateThreadStats(this, hashCount, this->hashCount, 
+                                                 static_cast<int>(elapsed), currentJob.getJobId(), 
+                                                 static_cast<uint32_t>(currentNonce));
+                    hashCount = 0;
+                    startTime = now;
+                }
+            } catch (const std::exception& e) {
+                threadSafePrint("Exception in mining loop: " + std::string(e.what()), true);
+                break;
+            } catch (...) {
+                threadSafePrint("Unknown exception in mining loop", true);
+                break;
+            }
+        }
+    }
+
+    threadSafePrint("Mining thread " + std::to_string(threadId) + " stopping...", true);
+    running = false;
+}
+
+void MiningThreadData::submitShare(const uint8_t* hash) {
+    std::string hashHex = HashValidation::hashToHex(hash, 32);
+    std::string nonceHex = std::to_string(currentNonce);
+    
+    if (PoolClient::submitShare(currentJobId, nonceHex, hashHex, "rx/0")) {
+        acceptedShares++;
+    } else {
+        rejectedShares++;
+    }
+    
+    shares++;
 }
 
 bool MiningThreadData::needsVMReinit(const std::string& newSeedHash) const {
     return currentSeedHash != newSeedHash;
 }
 
-void MiningThreadData::mine() {
-    while (!shouldStop) {
-        // Get current job
-        std::lock_guard<std::mutex> lock(jobMutex);
-        if (!currentJob) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            continue;
-        }
+double MiningThreadData::getHashrate() const {
+    if (elapsedSeconds > 0) {
+        return static_cast<double>(hashCount) / elapsedSeconds;
+    }
+    return 0.0;
+}
 
-        // Mine for a batch of hashes
-        for (int i = 0; i < 1000 && !shouldStop; i++) {
-            // Update nonce in blob
-            std::vector<uint8_t> blob = currentJob->blob;
-            uint32_t* noncePtr = reinterpret_cast<uint32_t*>(&blob[39]); // Nonce starts at offset 39
-            *noncePtr = currentNonce;
-
-            // Calculate hash
-            uint8_t hash[32];
-            if (!calculateHash(blob, hash)) {
-                continue;
-            }
-
-            // Convert hash to hex string for validation
-            std::string hashHex = bytesToHex(std::vector<uint8_t>(hash, hash + 32));
-
-            // Check if hash meets target
-            if (HashValidation::validateHash(hashHex, currentJob->target)) {
-                acceptedShares++;
-                // Submit share to pool
-                submitShare(hash);
-            } else {
-                rejectedShares++;
-            }
-
-            hashCount++;
-            totalHashCount++;
-
-            // Update nonce and check range
-            currentNonce++;
-            if (currentNonce >= nonceEnd) {
-                currentNonce = nonceStart;
-            }
-        }
-
-        // Update stats periodically
-        auto now = std::chrono::steady_clock::now();
-        auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdate).count();
-        if (elapsed >= 5) {
-            MiningStats::updateThreadStats(this);
-            lastUpdate = now;
-        }
+void MiningThreadData::start() {
+    threadSafePrint("Starting mining thread " + std::to_string(threadId) + "...", true);
+    try {
+        thread = std::thread(&MiningThreadData::mine, this);
+        threadSafePrint("Successfully created thread " + std::to_string(threadId), true);
+    } catch (const std::exception& e) {
+        threadSafePrint("Failed to start thread " + std::to_string(threadId) + ": " + e.what(), true);
     }
 }
 
-void MiningThreadData::submitShare(const uint8_t* hash) {
-    // TODO: Implement share submission to pool
-    // This should send the share to the pool and handle the response
-}
-
-void miningThread(MiningThreadData* data) {
-    threadSafePrint("Mining thread " + std::to_string(data->getThreadId()) + " started");
-    
-    while (!PoolClient::shouldStop) {
-        Job job;
-        {
-            std::unique_lock<std::mutex> lock(PoolClient::jobMutex);
-            PoolClient::jobAvailable.wait(lock, [] { return !PoolClient::jobQueue.empty() || PoolClient::shouldStop; });
-            if (PoolClient::shouldStop) break;
-            job = PoolClient::jobQueue.front();
-            PoolClient::jobQueue.pop();
-        }
-
-        if (debugMode) {
-            threadSafePrint("Processing new job:");
-            threadSafePrint("  Height: " + std::to_string(job.getHeight()));
-            threadSafePrint("  Job ID: " + job.getId());
-            threadSafePrint("  Target: " + job.getTarget());
-            threadSafePrint("  Seed Hash: " + job.getSeedHash());
-            threadSafePrint("  Blob size: " + std::to_string(job.getBlob().size()) + " bytes");
-            threadSafePrint("  Blob: " + bytesToHex(job.getBlob()));
-            threadSafePrint("  Initial nonce position: bytes 39-42");
-        }
-
-        // Initialize RandomX with the seed hash from the job
-        if (!RandomXManager::initializeDataset()) {
-            threadSafePrint("Failed to initialize RandomX dataset");
-            continue;
-        }
-
-        // Initialize VM if needed
-        if (!data->getVM()) {
-            data->initializeVM();
-        }
-
-        // Get the target from the job
-        std::string target = job.getTarget();
-        
-        // Mining loop
-        uint32_t nonce = 0;
-        uint64_t hashes = 0;
-        auto lastHashTime = std::chrono::steady_clock::now();
-        std::vector<uint8_t> mutableBlob = job.getBlob();
-        bool firstHash = true;
-
-        while (!PoolClient::shouldStop) {
-            try {
-                // Set nonce in the blob
-                mutableBlob[39] = (nonce >> 24) & 0xFF;
-                mutableBlob[40] = (nonce >> 16) & 0xFF;
-                mutableBlob[41] = (nonce >> 8) & 0xFF;
-                mutableBlob[42] = nonce & 0xFF;
-
-                // Calculate hash
-                uint8_t hash[32];
-                if (!data->calculateHash(mutableBlob, hash)) {
-                    threadSafePrint("Failed to calculate hash");
-                    continue;
-                }
-                std::string hashHex = HashValidation::formatHash(std::vector<uint8_t>(hash, hash + 32));
-
-                // Force debug output for first hash
-                if (firstHash) {
-                    std::stringstream ss;
-                    ss << "\nFirst hash attempt:" << std::endl;
-                    ss << "  Job ID: " << job.getId() << std::endl;
-                    ss << "  Height: " << job.getHeight() << std::endl;
-                    ss << "  Target: " << target << std::endl;
-                    ss << "  Nonce: 0x" << bytesToHex(std::vector<uint8_t>(mutableBlob.begin() + 39, mutableBlob.begin() + 43)) << std::endl;
-                    ss << "  Blob: " << bytesToHex(mutableBlob) << std::endl;
-                    ss << "  Hash: " << hashHex << std::endl;
-                    ss << "  Hash bytes: ";
-                    for (int i = 0; i < 32; i++) {
-                        ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hash[i]) << " ";
-                    }
-                    ss << std::endl;
-                    ss << "  Target difficulty: " << std::dec << HashValidation::getTargetDifficulty(target) << std::endl;
-                    threadSafePrint(ss.str(), true);
-                    firstHash = false;
-                }
-
-                // Check if hash meets target
-                if (HashValidation::validateHash(hashHex, target)) {
-                    threadSafePrint("\nShare found!");
-                    threadSafePrint("  Job ID: " + job.getId());
-                    threadSafePrint("  Nonce: 0x" + bytesToHex(std::vector<uint8_t>(mutableBlob.begin() + 39, mutableBlob.begin() + 43)));
-                    threadSafePrint("  Hash: " + hashHex);
-                    threadSafePrint("  Target: " + target);
-
-                    // Submit share
-                    if (!PoolClient::submitShare(job.getId(), 
-                        bytesToHex(std::vector<uint8_t>(mutableBlob.begin() + 39, mutableBlob.begin() + 43)),
-                        hashHex, "rx/0")) {
-                        threadSafePrint("Failed to submit share");
-                    }
-                }
-
-                // Update nonce and hash counter
-                nonce++;
-                hashes++;
-
-                // Log thread stats every second
-                auto now = std::chrono::steady_clock::now();
-                if (std::chrono::duration_cast<std::chrono::seconds>(now - lastHashTime).count() >= 1) {
-                    // Update global stats
-                    data->hashes = hashes;
-                    data->lastUpdate = now;
-                    MiningStats::updateThreadStats(data);
-                    
-                    std::stringstream ss;
-                    ss << "Thread " << data->getThreadId() << " stats: Hashes: " << hashes << " | Nonce: 0x" 
-                       << bytesToHex(std::vector<uint8_t>(mutableBlob.begin() + 39, mutableBlob.begin() + 43));
-                    threadSafePrint(ss.str(), true);
-                    hashes = 0;
-                    lastHashTime = now;
-                }
-            } catch (const std::exception& e) {
-                threadSafePrint("\nError in mining loop: " + std::string(e.what()));
-                break;
-            }
-        }
+void MiningThreadData::stop() {
+    shouldStop = true;
+    if (thread.joinable()) {
+        thread.join();
     }
 } 

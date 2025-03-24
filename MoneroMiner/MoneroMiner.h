@@ -39,6 +39,7 @@ extern std::atomic<uint32_t> debugHashCounter;
 extern std::atomic<bool> newJobAvailable;
 extern std::atomic<bool> showedInitMessage;
 extern std::atomic<uint32_t> activeJobId;
+extern std::atomic<uint32_t> notifiedJobId;
 extern std::vector<MiningThreadData*> threadData;
 extern GlobalStats globalStats;
 
@@ -49,8 +50,7 @@ void listenForNewJobs(SOCKET sock);
 void processNewJob(const picojson::object& jobObj);
 void handleLoginResponse(const std::string& response);
 void handleShareResponse(const std::string& response, bool& accepted);
-bool submitShare(const std::string& jobId, const std::string& nonceHex, 
-                const std::string& hashHex, const std::string& algo);
+bool submitShare(const std::string& jobId, const std::string& nonce, const std::string& hash, const std::string& algo);
 std::string sendAndReceive(SOCKET sock, const std::string& payload);
 std::string createSubmitPayload(const std::string& sessionId, const std::string& jobId, 
                               const std::string& nonceHex, const std::string& hashHex, 

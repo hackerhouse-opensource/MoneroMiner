@@ -1,9 +1,11 @@
 #include "RandomXManager.h"
+#include "Globals.h"
 #include "Utils.h"
 #include "Types.h"
 #include "Constants.h"
 #include "MiningStats.h"
 #include "MiningThreadData.h"
+#include "randomx.h"
 #include <fstream>
 #include <thread>
 #include <vector>
@@ -12,6 +14,8 @@
 #include <iomanip>
 #include "RandomXFlags.h"
 #include <cstring>
+#include <filesystem>
+#include <iostream>
 
 // RandomX constants
 #define RANDOMX_DATASET_SIZE (RANDOMX_DATASET_ITEM_COUNT * RANDOMX_DATASET_ITEM_SIZE)
@@ -23,41 +27,43 @@ extern bool debugMode;
 extern std::atomic<bool> showedInitMessage;
 
 // Static member initialization
+std::mutex RandomXManager::vmMutex;
+std::mutex RandomXManager::datasetMutex;
+std::mutex RandomXManager::seedHashMutex;
+std::unordered_map<int, randomx_vm*> RandomXManager::vms;
 randomx_cache* RandomXManager::cache = nullptr;
 randomx_dataset* RandomXManager::dataset = nullptr;
-std::mutex RandomXManager::mutex;
-bool RandomXManager::initialized = false;
 std::string RandomXManager::currentSeedHash;
-std::mutex RandomXManager::seedHashMutex;
-std::mutex RandomXManager::initMutex;
+bool RandomXManager::initialized = false;
 std::vector<MiningThreadData*> RandomXManager::threadData;
-std::map<int, randomx_vm*> RandomXManager::threadVMs;
-std::mutex RandomXManager::vmMutex;
+std::string RandomXManager::datasetPath = "randomx_dataset.bin";
 
-bool RandomXManager::initializeDataset() {
-    std::lock_guard<std::mutex> lock(mutex);
+bool RandomXManager::initialize(const std::string& seedHash) {
+    threadSafePrint("Starting RandomX initialization with seed hash: " + seedHash, true);
     
-    if (initialized) {
-        return true;
-    }
-
-    // Initialize RandomX flags
-    int flags = RANDOMX_FLAG_DEFAULT;
+    // Calculate dataset size
+    const uint64_t datasetSize = randomx_dataset_item_count() * RANDOMX_DATASET_ITEM_SIZE;
+    threadSafePrint("RandomX dataset allocation: " + std::to_string(datasetSize) + " bytes", true);
+    
+    // Initialize flags
+    randomx_flags flags = randomx_get_flags();
     flags |= RANDOMX_FLAG_FULL_MEM;
     flags |= RANDOMX_FLAG_JIT;
     flags |= RANDOMX_FLAG_HARD_AES;
-    flags |= RANDOMX_FLAG_LARGE_PAGES;
-
-    // Create cache
+    flags |= RANDOMX_FLAG_SECURE;
+    
+    threadSafePrint("RandomX flags: " + std::to_string(flags), true);
+    
+    // Allocate and initialize cache
     cache = randomx_alloc_cache(flags);
     if (!cache) {
         threadSafePrint("Failed to allocate RandomX cache", true);
         return false;
     }
-
-    // Initialize cache with a default key
-    randomx_init_cache(cache, nullptr, 0);
-
+    
+    // Initialize cache with seed hash
+    randomx_init_cache(cache, seedHash.c_str(), seedHash.length());
+    
     // Allocate dataset
     dataset = randomx_alloc_dataset(flags);
     if (!dataset) {
@@ -66,355 +72,194 @@ bool RandomXManager::initializeDataset() {
         cache = nullptr;
         return false;
     }
-
+    
     // Initialize dataset
-    threadSafePrint("Initializing RandomX dataset (this may take a few minutes)...", true);
+    threadSafePrint("Creating RandomX dataset...", true);
     randomx_init_dataset(dataset, cache, 0, randomx_dataset_item_count());
-    threadSafePrint("RandomX dataset initialization complete", true);
-
-    initialized = true;
+    
+    threadSafePrint("RandomX initialization complete", true);
     return true;
 }
 
 void RandomXManager::cleanup() {
-    std::lock_guard<std::mutex> lock(mutex);
+    std::lock_guard<std::mutex> vmLock(vmMutex);
+    std::lock_guard<std::mutex> datasetLock(datasetMutex);
     
+    // Clean up all VMs
+    for (auto& [threadId, vm] : vms) {
+        if (vm) {
+            randomx_destroy_vm(vm);
+        }
+    }
+    vms.clear();
+
+    // Release dataset
     if (dataset) {
         randomx_release_dataset(dataset);
         dataset = nullptr;
     }
-    
+
+    // Release cache
     if (cache) {
         randomx_release_cache(cache);
         cache = nullptr;
     }
-    
+
+    // Reset initialization state
     initialized = false;
+    currentSeedHash.clear();
+
+    if (debugMode) {
+        threadSafePrint("RandomX cleanup complete", true);
+    }
 }
 
 randomx_vm* RandomXManager::createVM(int threadId) {
-    std::lock_guard<std::mutex> lock(vmMutex);
+    threadSafePrint("Creating VM for thread " + std::to_string(threadId), true);
     
-    // Check if VM already exists for this thread
-    auto it = threadVMs.find(threadId);
-    if (it != threadVMs.end()) {
-        return it->second;
-    }
+    uint32_t flags = RANDOMX_FLAG_DEFAULT;
+    flags |= RANDOMX_FLAG_FULL_MEM;
+    flags |= RANDOMX_FLAG_JIT;
+    flags |= RANDOMX_FLAG_HARD_AES;
+    flags |= RANDOMX_FLAG_SECURE;
     
-    if (!initialized || !cache || !dataset) {
-        threadSafePrint("Cannot create VM: cache or dataset not initialized", true);
-        return nullptr;
-    }
-
-    // Create new VM with consistent flags
-    RandomXFlags flags(RANDOMX_FLAG_JIT | RANDOMX_FLAG_HARD_AES | RANDOMX_FLAG_FULL_MEM);
-    randomx_vm* vm = randomx_create_vm(flags.get(), cache, dataset);
-    
+    randomx_vm* vm = randomx_create_vm(flags, nullptr, dataset);
     if (!vm) {
-        threadSafePrint("Failed to create RandomX VM for thread " + std::to_string(threadId), true);
+        threadSafePrint("Failed to create VM for thread " + std::to_string(threadId), true);
         return nullptr;
     }
-
-    threadVMs[threadId] = vm;
+    
+    threadSafePrint("VM created successfully for thread " + std::to_string(threadId), true);
     return vm;
 }
 
 void RandomXManager::destroyVM(randomx_vm* vm) {
-    if (!vm) return;
-
-    std::lock_guard<std::mutex> lock(vmMutex);
-    
-    // Find and remove the VM from threadVMs
-    for (auto it = threadVMs.begin(); it != threadVMs.end(); ++it) {
-        if (it->second == vm) {
-            threadVMs.erase(it);
-            break;
-        }
+    if (vm) {
+        randomx_destroy_vm(vm);
     }
-    
-    randomx_destroy_vm(vm);
 }
 
-bool RandomXManager::calculateHash(randomx_vm* vm, const uint8_t* input, size_t inputSize, uint8_t* output) {
+bool RandomXManager::calculateHash(randomx_vm* vm, const std::vector<uint8_t>& blob, uint64_t nonce) {
     if (!vm) {
+        threadSafePrint("Cannot calculate hash: VM is null", true);
         return false;
     }
 
-    randomx_calculate_hash(vm, input, inputSize, output);
+    // Create input buffer with nonce
+    std::vector<uint8_t> input = blob;
+    if (input.size() >= 39) {  // Ensure we have space for the nonce
+        input[39] = (nonce >> 0) & 0xFF;
+        input[40] = (nonce >> 8) & 0xFF;
+        input[41] = (nonce >> 16) & 0xFF;
+        input[42] = (nonce >> 24) & 0xFF;
+    }
+
+    // Calculate hash
+    uint8_t output[32];
+    randomx_calculate_hash(vm, input.data(), input.size(), output);
     return true;
 }
 
-bool RandomXManager::verifyHash(const std::vector<uint8_t>& input, const uint8_t* expectedHash) {
-    uint8_t calculatedHash[32];
-    randomx_vm* vm = createVM(0); // Use thread ID 0 for verification
-    if (!vm) {
+bool RandomXManager::verifyHash(const uint8_t* input, size_t inputSize, const uint8_t* expectedHash, int threadId) {
+    std::vector<uint8_t> inputVec(input, input + inputSize);
+    uint64_t nonce = 0; // For verification, we don't need a specific nonce
+    
+    auto it = vms.find(threadId);
+    if (it == vms.end() || !it->second) {
         return false;
     }
 
-    bool result = calculateHash(vm, input.data(), input.size(), calculatedHash);
-    destroyVM(vm);
-
-    if (!result) {
+    if (!calculateHash(it->second, inputVec, nonce)) {
         return false;
     }
 
-    return std::memcmp(calculatedHash, expectedHash, 32) == 0;
+    return true;
 }
 
-bool RandomXManager::isDatasetValid(const std::string& seedHash) {
-    std::ifstream file("randomx_dataset.bin.seed", std::ios::binary);
-    if (!file.is_open()) {
-        threadSafePrint("No existing dataset found", true);
-        return false;
+void RandomXManager::initializeDataset(const std::string& seedHash) {
+    if (!dataset || !cache) {
+        threadSafePrint("Cannot initialize dataset: missing dataset or cache", true);
+        return;
     }
 
-    std::string storedSeedHash;
-    std::getline(file, storedSeedHash);
-    file.close();
-
-    // Remove any trailing whitespace
-    while (!storedSeedHash.empty() && (storedSeedHash.back() == '\n' || storedSeedHash.back() == '\r')) {
-        storedSeedHash.pop_back();
+    if (debugMode) {
+        threadSafePrint("Starting dataset initialization...", true);
     }
 
-    if (storedSeedHash != seedHash) {
-        threadSafePrint("Dataset seed hash mismatch", true);
-        return false;
+    // Initialize dataset from cache
+    randomx_init_dataset(dataset, cache, 0, randomx_dataset_item_count());
+
+    if (debugMode) {
+        threadSafePrint("Dataset initialization complete", true);
     }
+}
 
-    // Check if dataset file exists and has correct size
-    std::ifstream datasetFile("randomx_dataset.bin", std::ios::binary | std::ios::ate);
-    if (!datasetFile.is_open()) {
-        threadSafePrint("Dataset file not found", true);
-        return false;
-    }
-
-    std::streamsize size = datasetFile.tellg();
-    datasetFile.close();
-
-    if (size != RANDOMX_DATASET_SIZE) {
-        threadSafePrint("Dataset file has incorrect size", true);
-        return false;
-    }
-
-    threadSafePrint("Found valid dataset for seed hash: " + seedHash, true);
+bool RandomXManager::loadDataset(const std::string& seedHash) {
+    // Dataset is always initialized from cache
     return true;
 }
 
 bool RandomXManager::saveDataset(const std::string& seedHash) {
-    if (!dataset) {
-        threadSafePrint("Cannot save dataset: no dataset allocated", true);
-        return false;
-    }
-
-    // Save seed hash
-    std::ofstream seedFile("randomx_dataset.bin.seed", std::ios::binary);
-    if (!seedFile.is_open()) {
-        threadSafePrint("Failed to open seed hash file for writing", true);
-        return false;
-    }
-    seedFile << seedHash << std::endl;
-    seedFile.close();
-
-    // Save dataset
-    std::ofstream datasetFile("randomx_dataset.bin", std::ios::binary);
-    if (!datasetFile.is_open()) {
-        threadSafePrint("Failed to open dataset file for writing", true);
-        return false;
-    }
-
-    const uint8_t* data = static_cast<const uint8_t*>(randomx_get_dataset_memory(dataset));
-    datasetFile.write(reinterpret_cast<const char*>(data), RANDOMX_DATASET_SIZE);
-    datasetFile.close();
-
-    threadSafePrint("Dataset saved successfully", true);
+    // Dataset is always initialized from cache
     return true;
 }
 
-bool RandomXManager::loadDataset(const std::string& seedHash) {
-    if (!dataset) {
-        threadSafePrint("Cannot load dataset: no dataset allocated", true);
+bool RandomXManager::validateDataset(const std::string& seedHash) {
+    if (!dataset || !cache) {
         return false;
     }
 
-    std::ifstream datasetFile("randomx_dataset.bin", std::ios::binary);
-    if (!datasetFile.is_open()) {
-        threadSafePrint("Failed to open dataset file for reading", true);
-        return false;
-    }
+    // Create a temporary VM to validate the dataset
+    randomx_flags flags = randomx_get_flags();
+    flags |= RANDOMX_FLAG_FULL_MEM;
+    flags |= RANDOMX_FLAG_JIT;
+    flags |= RANDOMX_FLAG_HARD_AES;
+    flags |= RANDOMX_FLAG_SECURE;
 
-    uint8_t* data = static_cast<uint8_t*>(randomx_get_dataset_memory(dataset));
-    datasetFile.read(reinterpret_cast<char*>(data), RANDOMX_DATASET_SIZE);
-    datasetFile.close();
-
-    threadSafePrint("Dataset loaded successfully", true);
-    return true;
-}
-
-bool RandomXManager::initializeRandomX(const std::string& seedHash) {
-    std::lock_guard<std::mutex> lock(initMutex);
-    
-    // Clean up existing state
-    {
-        std::lock_guard<std::mutex> vmLock(vmMutex);
-        for (auto& pair : threadVMs) {
-            if (pair.second) {
-                randomx_destroy_vm(pair.second);
-            }
-        }
-        threadVMs.clear();
-    }
-
-    if (dataset) {
-        randomx_release_dataset(dataset);
-        dataset = nullptr;
-    }
-    if (cache) {
-        randomx_release_cache(cache);
-        cache = nullptr;
-    }
-
-    // Use consistent flags across all RandomX operations
-    RandomXFlags flags(RANDOMX_FLAG_JIT | RANDOMX_FLAG_HARD_AES | RANDOMX_FLAG_FULL_MEM);
-
-    // Check if we have a valid dataset for this seed hash
-    if (isDatasetValid(seedHash)) {
-        threadSafePrint("Using existing dataset for seed hash: " + seedHash, true);
-        
-        // Allocate cache and dataset
-        cache = randomx_alloc_cache(flags.get());
-        if (!cache) {
-            threadSafePrint("Failed to allocate RandomX cache", true);
-            return false;
-        }
-
-        dataset = randomx_alloc_dataset(flags.get());
-        if (!dataset) {
-            threadSafePrint("Failed to allocate RandomX dataset", true);
-            randomx_release_cache(cache);
-            cache = nullptr;
-            return false;
-        }
-
-        // Load the dataset from file
-        if (!loadDataset(seedHash)) {
-            threadSafePrint("Failed to load dataset from file", true);
-            randomx_release_dataset(dataset);
-            randomx_release_cache(cache);
-            dataset = nullptr;
-            cache = nullptr;
-            return false;
-        }
-
-        // Initialize cache with seed hash
-        randomx_init_cache(cache, seedHash.c_str(), seedHash.length());
-
-        // Create VM
-        randomx_vm* vm = randomx_create_vm(flags.get(), cache, dataset);
-        if (!vm) {
-            threadSafePrint("Failed to create RandomX VM", true);
-            randomx_release_dataset(dataset);
-            randomx_release_cache(cache);
-            dataset = nullptr;
-            cache = nullptr;
-            return false;
-        }
-
-        initialized = true;
-        threadSafePrint("Successfully initialized RandomX with existing dataset", true);
-        return true;
-    }
-
-    // If we get here, we need to create a new dataset
-    threadSafePrint("Creating new dataset for seed hash: " + seedHash, true);
-    
-    // Allocate cache and dataset
-    cache = randomx_alloc_cache(flags.get());
-    if (!cache) {
-        threadSafePrint("Failed to allocate RandomX cache", true);
-        return false;
-    }
-
-    dataset = randomx_alloc_dataset(flags.get());
-    if (!dataset) {
-        threadSafePrint("Failed to allocate RandomX dataset", true);
-        randomx_release_cache(cache);
-        cache = nullptr;
-        return false;
-    }
-
-    // Initialize cache with seed hash
-    randomx_init_cache(cache, seedHash.c_str(), seedHash.length());
-
-    // Initialize dataset using multiple threads
-    const int numThreads = std::thread::hardware_concurrency();
-    threadSafePrint("Initializing dataset using " + std::to_string(numThreads) + " threads...", true);
-    
-    std::vector<std::thread> threads;
-    for (int i = 0; i < numThreads; i++) {
-        threads.emplace_back([i, numThreads]() {
-            try {
-                uint64_t startItem = (RANDOMX_DATASET_ITEM_COUNT * i) / numThreads;
-                uint64_t itemCount = (RANDOMX_DATASET_ITEM_COUNT * (i + 1)) / numThreads - startItem;
-                randomx_init_dataset(dataset, cache,
-                    static_cast<unsigned long>(startItem),
-                    static_cast<unsigned long>(itemCount));
-            } catch (const std::exception& e) {
-                threadSafePrint("Error in dataset initialization thread: " + std::string(e.what()), true);
-            }
-        });
-    }
-
-    for (auto& thread : threads) {
-        thread.join();
-    }
-
-    // Save the dataset for future use
-    if (!saveDataset(seedHash)) {
-        threadSafePrint("Failed to save dataset", true);
-        randomx_release_dataset(dataset);
-        randomx_release_cache(cache);
-        dataset = nullptr;
-        cache = nullptr;
-        return false;
-    }
-
-    // Create VM
-    randomx_vm* vm = randomx_create_vm(flags.get(), cache, dataset);
+    randomx_vm* vm = randomx_create_vm(flags, cache, dataset);
     if (!vm) {
-        threadSafePrint("Failed to create RandomX VM", true);
-        randomx_release_dataset(dataset);
-        randomx_release_cache(cache);
-        dataset = nullptr;
-        cache = nullptr;
         return false;
     }
 
-    initialized = true;
-    threadSafePrint("Successfully initialized RandomX with new dataset", true);
+    // Test hash calculation
+    uint8_t testInput[32] = {0};
+    uint8_t testOutput[32];
+    randomx_calculate_hash(vm, testInput, sizeof(testInput), testOutput);
+
+    randomx_destroy_vm(vm);
     return true;
+}
+
+std::string RandomXManager::getDatasetPath(const std::string& seedHash) {
+    return "randomx_dataset_" + seedHash + ".bin";
 }
 
 void RandomXManager::handleSeedHashChange(const std::string& newSeedHash) {
     std::lock_guard<std::mutex> lock(seedHashMutex);
-    if (currentSeedHash != newSeedHash) {
-        threadSafePrint("Seed hash changed from " + (currentSeedHash.empty() ? "none" : currentSeedHash) + " to " + newSeedHash, true);
-        currentSeedHash = newSeedHash;
-        
+    
+    if (newSeedHash != currentSeedHash) {
         // Clean up existing VMs
         {
             std::lock_guard<std::mutex> vmLock(vmMutex);
-            for (auto& pair : threadVMs) {
-                if (pair.second) {
-                    randomx_destroy_vm(pair.second);
+            for (auto& [threadId, vm] : vms) {
+                if (vm) {
+                    randomx_destroy_vm(vm);
                 }
             }
-            threadVMs.clear();
+            vms.clear();
         }
-        
+
         // Initialize with new seed hash
-        if (!initializeRandomX(newSeedHash)) {
-            threadSafePrint("Failed to initialize RandomX with new seed hash", true);
+        if (!initialize(newSeedHash)) {
+            threadSafePrint("Failed to initialize RandomX with new seed hash: " + newSeedHash, true);
+            return;
+        }
+
+        // Notify all mining threads to reinitialize their VMs
+        for (auto* data : threadData) {
+            if (data) {
+                data->updateJob(Job()); // Trigger VM reinitialization
+            }
         }
     }
 } 

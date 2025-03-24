@@ -33,36 +33,17 @@ namespace MiningStats {
         globalStats.startTime = std::chrono::steady_clock::now();
     }
 
-    void updateThreadStats(MiningThreadData* threadData) {
-        if (!threadData) return;
+    void updateThreadStats(MiningThreadData* data, uint64_t hashCount, uint64_t totalHashCount,
+                          int elapsedSeconds, const std::string& jobId, uint32_t currentNonce) {
+        if (!data) return;
 
-        std::lock_guard<std::mutex> lock(statsMutex);
-        if (threadData->getThreadId() >= threadStats.size()) return;
-
-        auto& stats = threadStats[threadData->getThreadId()];
-        auto now = std::chrono::steady_clock::now();
-        auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - stats->startTime).count();
-        
-        stats->totalHashes = threadData->getTotalHashCount();
-        stats->acceptedShares = threadData->acceptedShares;
-        stats->rejectedShares = threadData->rejectedShares;
-        stats->currentHashrate = (elapsed > 0) ? stats->totalHashes / elapsed : 0;
-        stats->runtime = elapsed;
-
-        // Update global stats
-        globalStats.currentHashrate.store(0.0);
-        globalStats.totalShares = 0;
-        globalStats.acceptedShares = 0;
-        globalStats.rejectedShares = 0;
-
-        double totalHashrate = 0.0;
-        for (const auto& threadStat : threadStats) {
-            totalHashrate += threadStat->currentHashrate;
-            globalStats.totalShares += threadStat->acceptedShares + threadStat->rejectedShares;
-            globalStats.acceptedShares += threadStat->acceptedShares;
-            globalStats.rejectedShares += threadStat->rejectedShares;
-        }
-        globalStats.currentHashrate.store(totalHashrate);
+        data->incrementHashCount();
+        globalStats.totalHashes = totalHashCount;
+        globalStats.acceptedShares = data->getAcceptedShares();
+        globalStats.rejectedShares = data->getRejectedShares();
+        globalStats.elapsedSeconds = elapsedSeconds;
+        globalStats.currentJobId = jobId;
+        globalStats.currentNonce = currentNonce;
     }
 
     void globalStatsMonitor() {
@@ -80,8 +61,8 @@ namespace MiningStats {
             for (const auto& data : threadData) {
                 if (data) {
                     totalHashes += data->getTotalHashCount();
-                    totalAcceptedShares += data->acceptedShares;
-                    totalRejectedShares += data->rejectedShares;
+                    totalAcceptedShares += data->getAcceptedShares();
+                    totalRejectedShares += data->getRejectedShares();
                     totalHashrate += data->getHashrate();
                 }
             }
@@ -100,8 +81,8 @@ namespace MiningStats {
                        << " Hash Rate: " << std::fixed << std::setprecision(2) 
                        << (data->getHashrate() / 1000.0) << " kH/s | "
                        << "Hashes: " << data->getTotalHashCount() 
-                       << " | Shares: " << data->acceptedShares << "/" 
-                       << data->rejectedShares << std::endl;
+                       << " | Shares: " << data->getAcceptedShares() << "/" 
+                       << data->getRejectedShares() << std::endl;
                 }
             }
             

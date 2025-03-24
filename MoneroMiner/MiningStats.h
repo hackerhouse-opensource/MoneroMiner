@@ -18,7 +18,8 @@ namespace MiningStats {
     extern std::vector<MiningThreadData*> threadData;
 
     void initializeStats(const Config& config);
-    void updateThreadStats(MiningThreadData* threadData);
+    void updateThreadStats(MiningThreadData* data, uint64_t hashCount, uint64_t totalHashCount,
+                          int elapsedSeconds, const std::string& jobId, uint32_t currentNonce);
     void globalStatsMonitor();
     void stopStatsMonitor();
 } 

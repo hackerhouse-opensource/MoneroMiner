@@ -38,6 +38,7 @@ std::atomic<uint32_t> debugHashCounter(0);
 std::atomic<bool> newJobAvailable(false);
 std::atomic<bool> showedInitMessage(false);
 std::atomic<uint32_t> activeJobId(0);
+std::atomic<uint32_t> notifiedJobId(0);
 std::vector<MiningThreadData*> threadData;
 
 // Global configuration and stats

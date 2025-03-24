@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <cstdint>
+#include <iostream>
 
 namespace HashValidation {
     // Format hash bytes to hex string
@@ -17,7 +18,17 @@ namespace HashValidation {
     // Check hash against target (internal implementation)
     bool checkHash(const uint8_t* hash, const std::string& targetHex);
 
-    bool meetsTarget(const std::vector<uint8_t>& hash, const std::vector<uint8_t>& target);
-    std::vector<uint8_t> expandTarget(const std::string& compactTarget);
-    bool checkHashDifficulty(const uint8_t* hash, uint64_t difficulty);
+    // Convert hash to hex string
+    std::string hashToHex(const uint8_t* hash, size_t size);
+
+    // Convert hex string to bytes
+    std::vector<uint8_t> hexToBytes(const std::string& hex);
+
+    // Debug output functions
+    void printHashValidation(const std::string& hashHex, const std::string& targetHex);
+    void printTargetExpansion(const std::string& targetHex);
+    void printHashComparison(const uint8_t* hash, const uint8_t* target);
+
+    // Legacy function for backward compatibility
+    bool meetsTarget(const uint8_t* hash, const std::string& target);
 } 
