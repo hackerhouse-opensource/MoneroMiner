@@ -9,6 +9,7 @@
 #include <memory>
 #include <atomic>
 #include <mutex>
+#include <unordered_map>
 
 namespace MiningStats {
     extern std::atomic<bool> shouldStop;
@@ -22,4 +23,31 @@ namespace MiningStats {
                           int elapsedSeconds, const std::string& jobId, uint32_t currentNonce);
     void globalStatsMonitor();
     void stopStatsMonitor();
+    void updateHashCount(int threadId, uint64_t count);
+    uint64_t getHashCount(int threadId);
+    uint64_t getTotalHashes();
+
+    class MiningStats {
+    public:
+        static void updateHashCount(int threadId, uint64_t count) {
+            std::lock_guard<std::mutex> lock(mutex);
+            hashCounts[threadId] += count;
+            totalHashes += count;
+        }
+
+        static uint64_t getHashCount(int threadId) {
+            std::lock_guard<std::mutex> lock(mutex);
+            return hashCounts[threadId];
+        }
+
+        static uint64_t getTotalHashes() {
+            std::lock_guard<std::mutex> lock(mutex);
+            return totalHashes;
+        }
+
+    private:
+        static std::mutex mutex;
+        static std::unordered_map<int, uint64_t> hashCounts;
+        static uint64_t totalHashes;
+    };
 } 

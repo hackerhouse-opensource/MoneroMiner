@@ -18,7 +18,6 @@
 // Global variables declared in MoneroMiner.h
 extern bool debugMode;
 extern std::queue<Job> jobQueue;
-extern std::condition_variable jobQueueCV;
 extern std::atomic<uint32_t> activeJobId;
 extern std::atomic<bool> shouldStop;
 extern Config config;
@@ -76,22 +75,30 @@ bool MiningThreadData::calculateHash(const std::vector<uint8_t>& blob, uint64_t 
 }
 
 void MiningThreadData::updateJob(const Job& job) {
-    threadSafePrint("Thread " + std::to_string(threadId) + " updating job to ID: " + job.getJobId(), true);
+    std::lock_guard<std::mutex> lock(jobMutex);
     
-    // Create a new job object
-    currentJob = std::make_shared<Job>(job);
-    currentJobId = job.getJobId();
-    currentNonce = job.getNonce();
+    // Delete old job if it exists
+    if (currentJob) {
+        delete currentJob;
+    }
+    
+    // Create new job
+    currentJob = new Job(job);
+    currentJobId = job.jobId;
+    currentNonce = 0;
+    currentSeedHash = job.seedHash;
+    
+    // Reset hash count for new job
     hashCount = 0;
     
-    // Check if we need to reinitialize VM
-    if (needsVMReinit(job.getSeedHash())) {
-        threadSafePrint("Thread " + std::to_string(threadId) + " needs VM reinitialization for new seed hash", true);
-        if (!initializeVM()) {
-            threadSafePrint("Failed to initialize VM for thread " + std::to_string(threadId), true);
-            return;
+    // Check if VM needs reinitialization
+    if (needsVMReinit(job.seedHash)) {
+        std::lock_guard<std::mutex> vmLock(vmMutex);
+        if (vm) {
+            RandomXManager::destroyVM(vm);
+            vm = nullptr;
         }
-        currentSeedHash = job.getSeedHash();
+        vmInitialized = false;
     }
 }
 
@@ -105,14 +112,14 @@ void MiningThreadData::mine() {
     while (!shouldStop) {
         // Wait for a job
         threadSafePrint("Thread " + std::to_string(threadId) + " waiting for job...", true);
-        std::unique_lock<std::mutex> jobLock(jobMutex);
+        std::unique_lock<std::mutex> jobLock(PoolClient::jobMutex);
         
         // Debug job queue state
         threadSafePrint("Thread " + std::to_string(threadId) + 
-                       " job queue size: " + std::to_string(jobQueue.size()), true);
+                       " job queue size: " + std::to_string(PoolClient::jobQueue.size()), true);
         
-        jobQueueCV.wait(jobLock, [this]() { 
-            bool hasJob = !jobQueue.empty();
+        PoolClient::jobQueueCondition.wait(jobLock, [this]() { 
+            bool hasJob = !PoolClient::jobQueue.empty();
             if (hasJob) {
                 threadSafePrint("Thread " + std::to_string(threadId) + 
                               " job queue is not empty, waking up", true);
@@ -126,7 +133,7 @@ void MiningThreadData::mine() {
         }
 
         // Get current job
-        Job currentJob = jobQueue.front();
+        Job currentJob = PoolClient::jobQueue.front();
         jobLock.unlock();
 
         threadSafePrint("Thread " + std::to_string(threadId) + 

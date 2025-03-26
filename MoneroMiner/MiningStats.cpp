@@ -10,6 +10,7 @@
 #include <thread>
 #include <mutex>
 #include <atomic>
+#include <unordered_map>
 
 namespace MiningStats {
     std::atomic<bool> shouldStop(false);
@@ -17,6 +18,9 @@ namespace MiningStats {
     GlobalStats globalStats;
     std::mutex statsMutex;
     std::vector<MiningThreadData*> threadData;
+    std::mutex hashMutex;
+    std::unordered_map<int, uint64_t> hashCounts;
+    uint64_t totalHashes = 0;
 
     void initializeStats(const Config& config) {
         threadStats.clear();
@@ -92,5 +96,21 @@ namespace MiningStats {
 
     void stopStatsMonitor() {
         shouldStop = true;
+    }
+
+    void updateHashCount(int threadId, uint64_t count) {
+        std::lock_guard<std::mutex> lock(hashMutex);
+        hashCounts[threadId] += count;
+        totalHashes += count;
+    }
+
+    uint64_t getHashCount(int threadId) {
+        std::lock_guard<std::mutex> lock(hashMutex);
+        return hashCounts[threadId];
+    }
+
+    uint64_t getTotalHashes() {
+        std::lock_guard<std::mutex> lock(hashMutex);
+        return totalHashes;
     }
 } 

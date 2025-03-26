@@ -13,12 +13,13 @@ public:
     std::string blobHex;
     std::vector<uint8_t> blob;
     std::string target;
-    uint64_t height;
+    uint32_t height;
     std::string seedHash;
+    uint64_t difficulty;
     uint64_t nonce;
 
     // Default constructor
-    Job() : height(0), nonce(0) {}
+    Job() : height(0), difficulty(0), nonce(0) {}
 
     // Copy constructor
     Job(const Job& other) = default;
@@ -37,8 +38,9 @@ public:
     const std::string& getBlobHex() const { return blobHex; }
     const std::vector<uint8_t>& getBlob() const { return blob; }
     const std::string& getTarget() const { return target; }
-    uint64_t getHeight() const { return height; }
+    uint32_t getHeight() const { return height; }
     const std::string& getSeedHash() const { return seedHash; }
+    uint64_t getDifficulty() const { return difficulty; }
     uint64_t getNonce() const { return nonce; }
 
     // Setters
@@ -62,8 +64,9 @@ public:
         blobHex = ss.str();
     }
     void setTarget(const std::string& targetData) { target = targetData; }
-    void setHeight(uint64_t jobHeight) { height = jobHeight; }
+    void setHeight(uint32_t jobHeight) { height = jobHeight; }
     void setSeedHash(const std::string& hash) { seedHash = hash; }
+    void setDifficulty(uint64_t d) { difficulty = d; }
     void setNonce(uint64_t n) { nonce = n; }
     void incrementNonce() { nonce++; }
 
@@ -72,8 +75,14 @@ public:
         return blobHex.empty() || target.empty() || jobId.empty() || height == 0 || seedHash.empty();
     }
 
-    Job(const std::string& id, const std::string& blob, const std::string& tgt, uint64_t h)
-        : jobId(id), blobHex(blob), target(tgt), height(h) {}
+    Job(const std::string& id, const std::string& blob, const std::string& tgt, uint32_t h, const std::string& seed)
+        : jobId(id), blobHex(blob), target(tgt), height(h), seedHash(seed), nonce(0) {
+        // Convert hex blob to bytes
+        for (size_t i = 0; i < blob.length(); i += 2) {
+            std::string byteString = blob.substr(i, 2);
+            this->blob.push_back(static_cast<uint8_t>(std::stoi(byteString, nullptr, 16)));
+        }
+    }
 };
 
 // Job-related functions

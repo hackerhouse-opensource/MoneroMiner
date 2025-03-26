@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include "randomx.h"
 #include "HashValidation.h"
+#include "Types.h"
 
 // Forward declaration
 class MiningThreadData;
@@ -19,18 +20,20 @@ public:
     static void destroyVM(randomx_vm* vm);
     static bool calculateHash(randomx_vm* vm, const std::vector<uint8_t>& blob, uint64_t nonce);
     static bool verifyHash(const uint8_t* input, size_t inputSize, const uint8_t* expectedHash, int threadId);
-    static bool isInitialized() { return initialized; }
+    static bool isInitialized() { return dataset != nullptr; }
     static std::string getCurrentSeedHash() { return currentSeedHash; }
     static void initializeDataset(const std::string& seedHash);
     static bool loadDataset(const std::string& seedHash);
     static bool saveDataset(const std::string& seedHash);
     static bool validateDataset(const std::string& seedHash);
     static void handleSeedHashChange(const std::string& newSeedHash);
+    static std::string currentTargetHex;
 
 private:
     static std::mutex vmMutex;
     static std::mutex datasetMutex;
     static std::mutex seedHashMutex;
+    static std::mutex initMutex;
     static std::unordered_map<int, randomx_vm*> vms;
     static randomx_cache* cache;
     static randomx_dataset* dataset;

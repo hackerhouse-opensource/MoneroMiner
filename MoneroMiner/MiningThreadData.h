@@ -7,12 +7,11 @@
 #include <vector>
 #include <string>
 #include <cstdint>
+#include <thread>
 #include "Types.h"
-#include "Globals.h"
 #include "HashBuffers.h"
 #include "Job.h"
 #include "RandomXManager.h"
-#include <thread>
 #include "randomx.h"
 
 // Forward declarations
@@ -58,6 +57,10 @@ public:
     void mine();
     void submitShare(const uint8_t* hash);
 
+    // Public members
+    std::atomic<bool> shouldStop;
+    Job* currentJob;
+
 private:
     int threadId;
     randomx_vm* vm;
@@ -67,10 +70,8 @@ private:
     std::unique_ptr<HashBuffers> hashBuffers;
     std::mutex vmMutex;
     std::mutex jobMutex;
-    std::shared_ptr<Job> currentJob;
     uint64_t currentNonce;
     std::string currentJobId;
-    std::atomic<bool> shouldStop;
     std::thread thread;
     std::chrono::steady_clock::time_point startTime;
     uint32_t currentDebugCounter;
