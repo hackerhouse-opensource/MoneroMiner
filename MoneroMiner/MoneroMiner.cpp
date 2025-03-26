@@ -228,8 +228,6 @@ void processNewJob(const picojson::object& jobObj) {
                 std::swap(PoolClient::jobQueue, empty);
                 // Add the new job
                 PoolClient::jobQueue.push(newJob);
-                // Reset the newJobAvailable flag
-                newJobAvailable.store(false);
             }
 
             // Print job details
@@ -257,7 +255,9 @@ void processNewJob(const picojson::object& jobObj) {
 
             threadSafePrint("Job processed and distributed to all threads", true);
         } else {
-            threadSafePrint("Skipping duplicate job: " + jobId, true);
+            if (debugMode) {
+                threadSafePrint("Skipping duplicate job: " + jobId, true);
+            }
         }
     }
     catch (const std::exception& e) {
@@ -556,7 +556,6 @@ void mineThread(int threadId) {
 
                 if (!PoolClient::jobQueue.empty()) {
                     job = PoolClient::jobQueue.front();
-                    // Don't pop the job from the queue - other threads need it too
                 }
             }
 
@@ -575,9 +574,47 @@ void mineThread(int threadId) {
 
             while (!PoolClient::shouldStop) {
                 for (uint32_t i = 0; i < batchSize; i++) {
-                    if (RandomXManager::calculateHash(vm, job.blob, nonce + i)) {
+                    uint8_t hash[32];
+                    if (RandomXManager::calculateHash(vm, job.blob, nonce + i, hash)) {
                         // Hash calculated successfully
                         hashCount++;
+                        
+                        // Debug output for first hash in batch
+                        if (debugMode && i == 0) {
+                            std::stringstream ss;
+                            ss << "Thread " << threadId << " calculated hash:" << std::endl;
+                            ss << "  Nonce: 0x" << std::hex << std::setw(16) << std::setfill('0') << (nonce + i) << std::endl;
+                            ss << "  Hash: ";
+                            for (int j = 0; j < 32; j++) {
+                                ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hash[j]);
+                            }
+                            ss << std::endl;
+                            threadSafePrint(ss.str(), true);
+                        }
+                        
+                        // Check if hash meets target
+                        const uint8_t* target = reinterpret_cast<const uint8_t*>(job.target.data());
+                        if (RandomXManager::verifyHash(hash, 32, target, threadId)) {
+                            // Convert nonce to hex
+                            std::stringstream ss;
+                            ss << std::hex << std::setw(16) << std::setfill('0') << (nonce + i);
+                            std::string nonceHex = ss.str();
+                            
+                            // Convert hash to hex
+                            std::string hashHex;
+                            for (int j = 0; j < 32; j++) {
+                                ss.str("");
+                                ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hash[j]);
+                                hashHex += ss.str();
+                            }
+                            
+                            // Submit share
+                            if (submitShare(job.jobId, nonceHex, hashHex, "rx/0")) {
+                                if (debugMode) {
+                                    threadSafePrint("Thread " + std::to_string(threadId) + " found valid share!", true);
+                                }
+                            }
+                        }
                     }
                 }
 

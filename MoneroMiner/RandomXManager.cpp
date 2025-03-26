@@ -302,65 +302,46 @@ void RandomXManager::destroyVM(randomx_vm* vm) {
     }
 }
 
-bool RandomXManager::calculateHash(randomx_vm* vm, const std::vector<uint8_t>& blob, uint64_t nonce) {
+bool RandomXManager::calculateHash(randomx_vm* vm, const std::vector<uint8_t>& blob, uint64_t nonce, uint8_t* hash) {
+    if (!vm || blob.empty() || !hash) {
+        return false;
+    }
+
     try {
         // Create a copy of the blob to modify the nonce
         std::vector<uint8_t> modifiedBlob = blob;
-
-        // Update nonce in blob
-        for (int i = 0; i < 4; i++) {
-            modifiedBlob[39 - i] = (nonce >> (i * 8)) & 0xFF;
+        
+        // Update nonce in the blob (last 4 bytes)
+        if (modifiedBlob.size() >= 4) {
+            uint32_t* noncePtr = reinterpret_cast<uint32_t*>(&modifiedBlob[modifiedBlob.size() - 4]);
+            *noncePtr = static_cast<uint32_t>(nonce);
         }
 
         // Calculate hash
-        uint8_t hash[32];
         randomx_calculate_hash(vm, modifiedBlob.data(), modifiedBlob.size(), hash);
 
-        // Debug output for first hash
-        static bool firstHash = true;
-        if (firstHash && debugMode) {
+        if (debugMode) {
             std::stringstream ss;
-            ss << "\nInitial hash calculation:" << std::endl;
-            ss << "  Blob (hex): ";
-            for (uint8_t b : blob) {
+            ss << "Initial hash calculation:" << std::endl;
+            ss << "  Blob: ";
+            for (uint8_t b : modifiedBlob) {
                 ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(b);
             }
             ss << std::endl;
-            ss << "  Nonce: " << nonce << std::endl;
-            ss << "  Hash (hex): ";
+            ss << "  Nonce: 0x" << std::hex << std::setw(8) << std::setfill('0') << nonce << std::endl;
+            ss << "  Hash: ";
             for (int i = 0; i < 32; i++) {
                 ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hash[i]);
             }
             ss << std::endl;
-            
-            // Convert target from compact format
-            uint64_t target;
-            std::stringstream targetSS;
-            targetSS << std::hex << currentTargetHex;
-            targetSS >> target;
-            
-            // Calculate expanded target
-            uint64_t expandedTarget = 0;
-            int shift = (target >> 24) & 0xFF;
-            uint64_t mantissa = target & 0xFFFFFF;
-            if (shift <= 3) {
-                expandedTarget = mantissa >> (8 * (3 - shift));
-            } else {
-                expandedTarget = mantissa << (8 * (shift - 3));
-            }
-            
-            ss << "  Target (compact): 0x" << currentTargetHex << std::endl;
-            ss << "  Target (expanded): 0x" << std::hex << expandedTarget << std::endl;
-            ss << "  Difficulty: " << std::dec << (0xFFFFFFFFFFFFFFFFULL / static_cast<double>(expandedTarget)) << std::endl;
-            
+            ss << "  Target: 0x" << currentTargetHex << std::endl;
             threadSafePrint(ss.str(), true);
-            firstHash = false;
         }
 
         return true;
     }
     catch (const std::exception& e) {
-        threadSafePrint("Error calculating hash: " + std::string(e.what()), true);
+        threadSafePrint("Error in calculateHash: " + std::string(e.what()), true);
         return false;
     }
 }
@@ -368,17 +349,19 @@ bool RandomXManager::calculateHash(randomx_vm* vm, const std::vector<uint8_t>& b
 bool RandomXManager::verifyHash(const uint8_t* input, size_t inputSize, const uint8_t* expectedHash, int threadId) {
     std::vector<uint8_t> inputVec(input, input + inputSize);
     uint64_t nonce = 0; // For verification, we don't need a specific nonce
+    uint8_t hash[32];
     
     auto it = vms.find(threadId);
     if (it == vms.end() || !it->second) {
         return false;
     }
 
-    if (!calculateHash(it->second, inputVec, nonce)) {
+    if (!calculateHash(it->second, inputVec, nonce, hash)) {
         return false;
     }
 
-    return true;
+    // Compare the calculated hash with the expected hash
+    return memcmp(hash, expectedHash, 32) == 0;
 }
 
 void RandomXManager::initializeDataset(const std::string& seedHash) {

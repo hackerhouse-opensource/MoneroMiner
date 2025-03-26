@@ -337,48 +337,107 @@ namespace PoolClient {
 
     void jobListener() {
         while (!shouldStop) {
-            std::string response = sendAndReceive("{\"id\":1,\"jsonrpc\":\"2.0\",\"method\":\"getjob\"}");
-            if (response.empty()) {
-                std::this_thread::sleep_for(std::chrono::seconds(1));
-                continue;
-            }
-
             try {
+                // Wait for data with timeout
+                fd_set readSet;
+                FD_ZERO(&readSet);
+                FD_SET(poolSocket, &readSet);
+
+                struct timeval timeout;
+                timeout.tv_sec = 1;  // 1 second timeout
+                timeout.tv_usec = 0;
+
+                int result = select(0, &readSet, nullptr, nullptr, &timeout);
+                if (result == 0) {
+                    continue;  // Timeout, check shouldStop and continue
+                }
+                if (result == SOCKET_ERROR) {
+                    threadSafePrint("Select error in job listener: " + std::to_string(WSAGetLastError()), true);
+                    break;
+                }
+
+                // Receive response
+                std::string response;
+                char buffer[4096];
+                int totalBytes = 0;
+                
+                while (true) {
+                    int bytesReceived = recv(poolSocket, buffer, sizeof(buffer) - 1, 0);
+                    if (bytesReceived == SOCKET_ERROR) {
+                        int error = WSAGetLastError();
+                        threadSafePrint("Failed to receive data in job listener: " + std::to_string(error), true);
+                        break;
+                    }
+                    if (bytesReceived == 0) {
+                        break;  // Connection closed
+                    }
+                    
+                    buffer[bytesReceived] = '\0';
+                    response += buffer;
+                    totalBytes += bytesReceived;
+
+                    // Check if we have a complete JSON response
+                    try {
+                        picojson::value v;
+                        std::string err = picojson::parse(v, response);
+                        if (err.empty()) {
+                            break;  // Valid JSON received
+                        }
+                    } catch (...) {
+                        // Continue receiving if JSON is incomplete
+                    }
+                }
+
+                if (response.empty()) {
+                    continue;
+                }
+
+                // Parse response
                 picojson::value v;
                 std::string err = picojson::parse(v, response);
                 if (!err.empty()) {
-                    threadSafePrint("JSON parse error in job listener: " + err, true);
+                    threadSafePrint("Failed to parse job listener response: " + err, true);
                     continue;
                 }
 
                 if (!v.is<picojson::object>()) {
-                    threadSafePrint("Invalid result format in job listener", true);
+                    threadSafePrint("Invalid response format in job listener", true);
                     continue;
                 }
 
                 const picojson::object& obj = v.get<picojson::object>();
-                if (obj.find("result") == obj.end()) {
-                    threadSafePrint("No result in job response", true);
-                    continue;
-                }
+                
+                // Handle job update
+                if (obj.find("method") != obj.end() && obj.at("method").get<std::string>() == "job") {
+                    if (obj.find("params") == obj.end()) {
+                        threadSafePrint("No params in job update", true);
+                        continue;
+                    }
 
-                const picojson::object& result = obj.at("result").get<picojson::object>();
-                if (result.find("job") == result.end()) {
-                    threadSafePrint("No job in response", true);
-                    continue;
-                }
+                    const picojson::value& params = obj.at("params");
+                    if (!params.is<picojson::object>()) {
+                        threadSafePrint("Invalid params format in job update", true);
+                        continue;
+                    }
 
-                const picojson::object& jobObj = result.at("job").get<picojson::object>();
-                processNewJob(jobObj);
+                    const picojson::object& jobObj = params.get<picojson::object>();
+                    processNewJob(jobObj);
+                }
+                // Handle login response
+                else if (obj.find("result") != obj.end()) {
+                    const picojson::value& result = obj.at("result");
+                    if (result.is<picojson::object>()) {
+                        const picojson::object& resultObj = result.get<picojson::object>();
+                        if (resultObj.find("job") != resultObj.end()) {
+                            const picojson::object& jobObj = resultObj.at("job").get<picojson::object>();
+                            processNewJob(jobObj);
+                        }
+                    }
+                }
             }
             catch (const std::exception& e) {
-                threadSafePrint("Error processing job response: " + std::string(e.what()), true);
+                threadSafePrint("Error in job listener: " + std::string(e.what()), true);
             }
-            catch (...) {
-                threadSafePrint("Unknown error processing job response", true);
-            }
-
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
     }
 
@@ -521,30 +580,6 @@ namespace PoolClient {
                 threadSafePrint("Invalid job format", true);
                 return false;
             }
-
-            // Process the job
-            Job newJob;
-            newJob.jobId = job.get("job_id").get<std::string>();
-            newJob.blob = hexToBytes(job.get("blob").get<std::string>());
-            newJob.target = job.get("target").get<std::string>();
-            newJob.height = static_cast<uint32_t>(job.get("height").get<double>());
-            newJob.seedHash = job.get("seed_hash").get<std::string>();
-
-            // Calculate difficulty
-            uint64_t target;
-            std::stringstream ss;
-            ss << std::hex << newJob.target;
-            ss >> target;
-            newJob.difficulty = (0xFFFFFFFFFFFFFFFF / target);
-
-            // Print job details
-            threadSafePrint("\nNew job details:", true);
-            threadSafePrint("  Height: " + std::to_string(newJob.height), true);
-            threadSafePrint("  Job ID: " + newJob.jobId, true);
-            threadSafePrint("  Target: 0x" + newJob.target, true);
-            threadSafePrint("  Blob: " + bytesToHex(newJob.blob), true);
-            threadSafePrint("  Seed Hash: " + newJob.seedHash, true);
-            threadSafePrint("  Difficulty: " + std::to_string(newJob.difficulty), true);
 
             // Process the job
             processNewJob(job.get<picojson::object>());

@@ -18,7 +18,7 @@ public:
     static void cleanup();
     static randomx_vm* createVM(int threadId);
     static void destroyVM(randomx_vm* vm);
-    static bool calculateHash(randomx_vm* vm, const std::vector<uint8_t>& blob, uint64_t nonce);
+    static bool calculateHash(randomx_vm* vm, const std::vector<uint8_t>& blob, uint64_t nonce, uint8_t* hash);
     static bool verifyHash(const uint8_t* input, size_t inputSize, const uint8_t* expectedHash, int threadId);
     static bool isInitialized() { return dataset != nullptr; }
     static std::string getCurrentSeedHash() { return currentSeedHash; }
