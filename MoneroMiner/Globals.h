@@ -13,6 +13,7 @@ class MiningThreadData;
 // Global variables
 extern bool debugMode;
 extern std::atomic<bool> shouldStop;
+extern std::atomic<bool> showedInitMessage;
 extern std::ofstream logFile;
 extern std::mutex consoleMutex;
 extern std::mutex logfileMutex;

@@ -19,7 +19,26 @@ struct randomx_vm;
 
 class MiningThreadData {
 public:
-    MiningThreadData(int threadId);
+    MiningThreadData(int threadId) : 
+        threadId(threadId), 
+        nonce(0), 
+        shouldStop(false),
+        currentJob(nullptr),
+        vm(nullptr),
+        vmInitialized(false),
+        hashCount(0),
+        totalHashCount(0),
+        currentNonce(0),
+        currentDebugCounter(0),
+        running(false),
+        hashes(0),
+        shares(0),
+        acceptedShares(0),
+        rejectedShares(0),
+        elapsedSeconds(0) {
+        startTime = std::chrono::steady_clock::now();
+        lastUpdate = startTime;
+    }
     ~MiningThreadData();
 
     // Getters
@@ -29,11 +48,12 @@ public:
     uint64_t getAcceptedShares() const { return acceptedShares; }
     uint64_t getRejectedShares() const { return rejectedShares; }
     uint64_t getShares() const { return shares; }
-    std::string getCurrentJobId() const { return currentJobId; }
+    std::string getCurrentJobId() const { return currentJob ? currentJob->getJobId() : ""; }
     uint64_t getCurrentNonce() const { return currentNonce; }
     std::chrono::steady_clock::time_point getStartTime() const { return startTime; }
     double getHashrate() const;
     int getElapsedSeconds() const { return elapsedSeconds; }
+    bool shouldStopMining() const { return shouldStop; }
 
     // Setters
     void setHashCount(uint64_t count) { hashCount = count; }
@@ -41,9 +61,9 @@ public:
     void incrementHashCount() { hashCount++; }
     void incrementAcceptedShares() { acceptedShares++; }
     void incrementRejectedShares() { rejectedShares++; }
-    void setCurrentJobId(const std::string& jobId) { currentJobId = jobId; }
     void setCurrentNonce(uint64_t nonce) { currentNonce = nonce; }
     void setElapsedSeconds(int seconds) { elapsedSeconds = seconds; }
+    void stopMining() { shouldStop = true; }
 
     // VM operations
     bool initializeVM();
@@ -57,9 +77,13 @@ public:
     void mine();
     void submitShare(const uint8_t* hash);
 
-    // Public members
-    std::atomic<bool> shouldStop;
-    Job* currentJob;
+    // Job management
+    bool hasJob() const { return currentJob != nullptr; }
+    Job* getCurrentJob() const { return currentJob; }
+
+    // Nonce management
+    uint64_t getNonce() const { return currentNonce; }
+    void setNonce(uint64_t newNonce) { currentNonce = newNonce; }
 
 private:
     int threadId;
@@ -71,7 +95,7 @@ private:
     std::mutex vmMutex;
     std::mutex jobMutex;
     uint64_t currentNonce;
-    std::string currentJobId;
+    Job* currentJob;
     std::thread thread;
     std::chrono::steady_clock::time_point startTime;
     uint32_t currentDebugCounter;
@@ -83,4 +107,6 @@ private:
     std::atomic<uint64_t> acceptedShares;
     std::atomic<uint64_t> rejectedShares;
     int elapsedSeconds;
+    uint64_t nonce;
+    std::atomic<bool> shouldStop;
 }; 

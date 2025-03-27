@@ -8,6 +8,7 @@
 // Global variables definitions
 bool debugMode = false;
 std::atomic<bool> shouldStop(false);
+std::atomic<bool> showedInitMessage(false);
 std::ofstream logFile;
 std::mutex consoleMutex;
 std::mutex logfileMutex;

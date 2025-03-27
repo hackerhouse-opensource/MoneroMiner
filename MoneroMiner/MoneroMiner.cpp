@@ -46,6 +46,10 @@ std::string createSubmitPayload(const std::string& sessionId, const std::string&
                               const std::string& algo);
 void handleShareResponse(const std::string& response, bool& accepted);
 std::string sendAndReceive(SOCKET sock, const std::string& payload);
+bool submitShare(const std::string& jobId, const std::string& nonce, const std::string& hash, const std::string& algo);
+void handleLoginResponse(const std::string& response);
+void processNewJob(const picojson::object& jobObj);
+void miningThread(int threadId);
 
 void printHelp() {
     std::cout << "MoneroMiner v1.0.0 - Lightweight High Performance Monero CPU Miner\n\n"
@@ -149,49 +153,127 @@ void printConfig() {
     std::cout << std::endl;
 }
 
-void miningThread(MiningThreadData* threadData) {
+void miningThread(int threadId) {
     try {
-        std::cout << "Mining thread " << threadData->getThreadId() << " started" << std::endl;
+        threadSafePrint("Starting mining thread " + std::to_string(threadId), true);
         
-        while (!threadData->shouldStop) {
-            Job* currentJob = nullptr;
-            {
-                std::unique_lock<std::mutex> lock(PoolClient::jobMutex);
-                PoolClient::jobQueueCondition.wait(lock, [&]() {
-                    return !PoolClient::jobQueue.empty() || threadData->shouldStop;
-                });
-                
-                if (threadData->shouldStop) break;
-                
-                if (!PoolClient::jobQueue.empty()) {
-                    currentJob = new Job(PoolClient::jobQueue.front());
+        // Get thread data
+        auto& data = threadData[threadId];
+        if (!data) {
+            threadSafePrint("Failed to get thread data for thread " + std::to_string(threadId), true);
+            return;
+        }
+
+        // Initialize VM
+        if (!data->initializeVM()) {
+            threadSafePrint("Failed to initialize VM for thread " + std::to_string(threadId), true);
+            return;
+        }
+
+        // Main mining loop
+        while (!shouldStop) {
+            try {
+                // Wait for a job if we don't have one
+                if (!data->hasJob()) {
+                    std::unique_lock<std::mutex> lock(PoolClient::jobMutex);
+                    PoolClient::jobQueueCondition.wait(lock, [&]() {
+                        return !PoolClient::jobQueue.empty() || shouldStop;
+                    });
+                    
+                    if (shouldStop) break;
+                    
+                    if (PoolClient::jobQueue.empty()) {
+                        threadSafePrint("Thread " + std::to_string(threadId) + 
+                            " woke up but no job available", true);
+                        continue;
+                    }
+                    
+                    // Get new job
+                    Job newJob = PoolClient::jobQueue.front();
                     PoolClient::jobQueue.pop();
+                    data->updateJob(newJob);
+                    
+                    if (debugMode) {
+                        threadSafePrint("Thread " + std::to_string(threadId) + 
+                            " received new job: " + newJob.getJobId(), true);
+                    }
+                }
+
+                // Process current job
+                Job* currentJob = data->getCurrentJob();
+                if (!currentJob) {
+                    threadSafePrint("Thread " + std::to_string(threadId) + 
+                        " no current job available", true);
+                    continue;
+                }
+
+                uint64_t nonce = data->getNonce();
+                uint64_t hashCount = 0;
+                
+                // Set target in RandomXManager
+                RandomXManager::setTarget(currentJob->getTarget());
+                
+                // Process hashes in batches
+                const int BATCH_SIZE = 1000;
+                while (!shouldStop && data->hasJob()) {
+                    // Get current job again to check if it changed
+                    Job* currentJobCheck = data->getCurrentJob();
+                    if (!currentJobCheck || currentJobCheck->getJobId() != currentJob->getJobId()) {
+                        break;
+                    }
+                    
+                    // Calculate batch of hashes
+                    for (int i = 0; i < BATCH_SIZE && !shouldStop; i++) {
+                        std::vector<uint8_t> input = currentJob->getBlob();
+                        uint64_t currentNonce = nonce + i;
+                        
+                        // Insert nonce into input
+                        input[72] = (currentNonce >> 24) & 0xFF;
+                        input[73] = (currentNonce >> 16) & 0xFF;
+                        input[74] = (currentNonce >> 8) & 0xFF;
+                        input[75] = currentNonce & 0xFF;
+                        
+                        // Calculate hash
+                        uint8_t output[32];
+                        if (data->calculateHash(input, currentNonce, output)) {
+                            if (debugMode) {
+                                threadSafePrint("Thread " + std::to_string(threadId) + 
+                                    " found valid hash at nonce " + std::to_string(currentNonce), true);
+                            }
+                            
+                            data->submitShare(output);
+                        }
+                        
+                        hashCount++;
+                    }
+                    
+                    // Update nonce
+                    nonce += BATCH_SIZE;
+                    data->setNonce(nonce);
+                    
+                    // Print hash rate every 1000 hashes
+                    if (hashCount % 1000 == 0) {
+                        threadSafePrint("Thread " + std::to_string(threadId) + 
+                            " processed " + std::to_string(hashCount) + " hashes", true);
+                    }
                 }
             }
-            
-            if (currentJob) {
-                threadData->updateJob(*currentJob);
-                delete currentJob;
-                
-                while (!threadData->shouldStop) {
-                    uint8_t hash[32];
-                    if (threadData->calculateHash(threadData->currentJob->blob, threadData->getCurrentNonce(), hash)) {
-                        const uint8_t* target = reinterpret_cast<const uint8_t*>(threadData->currentJob->target.data());
-                        if (RandomXManager::verifyHash(hash, 32, target, threadData->getThreadId())) {
-                            threadData->submitShare(hash);
-                        }
-                    }
-                    threadData->incrementHashCount();
-                    threadData->setCurrentNonce(threadData->getCurrentNonce() + 1);
-                }
+            catch (const std::exception& e) {
+                threadSafePrint("Error in mining thread " + std::to_string(threadId) + 
+                    ": " + std::string(e.what()), true);
+                std::this_thread::sleep_for(std::chrono::seconds(1));
             }
         }
-        
-        std::cout << "Mining thread " << threadData->getThreadId() << " stopped" << std::endl;
     }
     catch (const std::exception& e) {
-        std::cerr << "Error in mining thread " << threadData->getThreadId() << ": " << e.what() << std::endl;
+        threadSafePrint("Fatal error in mining thread " + std::to_string(threadId) + 
+            ": " + std::string(e.what()), true);
     }
+    catch (...) {
+        threadSafePrint("Unknown fatal error in mining thread " + std::to_string(threadId), true);
+    }
+    
+    threadSafePrint("Mining thread " + std::to_string(threadId) + " stopped", true);
 }
 
 void processNewJob(const picojson::object& jobObj) {
@@ -203,13 +285,11 @@ void processNewJob(const picojson::object& jobObj) {
         uint64_t height = static_cast<uint64_t>(jobObj.at("height").get<double>());
         std::string seedHash = jobObj.at("seed_hash").get<std::string>();
 
-        // Create new job
+        // Create new job with explicit cast to uint32_t
         Job newJob(jobId, blob, target, static_cast<uint32_t>(height), seedHash);
 
         // Update active job ID atomically
         uint32_t jobIdNum = static_cast<uint32_t>(std::stoul(jobId));
-        
-        // Only process if this is a new job
         if (jobIdNum != activeJobId.load()) {
             activeJobId.store(jobIdNum);
             notifiedJobId.store(jobIdNum);
@@ -228,6 +308,11 @@ void processNewJob(const picojson::object& jobObj) {
                 std::swap(PoolClient::jobQueue, empty);
                 // Add the new job
                 PoolClient::jobQueue.push(newJob);
+                
+                if (debugMode) {
+                    threadSafePrint("Job queue updated with new job: " + jobId, true);
+                    threadSafePrint("Queue size: " + std::to_string(PoolClient::jobQueue.size()), true);
+                }
             }
 
             // Print job details
@@ -240,17 +325,36 @@ void processNewJob(const picojson::object& jobObj) {
             
             // Calculate and print difficulty
             uint64_t targetValue = std::stoull(target, nullptr, 16);
-            double difficulty = 0xffffffffffffffffULL / static_cast<double>(targetValue);
+            uint32_t exponent = (targetValue >> 24) & 0xFF;
+            uint32_t mantissa = targetValue & 0xFFFFFF;
+            
+            // Calculate expanded target
+            uint64_t expandedTarget = 0;
+            if (exponent <= 3) {
+                expandedTarget = mantissa >> (8 * (3 - exponent));
+            } else {
+                expandedTarget = static_cast<uint64_t>(mantissa) << (8 * (exponent - 3));
+            }
+            
+            // Calculate difficulty
+            double difficulty = 0xFFFFFFFFFFFFFFFFULL / static_cast<double>(expandedTarget);
             threadSafePrint("  Difficulty: " + std::to_string(difficulty), true);
-
-            // Notify all mining threads about the new job
-            PoolClient::jobQueueCondition.notify_all();
 
             // Update thread data with new job
             for (auto* data : MiningStats::threadData) {
                 if (data) {
                     data->updateJob(newJob);
+                    if (debugMode) {
+                        threadSafePrint("Updated thread " + std::to_string(data->getThreadId()) + 
+                            " with new job: " + jobId, true);
+                    }
                 }
+            }
+
+            // Notify all mining threads about the new job
+            PoolClient::jobQueueCondition.notify_all();
+            if (debugMode) {
+                threadSafePrint("Notified all mining threads about new job", true);
             }
 
             threadSafePrint("Job processed and distributed to all threads", true);
@@ -468,28 +572,24 @@ void handleLoginResponse(const std::string& response) {
     }
 }
 
-// Forward declarations
-void mineThread(int threadId);
-
 int main(int argc, char* argv[]) {
     try {
         // Parse command line arguments and initialize config
-        Config config;
         if (!config.parseCommandLine(argc, argv)) {
-        return 1;
-    }
+            return 1;
+        }
 
         // Print current configuration
         config.printConfig();
 
         // Initialize Winsock
-    if (!PoolClient::initialize()) {
+        if (!PoolClient::initialize()) {
             std::cerr << "Failed to initialize Winsock" << std::endl;
-        return 1;
-    }
+            return 1;
+        }
 
         // Connect to pool
-    if (!PoolClient::connect(config.poolAddress, config.poolPort)) {
+        if (!PoolClient::connect(config.poolAddress, config.poolPort)) {
             std::cerr << "Failed to connect to pool" << std::endl;
             PoolClient::cleanup();
             return 1;
@@ -498,150 +598,59 @@ int main(int argc, char* argv[]) {
         // Login to pool
         if (!PoolClient::login(config.walletAddress, config.password, config.workerName, config.userAgent)) {
             std::cerr << "Failed to login to pool" << std::endl;
-        PoolClient::cleanup();
-        return 1;
-    }
+            PoolClient::cleanup();
+            return 1;
+        }
+
+        // Initialize thread data
+        threadData.resize(config.numThreads);
+        for (int i = 0; i < config.numThreads; i++) {
+            threadData[i] = new MiningThreadData(i);
+            if (!threadData[i]) {
+                threadSafePrint("Failed to create thread data for thread " + std::to_string(i), true);
+                // Cleanup
+                for (int j = 0; j < i; j++) {
+                    delete threadData[j];
+                }
+                threadData.clear();
+                PoolClient::cleanup();
+                return 1;
+            }
+        }
 
         // Start job listener thread
         std::thread jobListenerThread(PoolClient::jobListener);
 
-        // Initialize mining threads
+        // Start mining threads
         std::vector<std::thread> miningThreads;
         for (int i = 0; i < config.numThreads; i++) {
-            miningThreads.emplace_back(mineThread, i);
+            miningThreads.emplace_back(miningThread, i);
         }
 
         // Wait for mining threads to complete
         for (auto& thread : miningThreads) {
             thread.join();
         }
-
+        
         // Wait for job listener thread
         jobListenerThread.join();
-
+    
         // Cleanup
+        for (auto* data : threadData) {
+            delete data;
+        }
+        threadData.clear();
         PoolClient::cleanup();
         return 0;
     }
     catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;
+        // Cleanup
+        for (auto* data : threadData) {
+            delete data;
+        }
+        threadData.clear();
         PoolClient::cleanup();
         return 1;
-    }
-}
-
-void mineThread(int threadId) {
-    try {
-        threadSafePrint("Starting mining thread " + std::to_string(threadId), true);
-
-        // Create VM for this thread
-        randomx_vm* vm = RandomXManager::createVM(threadId);
-        if (!vm) {
-            threadSafePrint("Failed to create VM for thread " + std::to_string(threadId), true);
-            return;
-        }
-
-        while (!PoolClient::shouldStop) {
-            // Wait for job
-            Job job;
-            {
-                std::unique_lock<std::mutex> lock(PoolClient::jobMutex);
-                PoolClient::jobQueueCondition.wait(lock, []{ 
-                    return !PoolClient::jobQueue.empty() || PoolClient::shouldStop; 
-                });
-
-                if (PoolClient::shouldStop) {
-                    break;
-                }
-
-                if (!PoolClient::jobQueue.empty()) {
-                    job = PoolClient::jobQueue.front();
-                }
-            }
-
-            if (job.jobId.empty()) {
-                continue;
-            }
-
-            // Mine the job
-            uint64_t nonce = 0;
-            uint32_t hashCount = 0;
-            const uint32_t batchSize = 1000;
-
-            if (debugMode) {
-                threadSafePrint("Thread " + std::to_string(threadId) + " starting mining with job ID: " + job.jobId, true);
-            }
-
-            while (!PoolClient::shouldStop) {
-                for (uint32_t i = 0; i < batchSize; i++) {
-                    uint8_t hash[32];
-                    if (RandomXManager::calculateHash(vm, job.blob, nonce + i, hash)) {
-                        // Hash calculated successfully
-                        hashCount++;
-                        
-                        // Debug output for first hash in batch
-                        if (debugMode && i == 0) {
-                            std::stringstream ss;
-                            ss << "Thread " << threadId << " calculated hash:" << std::endl;
-                            ss << "  Nonce: 0x" << std::hex << std::setw(16) << std::setfill('0') << (nonce + i) << std::endl;
-                            ss << "  Hash: ";
-                            for (int j = 0; j < 32; j++) {
-                                ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hash[j]);
-                            }
-                            ss << std::endl;
-                            threadSafePrint(ss.str(), true);
-                        }
-                        
-                        // Check if hash meets target
-                        const uint8_t* target = reinterpret_cast<const uint8_t*>(job.target.data());
-                        if (RandomXManager::verifyHash(hash, 32, target, threadId)) {
-                            // Convert nonce to hex
-                            std::stringstream ss;
-                            ss << std::hex << std::setw(16) << std::setfill('0') << (nonce + i);
-                            std::string nonceHex = ss.str();
-                            
-                            // Convert hash to hex
-                            std::string hashHex;
-                            for (int j = 0; j < 32; j++) {
-                                ss.str("");
-                                ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hash[j]);
-                                hashHex += ss.str();
-                            }
-                            
-                            // Submit share
-                            if (submitShare(job.jobId, nonceHex, hashHex, "rx/0")) {
-                                if (debugMode) {
-                                    threadSafePrint("Thread " + std::to_string(threadId) + " found valid share!", true);
-                                }
-                            }
-                        }
-                    }
-                }
-
-                nonce += batchSize;
-                
-                // Update statistics
-                MiningStats::updateHashCount(threadId, hashCount);
-                hashCount = 0;
-
-                // Check for new job
-                {
-                    std::lock_guard<std::mutex> lock(PoolClient::jobMutex);
-                    if (!PoolClient::jobQueue.empty() && PoolClient::jobQueue.front().jobId != job.jobId) {
-                        if (debugMode) {
-                            threadSafePrint("Thread " + std::to_string(threadId) + " switching to new job", true);
-                        }
-                        break;  // New job available
-                    }
-                }
-            }
-        }
-    
-        // Cleanup
-        RandomXManager::destroyVM(vm);
-        threadSafePrint("Mining thread " + std::to_string(threadId) + " stopped", true);
-    }
-    catch (const std::exception& e) {
-        threadSafePrint("Error in mining thread " + std::to_string(threadId) + ": " + e.what(), true);
     }
 } 

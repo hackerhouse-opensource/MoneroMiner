@@ -39,6 +39,9 @@ bool RandomXManager::initialized = false;
 std::vector<MiningThreadData*> RandomXManager::threadData;
 std::string RandomXManager::datasetPath = "randomx_dataset.bin";
 std::string RandomXManager::currentTargetHex;
+std::string RandomXManager::lastHashHex;
+std::mutex RandomXManager::hashMutex;
+std::vector<uint8_t> RandomXManager::lastHash;
 
 bool RandomXManager::initialize(const std::string& seedHash) {
     std::lock_guard<std::mutex> lock(initMutex);
@@ -302,46 +305,104 @@ void RandomXManager::destroyVM(randomx_vm* vm) {
     }
 }
 
-bool RandomXManager::calculateHash(randomx_vm* vm, const std::vector<uint8_t>& blob, uint64_t nonce, uint8_t* hash) {
-    if (!vm || blob.empty() || !hash) {
+bool RandomXManager::calculateHash(randomx_vm* vm, const std::vector<uint8_t>& blob, uint64_t nonce) {
+    if (!vm || blob.empty()) {
+        if (debugMode) {
+            threadSafePrint("Invalid parameters for hash calculation", true);
+        }
         return false;
     }
 
     try {
-        // Create a copy of the blob to modify the nonce
-        std::vector<uint8_t> modifiedBlob = blob;
+        // Create a copy of the input vector
+        std::vector<uint8_t> input = blob;
         
-        // Update nonce in the blob (last 4 bytes)
-        if (modifiedBlob.size() >= 4) {
-            uint32_t* noncePtr = reinterpret_cast<uint32_t*>(&modifiedBlob[modifiedBlob.size() - 4]);
-            *noncePtr = static_cast<uint32_t>(nonce);
+        // Ensure input is exactly 76 bytes
+        if (input.size() != 76) {
+            if (debugMode) {
+                threadSafePrint("Invalid blob size: " + std::to_string(input.size()) + " bytes", true);
+            }
+            return false;
+        }
+
+        // Insert nonce at the last 4 bytes (bytes 72-75)
+        for (int i = 0; i < 4; i++) {
+            input[72 + i] = static_cast<uint8_t>((nonce >> (i * 8)) & 0xFF);
+        }
+
+        // Debug output for input data (only for first hash in batch)
+        if (debugMode && nonce % 1000 == 0) {
+            std::string debugMsg = "Calculating hash with nonce: 0x" + std::to_string(nonce);
+            threadSafePrint(debugMsg, true);
         }
 
         // Calculate hash
-        randomx_calculate_hash(vm, modifiedBlob.data(), modifiedBlob.size(), hash);
+        uint8_t output[32];
+        randomx_calculate_hash(vm, input.data(), input.size(), output);
 
-        if (debugMode) {
-            std::stringstream ss;
-            ss << "Initial hash calculation:" << std::endl;
-            ss << "  Blob: ";
-            for (uint8_t b : modifiedBlob) {
-                ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(b);
-            }
-            ss << std::endl;
-            ss << "  Nonce: 0x" << std::hex << std::setw(8) << std::setfill('0') << nonce << std::endl;
-            ss << "  Hash: ";
-            for (int i = 0; i < 32; i++) {
-                ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hash[i]);
-            }
-            ss << std::endl;
-            ss << "  Target: 0x" << currentTargetHex << std::endl;
-            threadSafePrint(ss.str(), true);
+        // Convert hash to hex string
+        std::stringstream ss;
+        for (int i = 0; i < 32; i++) {
+            ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(output[i]);
+        }
+        lastHashHex = ss.str();
+
+        // Store hash with mutex protection
+        {
+            std::lock_guard<std::mutex> lock(hashMutex);
+            lastHash = std::vector<uint8_t>(output, output + 32);
         }
 
-        return true;
+        // Debug output for hash calculation (only for first hash in batch)
+        if (debugMode && nonce % 1000 == 0) {
+            std::string debugMsg = "Hash: " + lastHashHex + " Target: 0x" + currentTargetHex;
+            threadSafePrint(debugMsg, true);
+        }
+
+        // Convert target from compact to expanded format
+        uint64_t targetValue = std::stoull(currentTargetHex, nullptr, 16);
+        uint32_t exponent = (targetValue >> 24) & 0xFF;
+        uint32_t mantissa = targetValue & 0xFFFFFF;
+        
+        // Calculate expanded target
+        uint64_t expandedTarget = 0;
+        if (exponent <= 3) {
+            expandedTarget = mantissa >> (8 * (3 - exponent));
+        } else {
+            expandedTarget = static_cast<uint64_t>(mantissa) << (8 * (exponent - 3));
+        }
+
+        // Compare hash with target
+        bool meetsTarget = false;
+        for (int i = 0; i < 8; i++) {
+            uint64_t hashPart = 0;
+            for (int j = 0; j < 8; j++) {
+                hashPart = (hashPart << 8) | output[7 - i - j];
+            }
+            if (hashPart < expandedTarget) {
+                meetsTarget = true;
+                break;
+            } else if (hashPart > expandedTarget) {
+                break;
+            }
+        }
+
+        if (meetsTarget && debugMode) {
+            threadSafePrint("Found hash meeting target: " + lastHashHex, true);
+        }
+
+        return meetsTarget;
     }
     catch (const std::exception& e) {
-        threadSafePrint("Error in calculateHash: " + std::string(e.what()), true);
+        if (debugMode) {
+            threadSafePrint("Exception in calculateHash: " + std::string(e.what()), true);
+        }
+        return false;
+    }
+    catch (...) {
+        if (debugMode) {
+            threadSafePrint("Unknown exception in calculateHash", true);
+        }
         return false;
     }
 }
@@ -349,19 +410,25 @@ bool RandomXManager::calculateHash(randomx_vm* vm, const std::vector<uint8_t>& b
 bool RandomXManager::verifyHash(const uint8_t* input, size_t inputSize, const uint8_t* expectedHash, int threadId) {
     std::vector<uint8_t> inputVec(input, input + inputSize);
     uint64_t nonce = 0; // For verification, we don't need a specific nonce
-    uint8_t hash[32];
     
     auto it = vms.find(threadId);
     if (it == vms.end() || !it->second) {
         return false;
     }
 
-    if (!calculateHash(it->second, inputVec, nonce, hash)) {
+    if (!calculateHash(it->second, inputVec, nonce)) {
         return false;
     }
 
     // Compare the calculated hash with the expected hash
-    return memcmp(hash, expectedHash, 32) == 0;
+    std::string calculatedHash = getLastHashHex();
+    std::string expectedHashHex;
+    for (int i = 0; i < 32; i++) {
+        char hex[3];
+        snprintf(hex, sizeof(hex), "%02x", expectedHash[i]);
+        expectedHashHex += hex;
+    }
+    return calculatedHash == expectedHashHex;
 }
 
 void RandomXManager::initializeDataset(const std::string& seedHash) {
@@ -440,4 +507,14 @@ void RandomXManager::handleSeedHashChange(const std::string& newSeedHash) {
             }
         }
     }
+}
+
+std::string RandomXManager::getLastHashHex() {
+    std::lock_guard<std::mutex> lock(hashMutex);
+    return lastHashHex;
+}
+
+void RandomXManager::setTarget(const std::string& targetHex) {
+    std::lock_guard<std::mutex> lock(hashMutex);
+    currentTargetHex = targetHex;
 } 

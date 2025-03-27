@@ -10,7 +10,6 @@
 class Job {
 public:
     std::string jobId;
-    std::string blobHex;
     std::vector<uint8_t> blob;
     std::string target;
     uint32_t height;
@@ -35,7 +34,6 @@ public:
 
     // Getters
     const std::string& getJobId() const { return jobId; }
-    const std::string& getBlobHex() const { return blobHex; }
     const std::vector<uint8_t>& getBlob() const { return blob; }
     const std::string& getTarget() const { return target; }
     uint32_t getHeight() const { return height; }
@@ -45,43 +43,43 @@ public:
 
     // Setters
     void setId(const std::string& id) { jobId = id; }
-    void setBlobHex(const std::string& blobHexData) { 
-        blobHex = blobHexData;
-        // Convert hex to bytes
-        blob.clear();
-        for (size_t i = 0; i < blobHexData.length(); i += 2) {
-            std::string byteString = blobHexData.substr(i, 2);
-            blob.push_back(static_cast<uint8_t>(std::stoi(byteString, nullptr, 16)));
-        }
-    }
-    void setBlob(const std::vector<uint8_t>& blobData) { 
-        blob = blobData;
-        // Convert bytes to hex
-        std::stringstream ss;
-        for (uint8_t byte : blob) {
-            ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(byte);
-        }
-        blobHex = ss.str();
-    }
-    void setTarget(const std::string& targetData) { target = targetData; }
-    void setHeight(uint32_t jobHeight) { height = jobHeight; }
-    void setSeedHash(const std::string& hash) { seedHash = hash; }
+    void setBlob(const std::vector<uint8_t>& b) { blob = b; }
+    void setTarget(const std::string& t) { target = t; }
+    void setHeight(uint32_t h) { height = h; }
+    void setSeedHash(const std::string& seed) { seedHash = seed; }
     void setDifficulty(uint64_t d) { difficulty = d; }
     void setNonce(uint64_t n) { nonce = n; }
     void incrementNonce() { nonce++; }
 
     // Check if job is empty
     bool empty() const {
-        return blobHex.empty() || target.empty() || jobId.empty() || height == 0 || seedHash.empty();
+        return blob.empty() || target.empty() || jobId.empty() || height == 0 || seedHash.empty();
     }
 
-    Job(const std::string& id, const std::string& blob, const std::string& tgt, uint32_t h, const std::string& seed)
-        : jobId(id), blobHex(blob), target(tgt), height(h), seedHash(seed), nonce(0) {
+    Job(const std::string& id, const std::string& blobHex, const std::string& tgt, 
+        uint32_t h, const std::string& seed) 
+        : jobId(id), target(tgt), height(h), seedHash(seed), difficulty(0), nonce(0) {
         // Convert hex blob to bytes
-        for (size_t i = 0; i < blob.length(); i += 2) {
-            std::string byteString = blob.substr(i, 2);
-            this->blob.push_back(static_cast<uint8_t>(std::stoi(byteString, nullptr, 16)));
+        blob.resize(blobHex.length() / 2);
+        for (size_t i = 0; i < blob.size(); i++) {
+            blob[i] = static_cast<uint8_t>(std::stoi(blobHex.substr(i * 2, 2), nullptr, 16));
         }
+
+        // Calculate difficulty from target
+        uint64_t targetValue = std::stoull(tgt, nullptr, 16);
+        uint32_t exponent = (targetValue >> 24) & 0xFF;
+        uint32_t mantissa = targetValue & 0xFFFFFF;
+        
+        // Calculate expanded target
+        uint64_t expandedTarget = 0;
+        if (exponent <= 3) {
+            expandedTarget = mantissa >> (8 * (3 - exponent));
+        } else {
+            expandedTarget = static_cast<uint64_t>(mantissa) << (8 * (exponent - 3));
+        }
+        
+        // Calculate difficulty
+        difficulty = 0xFFFFFFFFFFFFFFFFULL / expandedTarget;
     }
 };
 

@@ -8,6 +8,7 @@
 #include "randomx.h"
 #include "HashValidation.h"
 #include "Types.h"
+#include "MiningThreadData.h"
 
 // Forward declaration
 class MiningThreadData;
@@ -18,7 +19,7 @@ public:
     static void cleanup();
     static randomx_vm* createVM(int threadId);
     static void destroyVM(randomx_vm* vm);
-    static bool calculateHash(randomx_vm* vm, const std::vector<uint8_t>& blob, uint64_t nonce, uint8_t* hash);
+    static bool calculateHash(randomx_vm* vm, const std::vector<uint8_t>& input, uint64_t nonce);
     static bool verifyHash(const uint8_t* input, size_t inputSize, const uint8_t* expectedHash, int threadId);
     static bool isInitialized() { return dataset != nullptr; }
     static std::string getCurrentSeedHash() { return currentSeedHash; }
@@ -28,12 +29,15 @@ public:
     static bool validateDataset(const std::string& seedHash);
     static void handleSeedHashChange(const std::string& newSeedHash);
     static std::string currentTargetHex;
+    static std::string getLastHashHex();
+    static void setTarget(const std::string& targetHex);
 
 private:
     static std::mutex vmMutex;
     static std::mutex datasetMutex;
     static std::mutex seedHashMutex;
     static std::mutex initMutex;
+    static std::mutex hashMutex;
     static std::unordered_map<int, randomx_vm*> vms;
     static randomx_cache* cache;
     static randomx_dataset* dataset;
@@ -41,6 +45,8 @@ private:
     static bool initialized;
     static std::string datasetPath;
     static std::vector<MiningThreadData*> threadData;
+    static std::string lastHashHex;
+    static std::vector<uint8_t> lastHash;
     
     static std::string getDatasetPath(const std::string& seedHash);
 }; 

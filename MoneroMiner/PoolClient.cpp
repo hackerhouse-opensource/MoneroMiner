@@ -337,180 +337,133 @@ namespace PoolClient {
 
     void jobListener() {
         while (!shouldStop) {
+            std::string response = receiveData(poolSocket);
+            if (response.empty()) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                continue;
+            }
+
             try {
-                // Wait for data with timeout
-                fd_set readSet;
-                FD_ZERO(&readSet);
-                FD_SET(poolSocket, &readSet);
-
-                struct timeval timeout;
-                timeout.tv_sec = 1;  // 1 second timeout
-                timeout.tv_usec = 0;
-
-                int result = select(0, &readSet, nullptr, nullptr, &timeout);
-                if (result == 0) {
-                    continue;  // Timeout, check shouldStop and continue
-                }
-                if (result == SOCKET_ERROR) {
-                    threadSafePrint("Select error in job listener: " + std::to_string(WSAGetLastError()), true);
-                    break;
-                }
-
-                // Receive response
-                std::string response;
-                char buffer[4096];
-                int totalBytes = 0;
-                
-                while (true) {
-                    int bytesReceived = recv(poolSocket, buffer, sizeof(buffer) - 1, 0);
-                    if (bytesReceived == SOCKET_ERROR) {
-                        int error = WSAGetLastError();
-                        threadSafePrint("Failed to receive data in job listener: " + std::to_string(error), true);
-                        break;
-                    }
-                    if (bytesReceived == 0) {
-                        break;  // Connection closed
-                    }
-                    
-                    buffer[bytesReceived] = '\0';
-                    response += buffer;
-                    totalBytes += bytesReceived;
-
-                    // Check if we have a complete JSON response
-                    try {
-                        picojson::value v;
-                        std::string err = picojson::parse(v, response);
-                        if (err.empty()) {
-                            break;  // Valid JSON received
-                        }
-                    } catch (...) {
-                        // Continue receiving if JSON is incomplete
-                    }
-                }
-
-                if (response.empty()) {
-                    continue;
-                }
-
-                // Parse response
                 picojson::value v;
                 std::string err = picojson::parse(v, response);
                 if (!err.empty()) {
-                    threadSafePrint("Failed to parse job listener response: " + err, true);
+                    threadSafePrint("JSON parse error: " + err, true);
                     continue;
                 }
 
                 if (!v.is<picojson::object>()) {
-                    threadSafePrint("Invalid response format in job listener", true);
+                    threadSafePrint("Invalid JSON response format", true);
                     continue;
                 }
 
                 const picojson::object& obj = v.get<picojson::object>();
-                
-                // Handle job update
-                if (obj.find("method") != obj.end() && obj.at("method").get<std::string>() == "job") {
-                    if (obj.find("params") == obj.end()) {
-                        threadSafePrint("No params in job update", true);
-                        continue;
-                    }
-
-                    const picojson::value& params = obj.at("params");
-                    if (!params.is<picojson::object>()) {
-                        threadSafePrint("Invalid params format in job update", true);
-                        continue;
-                    }
-
-                    const picojson::object& jobObj = params.get<picojson::object>();
-                    processNewJob(jobObj);
-                }
-                // Handle login response
-                else if (obj.find("result") != obj.end()) {
-                    const picojson::value& result = obj.at("result");
-                    if (result.is<picojson::object>()) {
-                        const picojson::object& resultObj = result.get<picojson::object>();
-                        if (resultObj.find("job") != resultObj.end()) {
-                            const picojson::object& jobObj = resultObj.at("job").get<picojson::object>();
-                            processNewJob(jobObj);
-                        }
+                if (obj.find("method") != obj.end()) {
+                    const std::string& method = obj.at("method").get<std::string>();
+                    if (method == "job") {
+                        const picojson::object& jobObj = obj.at("params").get<picojson::object>();
+                        processNewJob(jobObj);
                     }
                 }
             }
             catch (const std::exception& e) {
-                threadSafePrint("Error in job listener: " + std::string(e.what()), true);
+                threadSafePrint("Error processing response: " + std::string(e.what()), true);
             }
         }
     }
 
     void processNewJob(const picojson::object& jobObj) {
-        if (!jobObj.count("job_id") || !jobObj.count("blob") || !jobObj.count("target") || 
-            !jobObj.count("height") || !jobObj.count("seed_hash")) {
-            threadSafePrint("Invalid job format");
-            return;
-        }
-        
-        std::string jobId = jobObj.at("job_id").to_str();
-        std::string blob = jobObj.at("blob").to_str();
-        std::string target = jobObj.at("target").to_str();
-        uint32_t height = static_cast<uint32_t>(jobObj.at("height").get<double>());
-        std::string seedHash = jobObj.at("seed_hash").to_str();
-        
-        // Format target to ensure it's 8 hex characters
-        if (target.length() > 2 && target.substr(0, 2) == "0x") {
-            target = target.substr(2);
-        }
-        if (target.length() != 8) {
-            threadSafePrint("Invalid target format: " + target, true);
-            return;
-        }
-        
-        if (debugMode) {
-            threadSafePrint("Processing new job with seed hash: " + seedHash, true);
-        }
+        try {
+            // Extract job details
+            std::string jobId = jobObj.at("job_id").get<std::string>();
+            std::string blob = jobObj.at("blob").get<std::string>();
+            std::string target = jobObj.at("target").get<std::string>();
+            uint64_t height = static_cast<uint64_t>(jobObj.at("height").get<double>());
+            std::string seedHash = jobObj.at("seed_hash").get<std::string>();
 
-        // Initialize RandomX with the new seed hash
-        if (!RandomXManager::initialize(seedHash)) {
-            threadSafePrint("Failed to initialize RandomX with seed hash: " + seedHash, true);
-            return;
-        }
+            // Create new job
+            Job newJob(jobId, blob, target, static_cast<uint32_t>(height), seedHash);
 
-        if (debugMode) {
-            threadSafePrint("RandomX initialized successfully with seed hash: " + seedHash, true);
-        }
-        
-        // Queue the job
-        {
-            std::lock_guard<std::mutex> lock(jobMutex);
-            std::queue<Job> empty;
-            std::swap(jobQueue, empty);
-            Job newJob;
-            newJob.setId(jobId);
-            newJob.setBlob(hexToBytes(blob));
-            newJob.setTarget(target);
-            newJob.setHeight(height);
-            newJob.setSeedHash(seedHash);
-            jobQueue.push(newJob);
-            jobAvailable.notify_all();
-        }
+            // Update active job ID atomically
+            uint32_t jobIdNum = static_cast<uint32_t>(std::stoul(jobId));
+            if (jobIdNum != activeJobId.load()) {
+                activeJobId.store(jobIdNum);
+                notifiedJobId.store(jobIdNum);
 
-        // Print job details
-        std::stringstream ss;
-        ss << "\nNew job details:" << std::endl;
-        ss << "  Height: " << height << std::endl;
-        ss << "  Job ID: " << jobId << std::endl;
-        ss << "  Target: 0x" << target << std::endl;
-        ss << "  Blob: " << blob << std::endl;
-        ss << "  Seed Hash: " << seedHash << std::endl;
-        ss << "  Difficulty: " << HashValidation::getTargetDifficulty(target) << std::endl;
-        threadSafePrint(ss.str(), true);
+                // Initialize RandomX with new seed hash if needed
+                if (!RandomXManager::initialize(seedHash)) {
+                    threadSafePrint("Failed to initialize RandomX with seed hash: " + seedHash, true);
+                    return;
+                }
 
-        // Notify all mining threads about the new job
-        for (auto& threadData : threadData) {
-            if (threadData) {
-                threadData->updateJob(jobQueue.front());
+                // Clear existing job queue and add new job
+                {
+                    std::lock_guard<std::mutex> lock(jobMutex);
+                    // Clear the queue
+                    std::queue<Job> empty;
+                    std::swap(jobQueue, empty);
+                    // Add the new job
+                    jobQueue.push(newJob);
+                    
+                    if (debugMode) {
+                        threadSafePrint("Job queue updated with new job: " + jobId, true);
+                        threadSafePrint("Queue size: " + std::to_string(jobQueue.size()), true);
+                    }
+                }
+
+                // Print job details
+                threadSafePrint("New job details:", true);
+                threadSafePrint("  Height: " + std::to_string(height), true);
+                threadSafePrint("  Job ID: " + jobId, true);
+                threadSafePrint("  Target: 0x" + target, true);
+                threadSafePrint("  Blob: " + blob, true);
+                threadSafePrint("  Seed Hash: " + seedHash, true);
+                
+                // Calculate and print difficulty
+                uint64_t targetValue = std::stoull(target, nullptr, 16);
+                uint32_t exponent = (targetValue >> 24) & 0xFF;
+                uint32_t mantissa = targetValue & 0xFFFFFF;
+                
+                // Calculate expanded target
+                uint64_t expandedTarget = 0;
+                if (exponent <= 3) {
+                    expandedTarget = mantissa >> (8 * (3 - exponent));
+                } else {
+                    expandedTarget = static_cast<uint64_t>(mantissa) << (8 * (exponent - 3));
+                }
+                
+                // Calculate difficulty
+                double difficulty = 0xFFFFFFFFFFFFFFFFULL / static_cast<double>(expandedTarget);
+                threadSafePrint("  Difficulty: " + std::to_string(difficulty), true);
+
+                // Update thread data with new job
+                for (auto& data : threadData) {
+                    if (data) {
+                        data->updateJob(newJob);
+                        if (debugMode) {
+                            threadSafePrint("Updated thread " + std::to_string(data->getThreadId()) + 
+                                " with new job: " + jobId, true);
+                        }
+                    }
+                }
+
+                // Notify all mining threads about the new job
+                jobQueueCondition.notify_all();
                 if (debugMode) {
-                    threadSafePrint("Updated job for thread " + std::to_string(threadData->getThreadId()), true);
+                    threadSafePrint("Notified all mining threads about new job", true);
+                }
+
+                threadSafePrint("Job processed and distributed to all threads", true);
+            } else {
+                if (debugMode) {
+                    threadSafePrint("Skipping duplicate job: " + jobId, true);
                 }
             }
+        }
+        catch (const std::exception& e) {
+            threadSafePrint("Error processing job: " + std::string(e.what()), true);
+        }
+        catch (...) {
+            threadSafePrint("Unknown error processing job", true);
         }
     }
 
