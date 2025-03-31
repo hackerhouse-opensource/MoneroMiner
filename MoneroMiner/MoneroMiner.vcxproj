@@ -145,7 +145,6 @@
   <ItemGroup>
     <ClCompile Include="Config.cpp" />
     <ClCompile Include="Globals.cpp" />
-    <ClCompile Include="HashValidation.cpp" />
     <ClCompile Include="MiningStats.cpp" />
     <ClCompile Include="MiningThreadData.cpp" />
     <ClCompile Include="MoneroMiner.cpp" />
@@ -157,7 +156,6 @@
     <ClInclude Include="Config.h" />
     <ClInclude Include="Constants.h" />
     <ClInclude Include="HashBuffers.h" />
-    <ClInclude Include="HashValidation.h" />
     <ClInclude Include="Job.h" />
     <ClInclude Include="MiningStats.h" />
     <ClInclude Include="MiningThreadData.h" />

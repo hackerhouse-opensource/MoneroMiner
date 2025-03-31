@@ -5,7 +5,6 @@
 #include "Constants.h"
 #include "RandomXManager.h"
 #include "MiningThreadData.h"
-#include "HashValidation.h"
 #include "Job.h"
 #include <iostream>
 #include <sstream>
@@ -31,6 +30,9 @@ namespace PoolClient {
     std::string sessionId;
     std::string currentTargetHex;
     std::vector<std::shared_ptr<MiningThreadData>> threadData;
+    std::mutex socketMutex;
+    std::mutex submitMutex;
+    std::string poolId;
 
     // Forward declarations
     bool sendRequest(const std::string& request);
@@ -337,6 +339,22 @@ namespace PoolClient {
 
     void jobListener() {
         while (!shouldStop) {
+            // Verify socket is valid
+            if (poolSocket == INVALID_SOCKET) {
+                threadSafePrint("Pool connection lost, attempting to reconnect...", true);
+                if (!connect(config.poolAddress, std::to_string(config.poolPort))) {
+                    threadSafePrint("Failed to reconnect to pool", true);
+                    std::this_thread::sleep_for(std::chrono::seconds(5));
+                    continue;
+                }
+                // Re-login after reconnection
+                if (!login(config.walletAddress, config.password, config.workerName, config.userAgent)) {
+                    threadSafePrint("Failed to re-login to pool", true);
+                    std::this_thread::sleep_for(std::chrono::seconds(5));
+                    continue;
+                }
+            }
+
             std::string response = receiveData(poolSocket);
             if (response.empty()) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -460,73 +478,98 @@ namespace PoolClient {
         }
     }
 
-    bool submitShare(const std::string& jobId, const std::string& nonce,
-                    const std::string& hash, const std::string& algo) {
+    bool submitShare(const std::string& jobId, const std::string& nonce, 
+                    const std::string& result, const std::string& algorithm) {
+        std::lock_guard<std::mutex> lock(submitMutex);
+        std::lock_guard<std::mutex> sockLock(socketMutex);
+
+        if (poolSocket == INVALID_SOCKET) {
+            threadSafePrint("Cannot submit share: Not connected to pool", true);
+            return false;
+        }
+
+        // Construct JSON request
         std::stringstream ss;
-        ss << "{\"method\":\"submit\",\"params\":{\"id\":\"" << sessionId
-           << "\",\"job_id\":\"" << jobId << "\",\"nonce\":\"" << nonce
-           << "\",\"result\":\"" << hash << "\"},\"id\":2,\"algo\":\"" << algo << "\"}";
-
+        ss << "{\"id\":1,\"jsonrpc\":\"2.0\",\"method\":\"submit\",\"params\":{"
+           << "\"id\":\"" << poolId << "\","
+           << "\"job_id\":\"" << jobId << "\","
+           << "\"nonce\":\"" << nonce << "\","
+           << "\"result\":\"" << result << "\","
+           << "\"algo\":\"" << algorithm << "\"}}";
+        
         std::string request = ss.str();
-        
-        // Always show share submission details
-        std::stringstream debug;
-        debug << "\nPool Share Submission:" << std::endl;
-        debug << "  Job ID: " << jobId << std::endl;
-        debug << "  Nonce: 0x" << nonce << std::endl;
-        debug << "  Hash: " << hash << std::endl;
-        debug << "  Target: " << currentTargetHex << std::endl;
-        debug << "  Algorithm: " << algo << std::endl;
-        debug << "  Request: " << request << std::endl;
-        threadSafePrint(debug.str(), true);
 
-        // Send request to pool
-        std::string response = sendAndReceive(request);
-        
-        // Always show pool response
-        debug.str("");
-        debug << "\nPool Response:" << std::endl;
-        debug << "  Response: " << response << std::endl;
-        threadSafePrint(debug.str(), true);
+        if (config.debugMode) {
+            threadSafePrint("\nSubmitting share to pool:", true);
+            threadSafePrint("  Pool ID: " + poolId, true);
+            threadSafePrint("  Job ID: " + jobId, true);
+            threadSafePrint("  Nonce: " + nonce, true);
+            threadSafePrint("  Result: " + result, true);
+            threadSafePrint("  Request: " + request, true);
+        }
+
+        // Send request with newline
+        request += "\n";
+        int bytesSent = send(poolSocket, request.c_str(), static_cast<int>(request.length()), 0);
+        if (bytesSent == SOCKET_ERROR) {
+            threadSafePrint("Failed to send share: " + std::to_string(WSAGetLastError()), true);
+            return false;
+        }
+
+        // Receive response with timeout
+        fd_set readSet;
+        struct timeval timeout;
+        FD_ZERO(&readSet);
+        FD_SET(poolSocket, &readSet);
+        timeout.tv_sec = 10;
+        timeout.tv_usec = 0;
+
+        int selectResult = select(0, &readSet, nullptr, nullptr, &timeout);
+        if (selectResult <= 0) {
+            threadSafePrint("Timeout or error waiting for pool response", true);
+            return false;
+        }
+
+        char buffer[4096];
+        int bytesReceived = recv(poolSocket, buffer, sizeof(buffer) - 1, 0);
+        if (bytesReceived <= 0) {
+            threadSafePrint("Failed to receive pool response", true);
+            return false;
+        }
+
+        buffer[bytesReceived] = '\0';
+        std::string response(buffer);
+
+        if (config.debugMode) {
+            threadSafePrint("Pool response: " + response, true);
+        }
 
         // Parse response
-        picojson::value v;
-        std::string err = picojson::parse(v, response);
-        if (!err.empty()) {
-            threadSafePrint("Failed to parse share response: " + err, true);
-            return false;
-        }
-
-        if (!v.is<picojson::object>()) {
-            threadSafePrint("Invalid share response format", true);
-            return false;
-        }
-
-        const picojson::object& obj = v.get<picojson::object>();
-        if (obj.find("result") != obj.end()) {
-            const picojson::value& result = obj.at("result");
-            if (result.is<picojson::object>()) {
-                const picojson::object& resultObj = result.get<picojson::object>();
-                if (resultObj.find("status") != resultObj.end()) {
-                    const std::string& status = resultObj.at("status").get<std::string>();
-                    bool accepted = (status == "OK");
-                    if (accepted) {
-                        threadSafePrint("Share accepted by pool!", true);
-                    } else {
-                        threadSafePrint("Share rejected by pool: " + status, true);
+        try {
+            picojson::value v;
+            std::string err = picojson::parse(v, response);
+            if (err.empty() && v.is<picojson::object>()) {
+                const picojson::object& obj = v.get<picojson::object>();
+                if (obj.find("result") != obj.end() && 
+                    obj.at("result").is<picojson::object>()) {
+                    const picojson::object& result = obj.at("result").get<picojson::object>();
+                    if (result.find("status") != result.end()) {
+                        std::string status = result.at("status").get<std::string>();
+                        bool accepted = (status == "OK");
+                        
+                        if (config.debugMode) {
+                            threadSafePrint("Share " + std::string(accepted ? "accepted" : "rejected") + 
+                                          " by pool (status: " + status + ")", true);
+                        }
+                        
+                        return accepted;
                     }
-                    return accepted;
                 }
             }
-        } else if (obj.find("error") != obj.end()) {
-            const picojson::value& error = obj.at("error");
-            if (error.is<picojson::object>()) {
-                const picojson::object& errorObj = error.get<picojson::object>();
-                if (errorObj.find("message") != errorObj.end()) {
-                    threadSafePrint("Share submission error: " + errorObj.at("message").get<std::string>(), true);
-                }
-            }
-            return false;
+            threadSafePrint("Invalid response format from pool", true);
+        }
+        catch (const std::exception& e) {
+            threadSafePrint("Error parsing share response: " + std::string(e.what()), true);
         }
 
         return false;
@@ -559,30 +602,34 @@ namespace PoolClient {
                 return false;
             }
 
-            auto& result = v.get("result");
-            if (!result.is<picojson::object>()) {
+            const picojson::object& responseObj = v.get<picojson::object>();
+            if (responseObj.find("result") == responseObj.end() || 
+                !responseObj.at("result").is<picojson::object>()) {
                 threadSafePrint("Invalid result format", true);
                 return false;
             }
 
-            // Get session ID
-            auto& id = result.get("id");
-            if (!id.is<std::string>()) {
-                threadSafePrint("Invalid session ID format", true);
-                return false;
+            const picojson::object& result = responseObj.at("result").get<picojson::object>();
+            
+            // Get and store pool ID
+            if (result.find("id") != result.end() && result.at("id").is<std::string>()) {
+                poolId = result.at("id").get<std::string>();
+                threadSafePrint("Pool session ID: " + poolId, true);
+            } else {
+                threadSafePrint("Warning: No pool ID in login response", true);
+                poolId = "1"; // Fallback ID
             }
-            sessionId = id.get<std::string>();
 
             // Get job
-            auto& job = result.get("job");
-            if (!job.is<picojson::object>()) {
-                threadSafePrint("Invalid job format", true);
+            if (result.find("job") != result.end() && 
+                result.at("job").is<picojson::object>()) {
+                const picojson::object& jobObj = result.at("job").get<picojson::object>();
+                processNewJob(jobObj);
+                return true;
+            } else {
+                threadSafePrint("No job in login response", true);
                 return false;
             }
-
-            // Process the job
-            processNewJob(job.get<picojson::object>());
-            return true;
         }
         catch (const std::exception& e) {
             threadSafePrint("Error processing login response: " + std::string(e.what()), true);
@@ -591,74 +638,67 @@ namespace PoolClient {
     }
 
     std::string sendAndReceive(const std::string& payload) {
+        if (poolSocket == INVALID_SOCKET) {
+            threadSafePrint("Cannot send share: Invalid socket", true);
+            return "";
+        }
+
         // Add newline to payload
         std::string fullPayload = payload + "\n";
 
         // Debug output for sending
-        if (config.debugMode) {
-            std::stringstream debug;
-            debug << "\nSending to pool:" << std::endl;
-            debug << "  Payload: " << fullPayload;
-            threadSafePrint(debug.str(), true);
-        }
+        threadSafePrint("\nSending to pool:", true);
+        threadSafePrint("  Payload: " + fullPayload, true);
 
         // Send the payload
         int bytesSent = send(poolSocket, fullPayload.c_str(), static_cast<int>(fullPayload.length()), 0);
         if (bytesSent == SOCKET_ERROR) {
-            int error = WSAGetLastError();
-            threadSafePrint("Failed to send data: " + std::to_string(error), true);
+            threadSafePrint("Failed to send data: " + std::to_string(WSAGetLastError()), true);
             return "";
         }
 
-        // Set up select for timeout
-        fd_set readSet;
-        FD_ZERO(&readSet);
-        FD_SET(poolSocket, &readSet);
-
-        struct timeval timeout;
-        timeout.tv_sec = 10;  // 10 second timeout
-        timeout.tv_usec = 0;
-
-        // Wait for data with timeout
-        int result = select(0, &readSet, nullptr, nullptr, &timeout);
-        if (result == 0) {
-            threadSafePrint("Timeout waiting for response", true);
-            return "";
-        }
-        if (result == SOCKET_ERROR) {
-            threadSafePrint("Select error: " + std::to_string(WSAGetLastError()), true);
-            return "";
-        }
-
-        // Receive response
+        // Receive response with timeout
         std::string response;
         char buffer[4096];
         int totalBytes = 0;
         
+        // Set up select for timeout
+        fd_set readSet;
+        struct timeval timeout;
+        
         while (true) {
+            FD_ZERO(&readSet);
+            FD_SET(poolSocket, &readSet);
+            timeout.tv_sec = 10;  // 10 second timeout
+            timeout.tv_usec = 0;
+
+            int result = select(0, &readSet, nullptr, nullptr, &timeout);
+            if (result == 0) {
+                threadSafePrint("Timeout waiting for response", true);
+                break;
+            }
+            if (result == SOCKET_ERROR) {
+                threadSafePrint("Select error: " + std::to_string(WSAGetLastError()), true);
+                break;
+            }
+
             int bytesReceived = recv(poolSocket, buffer, sizeof(buffer) - 1, 0);
             if (bytesReceived == SOCKET_ERROR) {
-                int error = WSAGetLastError();
-                threadSafePrint("Failed to receive data: " + std::to_string(error), true);
-                return "";
+                threadSafePrint("Failed to receive data: " + std::to_string(WSAGetLastError()), true);
+                break;
             }
             if (bytesReceived == 0) {
-                break;  // Connection closed
+                threadSafePrint("Connection closed by pool", true);
+                break;
             }
-            
+
             buffer[bytesReceived] = '\0';
             response += buffer;
             totalBytes += bytesReceived;
 
-            // Check if we have a complete JSON response
-            try {
-                picojson::value v;
-                std::string err = picojson::parse(v, response);
-                if (err.empty()) {
-                    break;  // Valid JSON received
-                }
-            } catch (...) {
-                // Continue receiving if JSON is incomplete
+            // Check if we have a complete response
+            if (response.find("\n") != std::string::npos) {
+                break;
             }
         }
 
@@ -667,19 +707,26 @@ namespace PoolClient {
             response.pop_back();
         }
 
-        if (response.empty()) {
-            threadSafePrint("Received empty response", true);
-        }
-
         // Debug output for receiving
-        if (config.debugMode) {
-            std::stringstream debug;
-            debug << "\nReceived from pool:" << std::endl;
-            debug << "  Response: " << response << std::endl;
-            debug << "  Total bytes: " << totalBytes << std::endl;
-            threadSafePrint(debug.str(), true);
-        }
+        threadSafePrint("\nReceived from pool:", true);
+        threadSafePrint("  Response: " + response, true);
+        threadSafePrint("  Total bytes: " + std::to_string(totalBytes), true);
 
         return response;
+    }
+
+    bool sendData(const std::string& data) {
+        if (poolSocket == INVALID_SOCKET) {
+            threadSafePrint("Cannot send data: Invalid socket", true);
+            return false;
+        }
+
+        std::string dataWithNewline = data + "\n";
+        int result = send(poolSocket, dataWithNewline.c_str(), static_cast<int>(dataWithNewline.length()), 0);
+        if (result == SOCKET_ERROR) {
+            threadSafePrint("Failed to send data: " + std::to_string(WSAGetLastError()), true);
+            return false;
+        }
+        return true;
     }
 } 

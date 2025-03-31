@@ -27,9 +27,9 @@ public:
         password("x"),
         userAgent("MoneroMiner/1.0.0"),
         numThreads(1),
-        logFileName("miner.log"),
+        logFileName("monerominer.log"),
         debugMode(false),
-        useLogFile(false) {}
+        useLogFile(true) {}
 
     bool parseCommandLine(int argc, char* argv[]);
 

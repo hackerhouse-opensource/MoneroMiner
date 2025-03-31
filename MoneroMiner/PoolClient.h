@@ -16,10 +16,17 @@
 namespace PoolClient {
     extern SOCKET poolSocket;
     extern std::mutex jobMutex;
+    extern std::mutex socketMutex;
+    extern std::mutex submitMutex;
     extern std::queue<Job> jobQueue;
     extern std::condition_variable jobAvailable;
     extern std::condition_variable jobQueueCondition;
     extern std::atomic<bool> shouldStop;
+    extern std::string currentSeedHash;
+    extern std::string sessionId;
+    extern std::string currentTargetHex;
+    extern std::string poolId;
+    extern std::vector<std::shared_ptr<MiningThreadData>> threadData;
 
     bool initialize();
     bool connect(const std::string& address, const std::string& port);
@@ -30,17 +37,10 @@ namespace PoolClient {
                     const std::string& hash, const std::string& algo);
     void cleanup();
     
-    extern std::string currentSeedHash;
-    extern std::string sessionId;
-    extern std::string currentTargetHex;
-    
     void handleSeedHashChange(const std::string& newSeedHash);
     void processNewJob(const picojson::object& jobObj);
     bool handleLoginResponse(const std::string& response);
     std::string sendAndReceive(const std::string& payload);
-    std::string sendAndReceive(SOCKET sock, const std::string& payload);
-
-    static inline SOCKET getSocket() { return poolSocket; }
-
-    extern std::vector<std::shared_ptr<MiningThreadData>> threadData;
+    std::string receiveData(SOCKET sock);
+    bool sendData(const std::string& data);
 } 

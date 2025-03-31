@@ -7,7 +7,6 @@
 #include <unordered_map>
 #include <algorithm>
 #include "randomx.h"
-#include "HashValidation.h"
 #include "Types.h"
 #include "MiningThreadData.h"
 
@@ -60,13 +59,11 @@ public:
     static randomx_vm* createVM(int threadId);
     static void destroyVM(randomx_vm* vm);
     static bool calculateHash(randomx_vm* vm, const std::vector<uint8_t>& input, uint64_t nonce);
-    static bool verifyHash(const uint8_t* input, size_t inputSize, const uint8_t* expectedHash, int threadId);
     static bool isInitialized() { return dataset != nullptr; }
     static std::string getCurrentSeedHash() { return currentSeedHash; }
     static void initializeDataset(const std::string& seedHash);
     static bool loadDataset(const std::string& seedHash);
     static bool saveDataset(const std::string& seedHash);
-    static bool validateDataset(const std::string& seedHash);
     static void handleSeedHashChange(const std::string& newSeedHash);
     static std::string currentTargetHex;
     static const std::vector<uint8_t>& getLastHash() { return lastHash; }
@@ -94,6 +91,9 @@ private:
     static uint64_t currentHeight;
     static std::string currentJobId;
     static std::vector<uint8_t> lastHash;
+    static uint256_t expandedTarget;
+    static uint256_t hashValue;
+    static uint32_t currentTarget;
 
     static bool checkHash(const uint8_t* hash, const std::string& targetHex);
     static std::string getDatasetPath(const std::string& seedHash);

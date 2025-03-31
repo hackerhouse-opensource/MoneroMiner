@@ -5,7 +5,6 @@
 #include "Utils.h"
 #include "Constants.h"
 #include "RandomXFlags.h"
-#include "HashValidation.h"
 #include "MiningStats.h"
 #include "Globals.h"
 #include "randomx.h"
