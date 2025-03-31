@@ -410,6 +410,12 @@ namespace PoolClient {
                     }
                 }
 
+                // Set job information in RandomXManager
+                RandomXManager::setJobInfo(height, jobId);
+                
+                // Set target for hash comparison
+                RandomXManager::setTarget(target);
+                
                 // Print job details
                 threadSafePrint("New job details:", true);
                 threadSafePrint("  Height: " + std::to_string(height), true);
@@ -419,20 +425,7 @@ namespace PoolClient {
                 threadSafePrint("  Seed Hash: " + seedHash, true);
                 
                 // Calculate and print difficulty
-                uint64_t targetValue = std::stoull(target, nullptr, 16);
-                uint32_t exponent = (targetValue >> 24) & 0xFF;
-                uint32_t mantissa = targetValue & 0xFFFFFF;
-                
-                // Calculate expanded target
-                uint64_t expandedTarget = 0;
-                if (exponent <= 3) {
-                    expandedTarget = mantissa >> (8 * (3 - exponent));
-                } else {
-                    expandedTarget = static_cast<uint64_t>(mantissa) << (8 * (exponent - 3));
-                }
-                
-                // Calculate difficulty
-                double difficulty = 0xFFFFFFFFFFFFFFFFULL / static_cast<double>(expandedTarget);
+                double difficulty = newJob.calculateDifficulty();
                 threadSafePrint("  Difficulty: " + std::to_string(difficulty), true);
 
                 // Update thread data with new job
@@ -475,15 +468,68 @@ namespace PoolClient {
            << "\",\"result\":\"" << hash << "\"},\"id\":2,\"algo\":\"" << algo << "\"}";
 
         std::string request = ss.str();
-        threadSafePrint("Submitting validated share:");
-        threadSafePrint("  Job ID: " + jobId);
-        threadSafePrint("  Nonce: 0x" + nonce);
-        threadSafePrint("  Hash: " + hash);
-        threadSafePrint("  Target: " + currentTargetHex);
-        threadSafePrint("  Algorithm: " + algo);
-        threadSafePrint("Pool send: " + request);
+        
+        // Always show share submission details
+        std::stringstream debug;
+        debug << "\nPool Share Submission:" << std::endl;
+        debug << "  Job ID: " << jobId << std::endl;
+        debug << "  Nonce: 0x" << nonce << std::endl;
+        debug << "  Hash: " << hash << std::endl;
+        debug << "  Target: " << currentTargetHex << std::endl;
+        debug << "  Algorithm: " << algo << std::endl;
+        debug << "  Request: " << request << std::endl;
+        threadSafePrint(debug.str(), true);
 
-        return sendRequest(request);
+        // Send request to pool
+        std::string response = sendAndReceive(request);
+        
+        // Always show pool response
+        debug.str("");
+        debug << "\nPool Response:" << std::endl;
+        debug << "  Response: " << response << std::endl;
+        threadSafePrint(debug.str(), true);
+
+        // Parse response
+        picojson::value v;
+        std::string err = picojson::parse(v, response);
+        if (!err.empty()) {
+            threadSafePrint("Failed to parse share response: " + err, true);
+            return false;
+        }
+
+        if (!v.is<picojson::object>()) {
+            threadSafePrint("Invalid share response format", true);
+            return false;
+        }
+
+        const picojson::object& obj = v.get<picojson::object>();
+        if (obj.find("result") != obj.end()) {
+            const picojson::value& result = obj.at("result");
+            if (result.is<picojson::object>()) {
+                const picojson::object& resultObj = result.get<picojson::object>();
+                if (resultObj.find("status") != resultObj.end()) {
+                    const std::string& status = resultObj.at("status").get<std::string>();
+                    bool accepted = (status == "OK");
+                    if (accepted) {
+                        threadSafePrint("Share accepted by pool!", true);
+                    } else {
+                        threadSafePrint("Share rejected by pool: " + status, true);
+                    }
+                    return accepted;
+                }
+            }
+        } else if (obj.find("error") != obj.end()) {
+            const picojson::value& error = obj.at("error");
+            if (error.is<picojson::object>()) {
+                const picojson::object& errorObj = error.get<picojson::object>();
+                if (errorObj.find("message") != errorObj.end()) {
+                    threadSafePrint("Share submission error: " + errorObj.at("message").get<std::string>(), true);
+                }
+            }
+            return false;
+        }
+
+        return false;
     }
 
     void handleSeedHashChange(const std::string& newSeedHash) {
@@ -545,50 +591,74 @@ namespace PoolClient {
     }
 
     std::string sendAndReceive(const std::string& payload) {
-        if (poolSocket == INVALID_SOCKET) {
-            threadSafePrint("Cannot send/receive: Invalid socket", true);
-            return "";
-        }
-
         // Add newline to payload
         std::string fullPayload = payload + "\n";
+
+        // Debug output for sending
+        if (config.debugMode) {
+            std::stringstream debug;
+            debug << "\nSending to pool:" << std::endl;
+            debug << "  Payload: " << fullPayload;
+            threadSafePrint(debug.str(), true);
+        }
 
         // Send the payload
         int bytesSent = send(poolSocket, fullPayload.c_str(), static_cast<int>(fullPayload.length()), 0);
         if (bytesSent == SOCKET_ERROR) {
-            threadSafePrint("Failed to send data: " + std::to_string(WSAGetLastError()), true);
+            int error = WSAGetLastError();
+            threadSafePrint("Failed to send data: " + std::to_string(error), true);
+            return "";
+        }
+
+        // Set up select for timeout
+        fd_set readSet;
+        FD_ZERO(&readSet);
+        FD_SET(poolSocket, &readSet);
+
+        struct timeval timeout;
+        timeout.tv_sec = 10;  // 10 second timeout
+        timeout.tv_usec = 0;
+
+        // Wait for data with timeout
+        int result = select(0, &readSet, nullptr, nullptr, &timeout);
+        if (result == 0) {
+            threadSafePrint("Timeout waiting for response", true);
+            return "";
+        }
+        if (result == SOCKET_ERROR) {
+            threadSafePrint("Select error: " + std::to_string(WSAGetLastError()), true);
             return "";
         }
 
         // Receive response
-        char buffer[4096];
         std::string response;
-        bool complete = false;
+        char buffer[4096];
+        int totalBytes = 0;
         
-        while (!complete) {
+        while (true) {
             int bytesReceived = recv(poolSocket, buffer, sizeof(buffer) - 1, 0);
             if (bytesReceived == SOCKET_ERROR) {
-                threadSafePrint("Failed to receive data: " + std::to_string(WSAGetLastError()), true);
+                int error = WSAGetLastError();
+                threadSafePrint("Failed to receive data: " + std::to_string(error), true);
                 return "";
             }
             if (bytesReceived == 0) {
-                threadSafePrint("Connection closed by server", true);
-                return "";
+                break;  // Connection closed
             }
-
+            
             buffer[bytesReceived] = '\0';
             response += buffer;
+            totalBytes += bytesReceived;
 
             // Check if we have a complete JSON response
             try {
                 picojson::value v;
                 std::string err = picojson::parse(v, response);
                 if (err.empty()) {
-                    complete = true;
+                    break;  // Valid JSON received
                 }
             } catch (...) {
                 // Continue receiving if JSON is incomplete
-                continue;
             }
         }
 
@@ -598,8 +668,16 @@ namespace PoolClient {
         }
 
         if (response.empty()) {
-            threadSafePrint("Empty response received", true);
-            return "";
+            threadSafePrint("Received empty response", true);
+        }
+
+        // Debug output for receiving
+        if (config.debugMode) {
+            std::stringstream debug;
+            debug << "\nReceived from pool:" << std::endl;
+            debug << "  Response: " << response << std::endl;
+            debug << "  Total bytes: " << totalBytes << std::endl;
+            threadSafePrint(debug.str(), true);
         }
 
         return response;

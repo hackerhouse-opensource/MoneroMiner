@@ -6,17 +6,18 @@
 #include <iostream>
 
 namespace HashValidation {
+    // Constants for RandomX
+    constexpr uint32_t TARGET_BITS = 256;
+    constexpr uint32_t COMPACT_TARGET_SIZE = 4;
+    constexpr uint32_t HASH_SIZE = 32;
+    constexpr uint32_t MANTISSA_BITS = 24;
+    constexpr uint32_t EXPONENT_BITS = 8;
+
     // Format hash bytes to hex string
     std::string formatHash(const std::vector<uint8_t>& hash);
 
     // Get target difficulty from compact target
-    uint64_t getTargetDifficulty(const std::string& targetHex);
-
-    // Validate hash against target using 4-byte tail comparison
-    bool validateHash(const std::string& hashHex, const std::string& targetHex);
-
-    // Check hash against target (internal implementation)
-    bool checkHash(const uint8_t* hash, const std::string& targetHex);
+    double getTargetDifficulty(const std::string& targetHex);
 
     // Convert hash to hex string
     std::string hashToHex(const uint8_t* hash, size_t size);
@@ -28,7 +29,6 @@ namespace HashValidation {
     void printHashValidation(const std::string& hashHex, const std::string& targetHex);
     void printTargetExpansion(const std::string& targetHex);
     void printHashComparison(const uint8_t* hash, const uint8_t* target);
-
-    // Legacy function for backward compatibility
-    bool meetsTarget(const uint8_t* hash, const std::string& target);
+    void printTargetDetails(const std::string& targetHex);
+    void printHashDetails(const uint8_t* hash);
 } 

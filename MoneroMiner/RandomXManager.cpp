@@ -42,6 +42,8 @@ std::string RandomXManager::currentTargetHex;
 std::string RandomXManager::lastHashHex;
 std::mutex RandomXManager::hashMutex;
 std::vector<uint8_t> RandomXManager::lastHash;
+uint64_t RandomXManager::currentHeight = 0;
+std::string RandomXManager::currentJobId;
 
 bool RandomXManager::initialize(const std::string& seedHash) {
     std::lock_guard<std::mutex> lock(initMutex);
@@ -305,106 +307,141 @@ void RandomXManager::destroyVM(randomx_vm* vm) {
     }
 }
 
-bool RandomXManager::calculateHash(randomx_vm* vm, const std::vector<uint8_t>& blob, uint64_t nonce) {
-    if (!vm || blob.empty()) {
-        if (debugMode) {
-            threadSafePrint("Invalid parameters for hash calculation", true);
-        }
-        return false;
+bool RandomXManager::calculateHash(randomx_vm* vm, const std::vector<uint8_t>& input, uint64_t nonce) {
+    if (!vm || input.empty()) return false;
+
+    // Ensure input is at least 43 bytes
+    std::vector<uint8_t> inputData = input;
+    if (inputData.size() < 43) {
+        inputData.resize(43);
     }
 
-    try {
-        // Create a copy of the input vector
-        std::vector<uint8_t> input = blob;
-        
-        // Ensure input is exactly 76 bytes
-        if (input.size() != 76) {
-            if (debugMode) {
-                threadSafePrint("Invalid blob size: " + std::to_string(input.size()) + " bytes", true);
-            }
-            return false;
-        }
+    // Insert nonce at bytes 39-42 (big-endian)
+    inputData[39] = (nonce >> 24) & 0xFF;
+    inputData[40] = (nonce >> 16) & 0xFF;
+    inputData[41] = (nonce >> 8) & 0xFF;
+    inputData[42] = nonce & 0xFF;
 
-        // Insert nonce at the last 4 bytes (bytes 72-75)
-        for (int i = 0; i < 4; i++) {
-            input[72 + i] = static_cast<uint8_t>((nonce >> (i * 8)) & 0xFF);
-        }
+    // Calculate hash
+    uint8_t output[32];
+    randomx_calculate_hash(vm, inputData.data(), inputData.size(), output);
 
-        // Debug output for input data (only for first hash in batch)
-        if (debugMode && nonce % 1000 == 0) {
-            std::string debugMsg = "Calculating hash with nonce: 0x" + std::to_string(nonce);
-            threadSafePrint(debugMsg, true);
-        }
+    // Store hash in thread-safe manner
+    {
+        std::lock_guard<std::mutex> lock(hashMutex);
+        lastHash.assign(output, output + 32);
+        lastHashHex = bytesToHex(std::vector<uint8_t>(output, output + 32));
+    }
 
-        // Calculate hash
-        uint8_t output[32];
-        randomx_calculate_hash(vm, input.data(), input.size(), output);
-
-        // Convert hash to hex string
+    // Debug output every 10,000 hashes or first hash
+    static uint64_t hashCount = 0;
+    if (debugMode && (++hashCount % 10000 == 0 || hashCount == 1)) {
         std::stringstream ss;
-        for (int i = 0; i < 32; i++) {
-            ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(output[i]);
-        }
-        lastHashHex = ss.str();
-
-        // Store hash with mutex protection
-        {
-            std::lock_guard<std::mutex> lock(hashMutex);
-            lastHash = std::vector<uint8_t>(output, output + 32);
-        }
-
-        // Debug output for hash calculation (only for first hash in batch)
-        if (debugMode && nonce % 1000 == 0) {
-            std::string debugMsg = "Hash: " + lastHashHex + " Target: 0x" + currentTargetHex;
-            threadSafePrint(debugMsg, true);
-        }
-
-        // Convert target from compact to expanded format
-        uint64_t targetValue = std::stoull(currentTargetHex, nullptr, 16);
-        uint32_t exponent = (targetValue >> 24) & 0xFF;
-        uint32_t mantissa = targetValue & 0xFFFFFF;
+        ss << "\nRandomX Hash Calculation:" << std::endl;
+        ss << "  Input data: " << bytesToHex(inputData) << std::endl;
+        ss << "  Nonce: 0x" << std::hex << std::setw(8) << std::setfill('0') << nonce << std::endl;
+        ss << "  Hash output: " << lastHashHex << std::endl;
+        ss << "  Target: 0x" << currentTargetHex << std::endl;
         
-        // Calculate expanded target
-        uint64_t expandedTarget = 0;
-        if (exponent <= 3) {
-            expandedTarget = mantissa >> (8 * (3 - exponent));
-        } else {
-            expandedTarget = static_cast<uint64_t>(mantissa) << (8 * (exponent - 3));
+        // Expand target for comparison
+        std::string target = currentTargetHex;
+        if (target.substr(0, 2) == "0x") target = target.substr(2);
+        uint32_t compact = std::stoul(target, nullptr, 16);
+        uint8_t exponent = (compact >> 24) & 0xFF;
+        uint32_t mantissa = compact & 0x00FFFFFF;
+        
+        ss << "\nTarget Expansion:" << std::endl;
+        ss << "  Compact target: 0x" << target << std::endl;
+        ss << "  Exponent: 0x" << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(exponent) << std::endl;
+        ss << "  Mantissa: 0x" << std::hex << std::setw(6) << std::setfill('0') << mantissa << std::endl;
+        
+        // Create 256-bit target
+        uint256_t full_target;
+        full_target.words[0] = static_cast<uint64_t>(mantissa);
+        full_target.shift_left(232);  // Place mantissa at start of Word 0
+        
+        ss << "\nExpanded Target (256-bit):" << std::endl;
+        ss << "  Word 0: 0x" << std::hex << std::setw(16) << std::setfill('0') << full_target.words[0] << std::endl;
+        ss << "  Word 1: 0x" << std::hex << std::setw(16) << std::setfill('0') << full_target.words[1] << std::endl;
+        ss << "  Word 2: 0x" << std::hex << std::setw(16) << std::setfill('0') << full_target.words[2] << std::endl;
+        ss << "  Word 3: 0x" << std::hex << std::setw(16) << std::setfill('0') << full_target.words[3] << std::endl;
+        
+        // Convert hash to 256-bit integer for comparison
+        uint256_t hash_value;
+        for (int i = 0; i < 32; i++) {
+            int word_idx = i / 8;
+            int byte_idx = 7 - (i % 8);
+            hash_value.words[word_idx] |= (static_cast<uint64_t>(output[i]) << (byte_idx * 8));
         }
-
-        // Compare hash with target
-        bool meetsTarget = false;
-        for (int i = 0; i < 8; i++) {
-            uint64_t hashPart = 0;
-            for (int j = 0; j < 8; j++) {
-                hashPart = (hashPart << 8) | output[7 - i - j];
-            }
-            if (hashPart < expandedTarget) {
-                meetsTarget = true;
-                break;
-            } else if (hashPart > expandedTarget) {
-                break;
-            }
-        }
-
-        if (meetsTarget && debugMode) {
-            threadSafePrint("Found hash meeting target: " + lastHashHex, true);
-        }
-
-        return meetsTarget;
+        
+        ss << "\nHash Value (256-bit):" << std::endl;
+        ss << "  Word 0: 0x" << std::hex << std::setw(16) << std::setfill('0') << hash_value.words[0] << std::endl;
+        ss << "  Word 1: 0x" << std::hex << std::setw(16) << std::setfill('0') << hash_value.words[1] << std::endl;
+        ss << "  Word 2: 0x" << std::hex << std::setw(16) << std::setfill('0') << hash_value.words[2] << std::endl;
+        ss << "  Word 3: 0x" << std::hex << std::setw(16) << std::setfill('0') << hash_value.words[3] << std::endl;
+        
+        ss << "\nShare Validation:" << std::endl;
+        bool meetsTarget = hash_value < full_target;
+        ss << "  Hash " << (meetsTarget ? "meets" : "does not meet") << " target" << std::endl;
+        
+        threadSafePrint(ss.str(), true);
     }
-    catch (const std::exception& e) {
-        if (debugMode) {
-            threadSafePrint("Exception in calculateHash: " + std::string(e.what()), true);
-        }
-        return false;
+
+    return checkHash(output, currentTargetHex);
+}
+
+std::string RandomXManager::getLastHashHex() {
+    std::lock_guard<std::mutex> lock(hashMutex);
+    return bytesToHex(lastHash);
+}
+
+bool RandomXManager::checkHash(const uint8_t* hash, const std::string& targetHex) {
+    // Extract exponent and mantissa from target
+    uint32_t target = std::stoul(targetHex, nullptr, 16);
+    uint8_t exponent = (target >> 24) & 0xFF;
+    uint32_t mantissa = target & 0x00FFFFFF;
+
+    // Create 256-bit target
+    uint256_t targetValue;
+    targetValue.words[0] = static_cast<uint64_t>(mantissa) << 40;  // Shift left by 40 bits to place at start of Word 0
+    targetValue.words[1] = 0;
+    targetValue.words[2] = 0;
+    targetValue.words[3] = 0;
+
+    // Create 256-bit hash value
+    uint256_t hashValue;
+    memcpy(hashValue.words, hash, 32);
+
+    // Only show debug output for first hash and every 10,000th hash
+    static uint64_t hashCount = 0;
+    hashCount++;
+    bool shouldShowDebug = hashCount == 1 || hashCount % 10000 == 0;
+
+    if (shouldShowDebug) {
+        std::stringstream ss;
+        ss << "\nTarget Expansion:" << std::endl;
+        ss << "  Compact target: 0x" << targetHex << std::endl;
+        ss << "  Exponent: 0x" << std::hex << static_cast<int>(exponent) << std::endl;
+        ss << "  Mantissa: 0x" << std::hex << mantissa << std::endl;
+        ss << std::endl;
+        ss << "Expanded Target (256-bit):" << std::endl;
+        ss << "  Word 0: 0x" << std::hex << std::setw(16) << std::setfill('0') << targetValue.words[0] << std::endl;
+        ss << "  Word 1: 0x" << std::hex << std::setw(16) << std::setfill('0') << targetValue.words[1] << std::endl;
+        ss << "  Word 2: 0x" << std::hex << std::setw(16) << std::setfill('0') << targetValue.words[2] << std::endl;
+        ss << "  Word 3: 0x" << std::hex << std::setw(16) << std::setfill('0') << targetValue.words[3] << std::endl;
+        ss << std::endl;
+        ss << "Hash Value (256-bit):" << std::endl;
+        ss << "  Word 0: 0x" << std::hex << std::setw(16) << std::setfill('0') << hashValue.words[0] << std::endl;
+        ss << "  Word 1: 0x" << std::hex << std::setw(16) << std::setfill('0') << hashValue.words[1] << std::endl;
+        ss << "  Word 2: 0x" << std::hex << std::setw(16) << std::setfill('0') << hashValue.words[2] << std::endl;
+        ss << "  Word 3: 0x" << std::hex << std::setw(16) << std::setfill('0') << hashValue.words[3] << std::endl;
+        ss << std::endl;
+        ss << "Share Validation:" << std::endl;
+        ss << "  Hash " << (hashValue < targetValue ? "meets" : "does not meet") << " target" << std::endl;
+        threadSafePrint(ss.str(), true);
     }
-    catch (...) {
-        if (debugMode) {
-            threadSafePrint("Unknown exception in calculateHash", true);
-        }
-        return false;
-    }
+
+    return hashValue < targetValue;
 }
 
 bool RandomXManager::verifyHash(const uint8_t* input, size_t inputSize, const uint8_t* expectedHash, int threadId) {
@@ -507,11 +544,6 @@ void RandomXManager::handleSeedHashChange(const std::string& newSeedHash) {
             }
         }
     }
-}
-
-std::string RandomXManager::getLastHashHex() {
-    std::lock_guard<std::mutex> lock(hashMutex);
-    return lastHashHex;
 }
 
 void RandomXManager::setTarget(const std::string& targetHex) {

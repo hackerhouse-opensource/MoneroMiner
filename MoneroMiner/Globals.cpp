@@ -4,6 +4,9 @@
 #include "MiningThreadData.h"
 #include "Types.h"
 #include <queue>
+#include <sstream>
+#include <iomanip>
+#include <chrono>
 
 // Global variables definitions
 bool debugMode = false;
@@ -34,7 +37,6 @@ std::string sessionId;
 std::vector<MiningThreadData*> threadData;
 
 // Global configuration and stats
-Config config;
 GlobalStats globalStats;
 
 // RandomX globals
@@ -42,4 +44,36 @@ randomx_cache* currentCache = nullptr;
 randomx_dataset* currentDataset = nullptr;
 std::string currentSeedHash;
 std::mutex cacheMutex;
-std::mutex seedHashMutex; 
+std::mutex seedHashMutex;
+
+// Utility functions
+std::string bytesToHex(const std::vector<uint8_t>& bytes) {
+    std::stringstream ss;
+    ss << std::hex << std::setfill('0');
+    for (uint8_t byte : bytes) {
+        ss << std::setw(2) << static_cast<int>(byte) << " ";
+    }
+    return ss.str();
+}
+
+std::string getCurrentTimestamp() {
+    auto now = std::chrono::system_clock::now();
+    auto now_c = std::chrono::system_clock::to_time_t(now);
+    char buffer[26];
+    ctime_s(buffer, sizeof(buffer), &now_c);
+    std::string timestamp(buffer);
+    timestamp = timestamp.substr(0, timestamp.length() - 1); // Remove newline
+    return timestamp;
+}
+
+void threadSafePrint(const std::string& message, bool toLogFile) {
+    std::lock_guard<std::mutex> consoleLock(consoleMutex);
+    std::cout << message << std::endl;
+
+    if (toLogFile && config.useLogFile) {
+        std::lock_guard<std::mutex> logLock(logfileMutex);
+        if (logFile.is_open()) {
+            logFile << getCurrentTimestamp() << " " << message << std::endl;
+        }
+    }
+} 

@@ -41,57 +41,119 @@ bool MiningThreadData::initializeVM() {
     return true;
 }
 
-bool MiningThreadData::calculateHash(const std::vector<uint8_t>& blob, uint64_t nonce, uint8_t* output) {
-    if (!vmInitialized && !initializeVM()) {
+bool MiningThreadData::calculateHash(const std::vector<uint8_t>& input, uint64_t nonce) {
+    if (!vm || input.empty()) {
         return false;
     }
 
-    std::lock_guard<std::mutex> lock(vmMutex);
-    return RandomXManager::calculateHash(vm, blob, nonce);
+    // Create a copy of the input data
+    std::vector<uint8_t> data = input;
+    
+    // Ensure the input is at least 43 bytes (RandomX block header size)
+    if (data.size() < 43) {
+        data.resize(43, 0);
+    }
+
+    // Insert nonce at the correct position (bytes 39-42)
+    data[39] = (nonce >> 24) & 0xFF;
+    data[40] = (nonce >> 16) & 0xFF;
+    data[41] = (nonce >> 8) & 0xFF;
+    data[42] = nonce & 0xFF;
+
+    // Calculate hash
+    return RandomXManager::calculateHash(vm, data, nonce);
 }
 
 void MiningThreadData::updateJob(const Job& job) {
     std::lock_guard<std::mutex> lock(jobMutex);
+    
+    // Delete existing job if any
     if (currentJob) {
         delete currentJob;
+        currentJob = nullptr;
     }
+    
+    // Create new job
     currentJob = new Job(job);
+    
+    // Initialize nonce based on thread ID
     currentNonce = static_cast<uint64_t>(threadId) * (0xFFFFFFFF / config.numThreads);
+    
+    if (debugMode) {
+        threadSafePrint("Thread " + std::to_string(threadId) + 
+            " initialized with job: " + currentJob->getJobId() + 
+            " starting nonce: " + std::to_string(currentNonce), true);
+    }
 }
 
 void MiningThreadData::mine() {
     while (!shouldStop) {
         try {
-            if (!currentJob) {
-                std::unique_lock<std::mutex> lock(PoolClient::jobMutex);
-                PoolClient::jobQueueCondition.wait(lock, [&]() {
-                    return !PoolClient::jobQueue.empty() || shouldStop;
-                });
-                
-                if (shouldStop) break;
-                
-                if (PoolClient::jobQueue.empty()) {
-                    continue;
+            // Check if we have a current job
+            {
+                std::lock_guard<std::mutex> lock(jobMutex);
+                if (!currentJob) {
+                    // Wait for a new job
+                    std::unique_lock<std::mutex> poolLock(PoolClient::jobMutex);
+                    PoolClient::jobQueueCondition.wait(poolLock, [&]() {
+                        return !PoolClient::jobQueue.empty() || shouldStop;
+                    });
+                    
+                    if (shouldStop) break;
+                    
+                    if (PoolClient::jobQueue.empty()) {
+                        continue;
+                    }
+                    
+                    // Get the next job from the queue
+                    Job newJob = PoolClient::jobQueue.front();
+                    PoolClient::jobQueue.pop();
+                    
+                    // Update our current job
+                    updateJob(newJob);
+                    
+                    if (debugMode) {
+                        threadSafePrint("Thread " + std::to_string(threadId) + 
+                            " received new job: " + currentJob->getJobId(), true);
+                    }
                 }
-                
-                updateJob(PoolClient::jobQueue.front());
-                PoolClient::jobQueue.pop();
             }
 
             // Process current job
-            std::vector<uint8_t> input = currentJob->getBlob();
-            uint64_t currentNonce = currentNonce;
+            std::vector<uint8_t> input;
+            uint64_t currentNonce;
+            std::string currentJobId;
             
-            // Calculate hash
-            uint8_t output[32];
-            if (calculateHash(input, currentNonce, output)) {
-                submitShare(output);
+            // Get job data under lock
+            {
+                std::lock_guard<std::mutex> lock(jobMutex);
+                if (!currentJob) continue;
+                
+                input = currentJob->getBlobBytes();
+                currentNonce = this->currentNonce;
+                currentJobId = currentJob->getJobId();
             }
             
-            // Update nonce
-            currentNonce++;
-            hashCount++;
-            totalHashCount++;
+            // Calculate hash
+            if (calculateHash(input, currentNonce)) {
+                // Check if we still have the same job before submitting
+                {
+                    std::lock_guard<std::mutex> lock(jobMutex);
+                    if (currentJob && currentJob->getJobId() == currentJobId) {
+                        submitShare(RandomXManager::getLastHash());
+                    }
+                }
+            }
+            
+            // Update nonce and stats
+            {
+                std::lock_guard<std::mutex> lock(jobMutex);
+                if (currentJob && currentJob->getJobId() == currentJobId) {
+                    this->currentNonce++;
+                    hashCount++;
+                    totalHashCount++;
+                }
+            }
             
             // Print hash rate every 1000 hashes
             if (hashCount % 1000 == 0) {
@@ -107,28 +169,42 @@ void MiningThreadData::mine() {
     }
 }
 
-void MiningThreadData::submitShare(const uint8_t* hash) {
-    if (!currentJob) return;
+void MiningThreadData::submitShare(const std::vector<uint8_t>& hash) {
+    std::lock_guard<std::mutex> lock(jobMutex);
     
-    // Convert nonce to hex
-    std::stringstream ss;
-    ss << std::hex << std::setw(16) << std::setfill('0') << currentNonce;
-    std::string nonceHex = ss.str();
-    
-    // Convert hash to hex
-    std::string hashHex;
-    for (int i = 0; i < 32; i++) {
-        ss.str("");
-        ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hash[i]);
-        hashHex += ss.str();
+    if (!currentJob) {
+        if (debugMode) {
+            threadSafePrint("Thread " + std::to_string(threadId) + 
+                " attempted to submit share without current job", true);
+        }
+        return;
     }
+
+    // Convert hash to hex string
+    std::stringstream ss;
+    for (uint8_t byte : hash) {
+        ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(byte);
+    }
+    std::string hashHex = ss.str();
+
+    // Convert height to string
+    std::string heightStr = std::to_string(currentJob->getHeight());
+
+    if (debugMode) {
+        threadSafePrint("Thread " + std::to_string(threadId) + 
+            " submitting share for job: " + currentJob->getJobId() + 
+            " nonce: " + std::to_string(currentNonce), true);
+    }
+
+    // Submit share to pool
+    bool accepted = PoolClient::submitShare(hashHex, currentJob->getJobId(), heightStr, std::to_string(currentNonce));
     
-    // Submit share
-    bool accepted = PoolClient::submitShare(currentJob->getJobId(), nonceHex, hashHex, "rx/0");
     if (accepted) {
         acceptedShares++;
+        threadSafePrint("Share accepted! Hash: " + hashHex + " Nonce: " + std::to_string(currentNonce), true);
     } else {
         rejectedShares++;
+        threadSafePrint("Share rejected. Hash: " + hashHex + " Nonce: " + std::to_string(currentNonce), true);
     }
 }
 

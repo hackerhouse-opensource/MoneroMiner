@@ -1,3 +1,25 @@
+#include "MiningThread.h"
+#include "MiningThreadData.h"
+#include "RandomXManager.h"
+#include "MiningStats.h"
+#include "Globals.h"
+#include "Utils.h"
+#include "Constants.h"
+#include "Types.h"
+#include <cstdint>
+#include <sstream>
+#include <iomanip>
+#include <chrono>
+#include <thread>
+#include <queue>
+#include <mutex>
+#include <condition_variable>
+#include <atomic>
+#include <vector>
+#include <string>
+#include <iostream>
+#include <cstring>
+
 void miningThread(MiningThreadData* data) {
     threadSafePrint("Mining thread " + std::to_string(data->getId()) + " started");
     
@@ -35,29 +57,15 @@ void miningThread(MiningThreadData* data) {
                 data->jobQueue.pop();
             }
 
-            // Initialize target and nonce
-            std::vector<uint8_t> targetBytes = hexToBytes(job.target);
-            if (targetBytes.size() != 4) {
-                threadSafePrint("Error: Invalid target size", true);
-                continue;
-            }
-
-            // Create 256-bit target (32 bytes)
-            std::vector<uint8_t> expandedTarget(32, 0);
-
-            // Place the compact target in the least significant 4 bytes (big-endian)
-            expandedTarget[28] = targetBytes[0];
-            expandedTarget[29] = targetBytes[1];
-            expandedTarget[30] = targetBytes[2];
-            expandedTarget[31] = targetBytes[3];
+            // Set target in RandomXManager
+            RandomXManager::setTarget(job.target);
+            RandomXManager::setJobInfo(job.height, job.jobId);
 
             if (config.debugMode) {
                 std::stringstream ss;
                 ss << "[" << getCurrentTimestamp() << "] randomx  new job:" << std::endl;
                 ss << "  Height: " << job.height << std::endl;
                 ss << "  Target: 0x" << job.target << std::endl;
-                ss << "  Target bytes: " << bytesToHex(targetBytes) << std::endl;
-                ss << "  Expanded target: " << bytesToHex(expandedTarget) << std::endl;
                 ss << "  Difficulty: " << job.difficulty << std::endl;
                 ss << "  Blob: " << job.blob << std::endl;
                 ss << "  Seed Hash: " << job.seedHash << std::endl;
@@ -89,15 +97,16 @@ void miningThread(MiningThreadData* data) {
             }
 
             // Calculate first hash
-            uint256_t hash = calculateHash(input);
-
-            if (config.debugMode) {
-                std::stringstream ss;
-                ss << "[" << getCurrentTimestamp() << "] randomx  hash result:" << std::endl;
-                ss << "  Hash: 0x" << std::hex << hash << std::endl;
-                ss << "  Target: 0x" << bytesToHex(expandedTarget) << std::endl;
-                ss << "  Meets target: " << (meetsTarget(hash, expandedTarget) ? "Yes" : "No") << std::endl;
-                threadSafePrint(ss.str(), true);
+            if (RandomXManager::calculateHash(data->getVM(), input, nonce)) {
+                if (config.debugMode) {
+                    std::stringstream ss;
+                    ss << "[" << getCurrentTimestamp() << "] randomx  first hash:" << std::endl;
+                    ss << "  Input: " << bytesToHex(input) << std::endl;
+                    ss << "  Nonce: 0x" << std::hex << std::setw(8) << std::setfill('0') << nonce << std::endl;
+                    ss << "  Hash: " << bytesToHex(RandomXManager::getLastHash()) << std::endl;
+                    ss << "  Target: 0x" << job.target << std::endl;
+                    threadSafePrint(ss.str(), true);
+                }
             }
 
             // Update thread stats
@@ -120,10 +129,50 @@ void miningThread(MiningThreadData* data) {
                 input[42] = nonce & 0xFF;
 
                 // Calculate hash
-                hash = calculateHash(input);
+                if (RandomXManager::calculateHash(data->getVM(), input, nonce)) {
+                    // Found a valid share
+                    std::stringstream ss;
+                    ss << "Found share!" << std::endl;
+                    ss << "  Hash: " << bytesToHex(RandomXManager::getLastHash()) << std::endl;
+                    ss << "  Target: 0x" << job.target << std::endl;
+                    ss << "  Nonce: 0x" << std::hex << std::setw(8) << std::setfill('0') << nonce << std::endl;
+                    threadSafePrint(ss.str(), true);
 
-                // Update stats
+                    // Submit share
+                    std::string nonceHex;
+                    {
+                        std::stringstream nss;
+                        nss << std::hex << std::setw(8) << std::setfill('0') << nonce;
+                        nonceHex = nss.str();
+                    }
+                    
+                    bool accepted = PoolClient::submitShare(
+                        job.jobId,
+                        nonceHex,
+                        bytesToHex(RandomXManager::getLastHash()),
+                        "rx/0"  // RandomX algorithm identifier
+                    );
+
+                    if (accepted) {
+                        threadSafePrint("Share accepted by pool!", true);
+                        data->acceptedShares++;
+                    } else {
+                        threadSafePrint("Share rejected by pool", true);
+                        data->rejectedShares++;
+                    }
+                }
+
+                // Update stats and show debug output every 10,000 hashes
                 data->hashes++;
+                if (config.debugMode && data->hashes % 10000 == 0) {
+                    std::stringstream ss;
+                    ss << "[" << getCurrentTimestamp() << "] randomx  hash #" << data->hashes << ":" << std::endl;
+                    ss << "  Input: " << bytesToHex(input) << std::endl;
+                    ss << "  Nonce: 0x" << std::hex << std::setw(8) << std::setfill('0') << nonce << std::endl;
+                    ss << "  Hash: " << bytesToHex(RandomXManager::getLastHash()) << std::endl;
+                    ss << "  Target: 0x" << job.target << std::endl;
+                    threadSafePrint(ss.str(), true);
+                }
 
                 // Check if we need to update stats
                 auto now = std::chrono::steady_clock::now();
@@ -131,20 +180,6 @@ void miningThread(MiningThreadData* data) {
                     data->lastUpdate = now;
                     MiningStats::updateThreadStats(data);
                     MiningStats::updateGlobalStats(data);
-                }
-
-                // Check if hash meets target
-                if (meetsTarget(hash, expandedTarget)) {
-                    // Found a valid share
-                    std::stringstream ss;
-                    ss << "Found share!" << std::endl;
-                    ss << "  Hash: 0x" << std::hex << hash << std::endl;
-                    ss << "  Target: 0x" << bytesToHex(expandedTarget) << std::endl;
-                    ss << "  Nonce: 0x" << std::hex << nonce << std::endl;
-                    threadSafePrint(ss.str(), true);
-
-                    // Submit share
-                    submitShare(job, nonce);
                 }
             }
         }

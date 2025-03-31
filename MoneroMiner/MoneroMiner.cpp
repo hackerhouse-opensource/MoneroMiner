@@ -24,6 +24,7 @@
 #include <chrono>
 #include <iomanip>
 #include <sstream>
+#include <fstream>
 
 // Global variable declarations (not definitions)
 extern std::atomic<uint32_t> activeJobId;
@@ -38,7 +39,6 @@ extern std::vector<MiningThreadData*> threadData;
 // Forward declarations
 void printHelp();
 bool validateConfig();
-bool parseCommandLine(int argc, char* argv[]);
 void signalHandler(int signum);
 void printConfig();
 std::string createSubmitPayload(const std::string& sessionId, const std::string& jobId,
@@ -50,23 +50,23 @@ bool submitShare(const std::string& jobId, const std::string& nonce, const std::
 void handleLoginResponse(const std::string& response);
 void processNewJob(const picojson::object& jobObj);
 void miningThread(int threadId);
+bool loadConfig();
 
 void printHelp() {
-    std::cout << "MoneroMiner v1.0.0 - Lightweight High Performance Monero CPU Miner\n\n"
-              << "Usage: MoneroMiner.exe [OPTIONS]\n\n"
+    std::cout << "MoneroMiner - A Monero (XMR) mining program\n\n"
+              << "Usage: MoneroMiner [options]\n\n"
               << "Options:\n"
               << "  --help               Show this help message\n"
-              << "  --debug              Enable debug logging\n"
-              << "  --logfile [FILE]     Enable logging to file\n"
-              << "  --threads N          Number of mining threads\n"
-              << "  --pool-address URL   Pool address\n"
-              << "  --pool-port PORT     Pool port\n"
-              << "  --wallet ADDRESS     Wallet address\n"
-              << "  --worker-name NAME   Worker name\n"
-              << "  --password PASS      Pool password\n"
-              << "  --user-agent AGENT   User agent string\n\n"
+              << "  --debug              Enable debug output\n"
+              << "  --logfile            Enable logging to file\n"
+              << "  --threads N          Number of mining threads (default: 1)\n"
+              << "  --pool ADDRESS:PORT  Pool address and port (default: xmr-eu1.nanopool.org:14444)\n"
+              << "  --wallet ADDRESS      Your Monero wallet address\n"
+              << "  --worker NAME        Worker name (default: worker1)\n"
+              << "  --password X         Pool password (default: x)\n"
+              << "  --useragent AGENT    User agent string (default: MoneroMiner/1.0.0)\n\n"
               << "Example:\n"
-              << "  MoneroMiner.exe --debug --logfile debug.log --threads 4\n"
+              << "  MoneroMiner --debug --logfile --threads 4 --wallet YOUR_WALLET_ADDRESS\n"
               << std::endl;
 }
 
@@ -82,57 +82,6 @@ bool validateConfig() {
         }
         threadSafePrint("Using " + std::to_string(config.numThreads) + " threads", false);
     }
-    return true;
-}
-
-bool parseCommandLine(int argc, char* argv[]) {
-    for (int i = 1; i < argc; i++) {
-        std::string arg = argv[i];
-        if (arg == "--help" || arg == "-h") {
-            printHelp();
-            return false;
-        }
-        else if (arg == "--debug") {
-            config.debugMode = true;
-        }
-        else if (arg == "--logfile") {
-            config.useLogFile = true;
-            if (i + 1 < argc && argv[i + 1][0] != '-') {
-                config.logFileName = argv[++i];
-            }
-        }
-        else if (arg == "--threads" && i + 1 < argc) {
-            int threads = std::stoi(argv[++i]);
-            if (threads <= 0) {
-                config.numThreads = std::thread::hardware_concurrency();
-                threadSafePrint("Invalid thread count, using " + std::to_string(config.numThreads) + " threads", true);
-            } else {
-                config.numThreads = threads;
-                threadSafePrint("Using " + std::to_string(config.numThreads) + " mining threads", true);
-            }
-        }
-        else if (arg == "--pool" && i + 1 < argc) {
-            std::string poolAddress = argv[++i];
-            size_t colonPos = poolAddress.find(':');
-            if (colonPos != std::string::npos) {
-                config.poolAddress = poolAddress.substr(0, colonPos);
-                config.poolPort = poolAddress.substr(colonPos + 1);
-            }
-        }
-        else if (arg == "--wallet" && i + 1 < argc) {
-            config.walletAddress = argv[++i];
-        }
-        else if (arg == "--worker" && i + 1 < argc) {
-            config.workerName = argv[++i];
-        }
-        else if (arg == "--password" && i + 1 < argc) {
-            config.password = argv[++i];
-        }
-        else if (arg == "--useragent" && i + 1 < argc) {
-            config.userAgent = argv[++i];
-        }
-    }
-
     return true;
 }
 
@@ -173,90 +122,31 @@ void miningThread(int threadId) {
         // Main mining loop
         while (!shouldStop) {
             try {
-                // Wait for a job if we don't have one
-                if (!data->hasJob()) {
-                    std::unique_lock<std::mutex> lock(PoolClient::jobMutex);
-                    PoolClient::jobQueueCondition.wait(lock, [&]() {
-                        return !PoolClient::jobQueue.empty() || shouldStop;
-                    });
-                    
-                    if (shouldStop) break;
-                    
-                    if (PoolClient::jobQueue.empty()) {
-                        threadSafePrint("Thread " + std::to_string(threadId) + 
-                            " woke up but no job available", true);
-                        continue;
-                    }
-                    
-                    // Get new job
-                    Job newJob = PoolClient::jobQueue.front();
-                    PoolClient::jobQueue.pop();
-                    data->updateJob(newJob);
-                    
-                    if (debugMode) {
-                        threadSafePrint("Thread " + std::to_string(threadId) + 
-                            " received new job: " + newJob.getJobId(), true);
+                // Get current job
+                Job* currentJob = nullptr;
+                {
+                    std::lock_guard<std::mutex> lock(PoolClient::jobMutex);
+                    if (!PoolClient::jobQueue.empty()) {
+                        currentJob = &PoolClient::jobQueue.front();
                     }
                 }
 
-                // Process current job
-                Job* currentJob = data->getCurrentJob();
                 if (!currentJob) {
-                    threadSafePrint("Thread " + std::to_string(threadId) + 
-                        " no current job available", true);
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
                     continue;
                 }
 
-                uint64_t nonce = data->getNonce();
-                uint64_t hashCount = 0;
-                
-                // Set target in RandomXManager
-                RandomXManager::setTarget(currentJob->getTarget());
-                
-                // Process hashes in batches
-                const int BATCH_SIZE = 1000;
-                while (!shouldStop && data->hasJob()) {
-                    // Get current job again to check if it changed
-                    Job* currentJobCheck = data->getCurrentJob();
-                    if (!currentJobCheck || currentJobCheck->getJobId() != currentJob->getJobId()) {
-                        break;
-                    }
-                    
-                    // Calculate batch of hashes
-                    for (int i = 0; i < BATCH_SIZE && !shouldStop; i++) {
-                        std::vector<uint8_t> input = currentJob->getBlob();
-                        uint64_t currentNonce = nonce + i;
-                        
-                        // Insert nonce into input
-                        input[72] = (currentNonce >> 24) & 0xFF;
-                        input[73] = (currentNonce >> 16) & 0xFF;
-                        input[74] = (currentNonce >> 8) & 0xFF;
-                        input[75] = currentNonce & 0xFF;
-                        
-                        // Calculate hash
-                        uint8_t output[32];
-                        if (data->calculateHash(input, currentNonce, output)) {
-                            if (debugMode) {
-                                threadSafePrint("Thread " + std::to_string(threadId) + 
-                                    " found valid hash at nonce " + std::to_string(currentNonce), true);
-                            }
-                            
-                            data->submitShare(output);
-                        }
-                        
-                        hashCount++;
-                    }
-                    
-                    // Update nonce
-                    nonce += BATCH_SIZE;
-                    data->setNonce(nonce);
-                    
-                    // Print hash rate every 1000 hashes
-                    if (hashCount % 1000 == 0) {
-                        threadSafePrint("Thread " + std::to_string(threadId) + 
-                            " processed " + std::to_string(hashCount) + " hashes", true);
-                    }
+                // Convert hex blob to bytes
+                std::vector<uint8_t> input = currentJob->getBlobBytes();
+
+                // Calculate hash
+                if (data->calculateHash(input, currentJob->getNonce())) {
+                    // Share was found and submitted
+                    data->submitShare(RandomXManager::getLastHash());
                 }
+
+                // Increment nonce
+                currentJob->incrementNonce();
             }
             catch (const std::exception& e) {
                 threadSafePrint("Error in mining thread " + std::to_string(threadId) + 
@@ -572,85 +462,173 @@ void handleLoginResponse(const std::string& response) {
     }
 }
 
-int main(int argc, char* argv[]) {
+bool loadConfig() {
     try {
-        // Parse command line arguments and initialize config
-        if (!config.parseCommandLine(argc, argv)) {
-            return 1;
-        }
-
-        // Print current configuration
-        config.printConfig();
-
-        // Initialize Winsock
-        if (!PoolClient::initialize()) {
-            std::cerr << "Failed to initialize Winsock" << std::endl;
-            return 1;
-        }
-
-        // Connect to pool
-        if (!PoolClient::connect(config.poolAddress, config.poolPort)) {
-            std::cerr << "Failed to connect to pool" << std::endl;
-            PoolClient::cleanup();
-            return 1;
-        }
-
-        // Login to pool
-        if (!PoolClient::login(config.walletAddress, config.password, config.workerName, config.userAgent)) {
-            std::cerr << "Failed to login to pool" << std::endl;
-            PoolClient::cleanup();
-            return 1;
-        }
-
-        // Initialize thread data
-        threadData.resize(config.numThreads);
-        for (int i = 0; i < config.numThreads; i++) {
-            threadData[i] = new MiningThreadData(i);
-            if (!threadData[i]) {
-                threadSafePrint("Failed to create thread data for thread " + std::to_string(i), true);
-                // Cleanup
-                for (int j = 0; j < i; j++) {
-                    delete threadData[j];
+        // Try to load from config.json if it exists
+        std::ifstream file("config.json");
+        if (file.is_open()) {
+            picojson::value v;
+            std::string err = picojson::parse(v, file);
+            if (err.empty() && v.is<picojson::object>()) {
+                const picojson::object& obj = v.get<picojson::object>();
+                
+                if (obj.find("poolAddress") != obj.end()) {
+                    config.poolAddress = obj.at("poolAddress").get<std::string>();
                 }
-                threadData.clear();
-                PoolClient::cleanup();
-                return 1;
+                if (obj.find("poolPort") != obj.end()) {
+                    config.poolPort = static_cast<int>(obj.at("poolPort").get<double>());
+                }
+                if (obj.find("walletAddress") != obj.end()) {
+                    config.walletAddress = obj.at("walletAddress").get<std::string>();
+                }
+                if (obj.find("workerName") != obj.end()) {
+                    config.workerName = obj.at("workerName").get<std::string>();
+                }
+                if (obj.find("password") != obj.end()) {
+                    config.password = obj.at("password").get<std::string>();
+                }
+                if (obj.find("userAgent") != obj.end()) {
+                    config.userAgent = obj.at("userAgent").get<std::string>();
+                }
+                if (obj.find("numThreads") != obj.end()) {
+                    config.numThreads = static_cast<int>(obj.at("numThreads").get<double>());
+                }
+                if (obj.find("debugMode") != obj.end()) {
+                    config.debugMode = obj.at("debugMode").get<bool>();
+                }
+                if (obj.find("useLogFile") != obj.end()) {
+                    config.useLogFile = obj.at("useLogFile").get<bool>();
+                }
+                if (obj.find("logFileName") != obj.end()) {
+                    config.logFileName = obj.at("logFileName").get<std::string>();
+                }
+                
+                file.close();
+                return true;
             }
+            file.close();
         }
-
-        // Start job listener thread
-        std::thread jobListenerThread(PoolClient::jobListener);
-
-        // Start mining threads
-        std::vector<std::thread> miningThreads;
-        for (int i = 0; i < config.numThreads; i++) {
-            miningThreads.emplace_back(miningThread, i);
-        }
-
-        // Wait for mining threads to complete
-        for (auto& thread : miningThreads) {
-            thread.join();
-        }
-        
-        // Wait for job listener thread
-        jobListenerThread.join();
-    
-        // Cleanup
-        for (auto* data : threadData) {
-            delete data;
-        }
-        threadData.clear();
-        PoolClient::cleanup();
-        return 0;
+        // If no config file exists or it's invalid, use default values
+        // The default values are already set in the Config constructor
+        return true;
     }
     catch (const std::exception& e) {
-        std::cerr << "Error: " << e.what() << std::endl;
-        // Cleanup
-        for (auto* data : threadData) {
-            delete data;
+        threadSafePrint("Error loading config: " + std::string(e.what()), true);
+        return false;
+    }
+}
+
+int main(int argc, char* argv[]) {
+    // Check for --help first, regardless of position
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
+            printHelp();
+            return 0;
         }
-        threadData.clear();
+    }
+
+    // Initialize Winsock
+    WSADATA wsaData;
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+        std::cerr << "Failed to initialize Winsock" << std::endl;
+        return 1;
+    }
+
+    // Load configuration
+    if (!loadConfig()) {
+        std::cerr << "Failed to load configuration" << std::endl;
+        WSACleanup();
+        return 1;
+    }
+
+    // Parse command line arguments
+    for (int i = 1; i < argc; i++) {
+        std::string arg = argv[i];
+        if (arg == "--debug") {
+            config.debugMode = true;
+        }
+        else if (arg == "--threads" && i + 1 < argc) {
+            config.numThreads = std::stoi(argv[++i]);
+        }
+        else if (arg == "--pool" && i + 1 < argc) {
+            config.poolAddress = argv[++i];
+        }
+        else if (arg == "--wallet" && i + 1 < argc) {
+            config.walletAddress = argv[++i];
+        }
+        else if (arg == "--worker" && i + 1 < argc) {
+            config.workerName = argv[++i];
+        }
+        else if (arg == "--user-agent" && i + 1 < argc) {
+            config.userAgent = argv[++i];
+        }
+        else if (arg == "--log-file" && i + 1 < argc) {
+            config.logFileName = argv[++i];
+            config.useLogFile = true;
+        }
+        else if (arg != "--help" && arg != "-h") {
+            std::cerr << "Unknown argument: " << arg << std::endl;
+            printHelp();
+            WSACleanup();
+            return 1;
+        }
+    }
+
+    // Print current configuration
+    config.printConfig();
+
+    // Connect to pool
+    if (!PoolClient::connect(config.poolAddress, std::to_string(config.poolPort))) {
+        std::cerr << "Failed to connect to pool" << std::endl;
         PoolClient::cleanup();
         return 1;
     }
+
+    // Login to pool
+    if (!PoolClient::login(config.walletAddress, config.password, config.workerName, config.userAgent)) {
+        std::cerr << "Failed to login to pool" << std::endl;
+        PoolClient::cleanup();
+        return 1;
+    }
+
+    // Initialize thread data
+    threadData.resize(config.numThreads);
+    for (int i = 0; i < config.numThreads; i++) {
+        threadData[i] = new MiningThreadData(i);
+        if (!threadData[i]) {
+            threadSafePrint("Failed to create thread data for thread " + std::to_string(i), true);
+            // Cleanup
+            for (int j = 0; j < i; j++) {
+                delete threadData[j];
+            }
+            threadData.clear();
+            PoolClient::cleanup();
+            return 1;
+        }
+    }
+
+    // Start job listener thread
+    std::thread jobListenerThread(PoolClient::jobListener);
+
+    // Start mining threads
+    std::vector<std::thread> miningThreads;
+    for (int i = 0; i < config.numThreads; i++) {
+        miningThreads.emplace_back(miningThread, i);
+    }
+
+    // Wait for mining threads to complete
+    for (auto& thread : miningThreads) {
+        thread.join();
+    }
+    
+    // Wait for job listener thread
+    jobListenerThread.join();
+
+    // Cleanup
+    for (auto* data : threadData) {
+        delete data;
+    }
+    threadData.clear();
+    PoolClient::cleanup();
+    return 0;
 } 

@@ -9,25 +9,140 @@
 
 namespace HashValidation {
 
+// Structure to hold 256-bit value as 4 64-bit integers
+struct uint256_t {
+    uint64_t words[4];  // Most significant word first (big-endian)
+
+    uint256_t() : words{0, 0, 0, 0} {}
+
+    // Shift left by n bits
+    void shift_left(int n) {
+        if (n >= 256) {
+            words[0] = words[1] = words[2] = words[3] = 0;
+            return;
+        }
+
+        while (n > 0) {
+            int shift = std::min(n, 64);
+            uint64_t carry = 0;
+            
+            // Shift each word left
+            for (int i = 3; i >= 0; i--) {
+                uint64_t next_carry = words[i] >> (64 - shift);
+                words[i] = (words[i] << shift) | carry;
+                carry = next_carry;
+            }
+            
+            n -= shift;
+        }
+    }
+
+    // Compare with another 256-bit value
+    bool operator<(const uint256_t& other) const {
+        for (int i = 0; i < 4; i++) {
+            if (words[i] < other.words[i]) return true;
+            if (words[i] > other.words[i]) return false;
+        }
+        return false;
+    }
+
+    // Convert to hex string
+    std::string to_hex() const {
+        std::stringstream ss;
+        ss << std::hex << std::setfill('0');
+        for (int i = 0; i < 4; i++) {
+            ss << std::setw(16) << words[i];
+        }
+        return ss.str();
+    }
+};
+
 static bool firstHashShown = false;
 static uint64_t hashCount = 0;
 
 bool checkHash(const uint8_t* hash, const std::string& targetHex) {
+    // Remove "0x" prefix if present
     std::string target = targetHex;
     if (target.substr(0, 2) == "0x") target = target.substr(2);
-    uint32_t compact = std::stoul(target, nullptr, 16); // 0xf3220000
+    uint32_t compact = std::stoul(target, nullptr, 16);
 
-    // Last 4 bytes of hash (little-endian)
-    uint32_t hashTail = (hash[31] << 24) | (hash[30] << 16) | (hash[29] << 8) | hash[28];
-    bool valid = hashTail <= compact;
+    // Extract exponent and mantissa
+    uint8_t exponent = (compact >> 24) & 0xFF;  // 0xf3
+    uint32_t mantissa = compact & 0x00FFFFFF;   // 0x220000
+
+    // Calculate the shift amount: 8 * (exponent - 3)
+    int shift = 8 * (exponent - 3);  // For 0xf3: 8 * (243 - 3) = 1920 bits
+
+    // Create 256-bit target
+    uint256_t full_target;
+    // For target 0xf3220000:
+    // - exponent = 0xf3 (243)
+    // - mantissa = 0x220000
+    // - shift = 8 * (243 - 3) = 1920 bits
+    // We need to place 0x220000 at position 240 (1920/8) bytes from the right
+    // This means it goes in Word 0 (the most significant word)
+    int bytePosition = shift / 8;  // Convert bits to bytes
+    if (bytePosition < 29) {  // Ensure we don't overflow
+        // For target 0xf3220000:
+        // - shift = 1920 bits
+        // - We need to place 0x220000 at the start of Word 0
+        // - This means we need to shift left by (256 - 24) = 232 bits
+        // - This will place 0x220000 at the start of Word 0
+        full_target.words[0] = static_cast<uint64_t>(mantissa);
+        full_target.shift_left(232);  // Use the safe shift_left method instead of direct shift
+    }
+
+    // Convert hash to 256-bit integer (big-endian)
+    uint256_t hash_value;
+    for (int i = 0; i < 32; i++) {
+        int word_idx = i / 8;
+        int byte_idx = 7 - (i % 8);
+        hash_value.words[word_idx] |= (static_cast<uint64_t>(hash[i]) << (byte_idx * 8));
+    }
+
+    // Compare hash with target
+    bool valid = hash_value < full_target;
 
     if (debugMode) {
         std::stringstream ss;
-        ss << "Hash tail: 0x" << std::hex << std::setw(8) << std::setfill('0') << hashTail
-           << " vs Target: 0x" << std::hex << std::setw(8) << std::setfill('0') << compact
-           << " -> " << (valid ? "Valid" : "Invalid") << std::endl;
+        ss << "\n=== RandomX Hash Calculation Debug ===\n\n";
+        ss << "Input Data:\n";
+        ss << "Blob Template (hex):\n";
+        for (int i = 0; i < 32; i++) {
+            ss << "  " << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hash[i]) << " ";
+            if ((i + 1) % 16 == 0) ss << "\n";
+        }
+        ss << "\n";
+
+        ss << "Hash Output:\n";
+        ss << "Hash (hex):\n";
+        for (int i = 0; i < 32; i++) {
+            ss << "  " << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hash[i]) << " ";
+            if ((i + 1) % 16 == 0) ss << "\n";
+        }
+        ss << "\n";
+
+        ss << "Target Information:\n";
+        ss << "Compact Target: 0x" << target << "\n";
+        ss << "Target Components:\n";
+        ss << "  Exponent: 0x" << (int)exponent << std::hex << std::setw(2) << std::setfill('0')
+           << " (" << std::dec << (int)exponent << ")\n";
+        ss << "  Mantissa: 0x" << std::hex << std::setw(6) << std::setfill('0') << mantissa 
+           << " (" << std::dec << mantissa << ")\n";
+        ss << "  Shift amount: " << std::dec << shift << " bits\n";
+        ss << "Expanded Target (256-bit):\n";
+        ss << "  Word 0: 0x" << std::hex << std::setw(16) << std::setfill('0') << full_target.words[0] << "\n";
+        ss << "  Word 1: 0x" << std::hex << std::setw(16) << std::setfill('0') << full_target.words[1] << "\n";
+        ss << "  Word 2: 0x" << std::hex << std::setw(16) << std::setfill('0') << full_target.words[2] << "\n";
+        ss << "  Word 3: 0x" << std::hex << std::setw(16) << std::setfill('0') << full_target.words[3] << "\n";
+        ss << "Share Validation:\n";
+        ss << "  Hash Word 0: 0x" << std::hex << std::setw(16) << std::setfill('0') << hash_value.words[0] << "\n";
+        ss << "  Target Word 0: 0x" << std::hex << std::setw(16) << std::setfill('0') << full_target.words[0] << "\n";
+        ss << "Meets Target: " << (valid ? "Yes" : "No") << "\n";
+        ss << "=====================================\n";
         threadSafePrint(ss.str(), true);
     }
+
     return valid;
 }
 
@@ -76,17 +191,6 @@ bool meetsTarget(const std::vector<uint8_t>& hash, const std::vector<uint8_t>& t
 }
 
 std::vector<uint8_t> expandTarget(const std::string& compactTarget) {
-    static bool firstTargetExpansion = true;
-    std::stringstream ss;
-    
-    bool shouldShowDebug = !firstHashShown || hashCount == 10000;
-    
-    if (firstTargetExpansion && shouldShowDebug) {
-        ss << "\nExpanding target:" << std::endl;
-        ss << "  Compact target: " << compactTarget << std::endl;
-        threadSafePrint(ss.str(), true);
-    }
-
     // Remove any "0x" prefix if present
     std::string target = compactTarget;
     if (target.length() >= 2 && target.substr(0, 2) == "0x") {
@@ -95,9 +199,7 @@ std::vector<uint8_t> expandTarget(const std::string& compactTarget) {
 
     // Ensure the target is exactly 8 hex characters (4 bytes)
     if (target.length() != 8) {
-        if (firstTargetExpansion && shouldShowDebug) {
-            threadSafePrint("Error: Target must be 8 hex characters (4 bytes), got: " + target, true);
-        }
+        threadSafePrint("Error: Target must be 8 hex characters (4 bytes), got: " + target, true);
         return std::vector<uint8_t>();
     }
 
@@ -106,38 +208,42 @@ std::vector<uint8_t> expandTarget(const std::string& compactTarget) {
     try {
         compact = std::stoul(target, nullptr, 16);
     } catch (const std::exception& e) {
-        if (firstTargetExpansion && shouldShowDebug) {
-            threadSafePrint("Error converting target to uint32: " + std::string(e.what()), true);
-        }
+        threadSafePrint("Error converting target to uint32: " + std::string(e.what()), true);
         return std::vector<uint8_t>();
     }
 
-    // Create 256-bit target (32 bytes)
-    std::vector<uint8_t> expandedTarget(32, 0); // Initialize with zeros
+    // Extract exponent and mantissa
+    uint8_t exponent = (compact >> 24) & 0xFF;  // 0xf3
+    uint32_t mantissa = compact & 0x00FFFFFF;   // 0x220000
 
-    // For RandomX pool mining, the target is the last 4 bytes of the 256-bit target
-    // Assuming little-endian pool target (f3220000 = 00 00 22 f3)
-    expandedTarget[28] = (compact >> 24) & 0xFF; // 0xf3
-    expandedTarget[29] = (compact >> 16) & 0xFF; // 0x22
-    expandedTarget[30] = (compact >> 8) & 0xFF;  // 0x00
-    expandedTarget[31] = compact & 0xFF;         // 0x00
+    // Calculate the shift amount: 8 * (exponent - 3)
+    int shift = 8 * (exponent - 3);  // For 0xf3: 8 * (243 - 3) = 1920 bits
 
-    // Only show debug output for first hash attempt or 10,000th hash
-    if (firstTargetExpansion && shouldShowDebug) {
-        ss.str("");
-        ss << "Target expansion details:" << std::endl;
-        ss << "  Original target: " << compactTarget << std::endl;
-        ss << "  Cleaned target: " << target << std::endl;
-        ss << "  Compact value: 0x" << std::hex << std::setw(8) << std::setfill('0') << compact << std::endl;
-        ss << "  Pool difficulty: " << std::dec << (0xFFFFFFFFULL / compact) << std::endl;
-        ss << "  Expanded target (hex): " << bytesToHex(expandedTarget) << std::endl;
-        ss << "  Expanded target bytes: ";
-        for (const auto& byte : expandedTarget) {
-            ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(byte) << " ";
+    // Create 256-bit target
+    uint256_t full_target;
+    // For target 0xf3220000:
+    // - exponent = 0xf3 (243)
+    // - mantissa = 0x220000
+    // - shift = 8 * (243 - 3) = 1920 bits
+    // We need to place 0x220000 at position 240 (1920/8) bytes from the right
+    // This means it goes in Word 0 (the most significant word)
+    int bytePosition = shift / 8;  // Convert bits to bytes
+    if (bytePosition < 29) {  // Ensure we don't overflow
+        // For target 0xf3220000:
+        // - shift = 1920 bits
+        // - We need to place 0x220000 at the start of Word 0
+        // - This means we need to shift left by (256 - 24) = 232 bits
+        // - This will place 0x220000 at the start of Word 0
+        full_target.words[0] = static_cast<uint64_t>(mantissa);
+        full_target.shift_left(232);  // Use the safe shift_left method instead of direct shift
+    }
+
+    // Convert to byte array
+    std::vector<uint8_t> expandedTarget(32);
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 8; j++) {
+            expandedTarget[i * 8 + j] = (full_target.words[i] >> (56 - j * 8)) & 0xFF;
         }
-        ss << std::endl;
-        threadSafePrint(ss.str(), true);
-        firstTargetExpansion = false;
     }
 
     return expandedTarget;
@@ -230,11 +336,21 @@ bool validateHash(const std::string& hashHex, const std::string& targetHex) {
     return true;
 }
 
-uint64_t getTargetDifficulty(const std::string& targetHex) {
+double getTargetDifficulty(const std::string& targetHex) {
     std::string target = targetHex;
     if (target.substr(0, 2) == "0x") target = target.substr(2);
     uint32_t compact = std::stoul(target, nullptr, 16);
-    return compact ? (0xFFFFFFFFULL / compact) : 0;
+
+    // Extract exponent and mantissa
+    uint8_t exponent = (compact >> 24) & 0xFF;
+    uint32_t mantissa = compact & 0x00FFFFFF;
+
+    // Calculate difficulty as 2^256 / target
+    // Since we can't do exact 256-bit division, we'll use an approximation
+    // based on the compact target format
+    double difficulty = std::pow(2.0, 32.0) / compact;
+    
+    return difficulty;
 }
 
 bool checkHashDifficulty(const uint8_t* hash, uint64_t difficulty) {
@@ -273,7 +389,7 @@ void printHashValidation(const std::string& hashHex, const std::string& targetHe
     std::cout << "\nValidating hash:" << std::endl;
     std::cout << "  Hash: " << hashHex << std::endl;
     std::cout << "  Target: " << targetHex << std::endl;
-    std::cout << "  Target difficulty: " << getTargetDifficulty(targetHex) << std::endl;
+    std::cout << "  Target difficulty: " << std::fixed << std::setprecision(2) << getTargetDifficulty(targetHex) << std::endl;
 }
 
 void printTargetExpansion(const std::string& targetHex) {
@@ -286,17 +402,7 @@ void printTargetExpansion(const std::string& targetHex) {
     std::cout << "  Cleaned target: " << target << std::endl;
     uint32_t compact = std::stoul(target, nullptr, 16);
     std::cout << "  Compact value: 0x" << std::hex << std::setw(8) << std::setfill('0') << compact << std::endl;
-    std::cout << "  Pool difficulty: " << std::dec << getTargetDifficulty(targetHex) << std::endl;
-
-    // Create expanded target (32 bytes)
-    std::vector<uint8_t> expanded(32, 0);
-    expanded[28] = (compact >> 24) & 0xFF;
-    expanded[29] = (compact >> 16) & 0xFF;
-    expanded[30] = (compact >> 8) & 0xFF;
-    expanded[31] = compact & 0xFF;
-
-    std::cout << "  Expanded target (hex): " << hashToHex(expanded.data(), 32) << std::endl;
-    std::cout << "  Expanded target bytes: " << formatHash(expanded) << std::endl;
+    std::cout << "  Pool difficulty: " << std::fixed << std::setprecision(2) << getTargetDifficulty(targetHex) << std::endl;
 }
 
 void printHashComparison(const uint8_t* hash, const uint8_t* target) {
@@ -317,6 +423,36 @@ void printHashComparison(const uint8_t* hash, const uint8_t* target) {
             break;
         }
     }
+}
+
+void printTargetDetails(const std::string& targetHex) {
+    std::string target = targetHex;
+    if (target.substr(0, 2) == "0x") target = target.substr(2);
+    uint32_t compact = std::stoul(target, nullptr, 16);
+
+    std::cout << "\nTarget details:" << std::endl;
+    std::cout << "  Compact target: 0x" << target << std::endl;
+    std::cout << "  Exponent: 0x" << std::hex << std::setw(2) << std::setfill('0') 
+             << static_cast<int>((compact >> 24) & 0xFF) << std::endl;
+    std::cout << "  Mantissa: 0x" << std::hex << std::setw(6) << std::setfill('0') 
+             << (compact & 0x00FFFFFF) << std::endl;
+    std::cout << "  Difficulty: " << std::fixed << std::setprecision(2) 
+             << getTargetDifficulty(targetHex) << std::endl;
+}
+
+void printHashDetails(const uint8_t* hash) {
+    std::cout << "\nHash details:" << std::endl;
+    std::cout << "  Hash (hex): " << hashToHex(hash, 32) << std::endl;
+    std::cout << "  Hash bytes: " << formatHash(std::vector<uint8_t>(hash, hash + 32)) << std::endl;
+    std::cout << "  Hash Word 0: 0x" << std::hex << std::setw(16) << std::setfill('0') 
+             << (static_cast<uint64_t>(hash[0]) << 56 | 
+                 static_cast<uint64_t>(hash[1]) << 48 | 
+                 static_cast<uint64_t>(hash[2]) << 40 | 
+                 static_cast<uint64_t>(hash[3]) << 32 | 
+                 static_cast<uint64_t>(hash[4]) << 24 | 
+                 static_cast<uint64_t>(hash[5]) << 16 | 
+                 static_cast<uint64_t>(hash[6]) << 8 | 
+                 static_cast<uint64_t>(hash[7])) << std::endl;
 }
 
 } 
