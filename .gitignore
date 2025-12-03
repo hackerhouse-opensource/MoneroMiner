@@ -363,3 +363,78 @@ MigrationBackup/
 FodyWeavers.xsd
 /MoneroMiner/randomx_dataset.bin
 /MoneroMiner/randomx_dataset.bin.seed
+
+# Build outputs
+x64/
+Win32/
+Debug/
+Release/
+*.exe
+*.dll
+*.lib
+*.obj
+*.pdb
+*.ilk
+*.log
+*.tlog
+*.lastbuildstate
+*.idb
+*.exp
+
+# Visual Studio files
+.vs/
+*.suo
+*.user
+*.sln.docstates
+*.vcxproj.filters
+*.vcxproj.user
+
+# RandomX dataset files (2GB+ files - DO NOT COMMIT)
+randomx_dataset_*.bin
+*.dataset
+
+# Miner log files
+monerominer.log
+*.log
+
+# Configuration files with sensitive data
+config.json
+*.conf
+
+# Temporary files
+*.tmp
+*.cache
+*.swp
+*~
+
+# Windows system files
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# C++ compiled files
+*.o
+*.lo
+*.slo
+*.ko
+*.obj
+*.elf
+*.gch
+*.pch
+*.mod
+
+# Archives
+*.zip
+*.tar
+*.gz
+*.rar
+*.7z
+
+# IDE files
+.vscode/
+.idea/
+*.sublime-*
+
+# Wallet addresses (security)
+wallet.txt
+*.wallet

@@ -49,7 +49,7 @@ namespace PoolClient {
                               const std::vector<uint8_t>& hash) {
             std::lock_guard<std::mutex> lock(submitMutex);
             
-            std::string nonceHex = Utils::formatHex(nonce, 8);
+            std::string nonceHex = Utils::formatHex(static_cast<uint64_t>(nonce), 8);
             std::string hashHex = Utils::bytesToHex(hash);
             
             picojson::object submitObj;
@@ -148,61 +148,131 @@ namespace PoolClient {
     bool submitShare(const std::string& jobId, 
                     uint32_t nonce, 
                     const std::vector<uint8_t>& hash) {
-        std::string nonceHex = Utils::formatHex(nonce, 8);
+        std::string nonceHex = Utils::formatHex(static_cast<uint64_t>(nonce), 8);
         std::string hashHex = Utils::bytesToHex(hash);
         
         return submitShare(jobId, nonceHex, hashHex, poolId);
     }
 
+    // Consolidated submitShare function
     bool submitShare(const std::string& jobId, uint64_t nonce, const std::vector<uint8_t>& hash) {
-        if (poolId.empty()) {
-            Utils::threadSafePrint("Cannot submit share: No pool session ID", true);
+        std::lock_guard<std::mutex> lock(submitMutex);
+        
+        if (sessionId.empty()) {
+            Utils::threadSafePrint("ERROR: No session ID", true);
             return false;
         }
-
-        try {
-            std::lock_guard<std::mutex> lock(submitMutex);
-            
-            // Convert nonce to hex (little-endian)
-            std::stringstream nonceHex;
-            nonceHex << std::hex << std::setw(8) << std::setfill('0');
-            for (int i = 0; i < 4; i++) {
-                nonceHex << std::setw(2) << static_cast<int>((nonce >> (i * 8)) & 0xFF);
-            }
-            
-            // Convert hash to hex
-            std::string hashHex = Utils::bytesToHex(hash);
-            
-            // Create submit request
-            picojson::object submitObj;
-            submitObj["id"] = picojson::value(static_cast<double>(jsonRpcId.fetch_add(1)));
-            submitObj["jsonrpc"] = picojson::value("2.0");
-            submitObj["method"] = picojson::value("submit");
-            
-            picojson::object params;
-            params["id"] = picojson::value(poolId);
-            params["job_id"] = picojson::value(jobId);
-            params["nonce"] = picojson::value(nonceHex.str());
-            params["result"] = picojson::value(hashHex);
-            
-            submitObj["params"] = picojson::value(params);
-            
-            std::string request = picojson::value(submitObj).serialize() + "\n";
+        
+        // Convert nonce to hex (little-endian)
+        std::stringstream nonceHex;
+        nonceHex << std::hex << std::setfill('0');
+        uint32_t nonce32 = static_cast<uint32_t>(nonce);
+        nonceHex << std::setw(2) << (nonce32 & 0xFF);
+        nonceHex << std::setw(2) << ((nonce32 >> 8) & 0xFF);
+        nonceHex << std::setw(2) << ((nonce32 >> 16) & 0xFF);
+        nonceHex << std::setw(2) << ((nonce32 >> 24) & 0xFF);
+        
+        // Convert hash to hex
+        std::string hashHex = Utils::bytesToHex(hash);
+        
+        // Create JSON-RPC payload
+        std::stringstream payload;
+        payload << "{\"id\":" << jsonRpcId.fetch_add(1) << ","
+                << "\"jsonrpc\":\"2.0\","
+                << "\"method\":\"submit\","
+                << "\"params\":{"
+                << "\"id\":\"" << sessionId << "\","
+                << "\"job_id\":\"" << jobId << "\","
+                << "\"nonce\":\"" << nonceHex.str() << "\","
+                << "\"result\":\"" << hashHex << "\""
+                << "}}\n";  // Add newline HERE
+        
+        if (config.debugMode) {
+            Utils::threadSafePrint("\n=== SUBMITTING SHARE ===", true);
+            Utils::threadSafePrint("Job: " + jobId, true);
+            Utils::threadSafePrint("Nonce: " + nonceHex.str(), true);
+            Utils::threadSafePrint("Hash: " + hashHex, true);
+        }
+        
+        // Send to pool (DO NOT add another newline - it's already in payload)
+        std::string payloadStr = payload.str();
+        int sent = send(poolSocket, payloadStr.c_str(), static_cast<int>(payloadStr.length()), 0);
+        if (sent == SOCKET_ERROR) {
+            Utils::threadSafePrint("ERROR: Failed to send share", true);
+            return false;
+        }
+        
+        // Wait for response with timeout
+        fd_set readSet;
+        FD_ZERO(&readSet);
+        FD_SET(poolSocket, &readSet);
+        
+        struct timeval timeout;
+        timeout.tv_sec = 10;  // Increase timeout to 10 seconds
+        timeout.tv_usec = 0;
+        
+        int selectResult = select(0, &readSet, nullptr, nullptr, &timeout);
+        if (selectResult == 0) {
+            Utils::threadSafePrint("WARNING: Timeout waiting for share response", true);
+            return false;
+        }
+        if (selectResult == SOCKET_ERROR) {
+            Utils::threadSafePrint("ERROR: Select failed: " + std::to_string(WSAGetLastError()), true);
+            return false;
+        }
+        
+        // Receive response
+        char buffer[4096];
+        int received = recv(poolSocket, buffer, sizeof(buffer) - 1, 0);
+        if (received > 0) {
+            buffer[received] = '\0';
+            std::string response(buffer);
             
             if (config.debugMode) {
-                Utils::threadSafePrint("\n=== Share Submission ===", true);
-                Utils::threadSafePrint("Job ID: " + jobId, true);
-                Utils::threadSafePrint("Nonce: " + nonceHex.str(), true);
-                Utils::threadSafePrint("Result: " + hashHex, true);
+                Utils::threadSafePrint("Pool response: " + response, true);
             }
             
-            std::string response = sendData(request);
-            return processShareResponse(response);
+            // Parse response
+            try {
+                picojson::value v;
+                std::string err = picojson::parse(v, response);
+                if (err.empty() && v.is<picojson::object>()) {
+                    const picojson::object& obj = v.get<picojson::object>();
+                    
+                    if (obj.find("error") != obj.end() && !obj.at("error").is<picojson::null>()) {
+                        const picojson::object& errorObj = obj.at("error").get<picojson::object>();
+                        std::string errorMsg = errorObj.at("message").get<std::string>();
+                        Utils::threadSafePrint("✗ Share rejected: " + errorMsg, true);
+                        MiningStats::rejectedShares++;
+                        return false;
+                    }
+                    else if (obj.find("result") != obj.end()) {
+                        const picojson::value& result = obj.at("result");
+                        
+                        if (result.is<picojson::object>()) {
+                            const picojson::object& resultObj = result.get<picojson::object>();
+                            if (resultObj.find("status") != resultObj.end() && 
+                                resultObj.at("status").get<std::string>() == "OK") {
+                                Utils::threadSafePrint("✓ SHARE ACCEPTED!", true);
+                                MiningStats::acceptedShares++;
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+            catch (const std::exception& e) {
+                Utils::threadSafePrint("Error parsing response: " + std::string(e.what()), true);
+            }
         }
-        catch (const std::exception& e) {
-            Utils::threadSafePrint("Error submitting share: " + std::string(e.what()), true);
-            return false;
+        else if (received == 0) {
+            Utils::threadSafePrint("ERROR: Connection closed by pool", true);
         }
+        else {
+            Utils::threadSafePrint("ERROR: recv failed: " + std::to_string(WSAGetLastError()), true);
+        }
+        
+        return false;
     }
 
     std::string receiveData(SOCKET socket) {
@@ -559,12 +629,13 @@ namespace PoolClient {
 
             // Create new job with 5 parameters (matching Job constructor)
             Job job;
-            job.blob = blob;
+            job.blobHex = blob;
+            job.blob = Utils::hexToBytes(blob);
             job.jobId = jobId;
             job.target = target;
             job.height = height;
             job.seedHash = seedHash;
-            job.difficulty = RandomXManager::getDifficulty();
+            job.difficulty = static_cast<uint64_t>(RandomXManager::getDifficulty());
 
             // Distribute job to mining threads
             distributeJob(job);
@@ -610,13 +681,15 @@ namespace PoolClient {
 
             const picojson::object& result = responseObj.at("result").get<picojson::object>();
             
-            // Get and store pool ID
+            // Get and store pool ID (used as session ID)
             if (result.find("id") != result.end() && result.at("id").is<std::string>()) {
                 poolId = result.at("id").get<std::string>();
+                sessionId = poolId;  // SET sessionId to poolId!
                 threadSafePrint("Pool session ID: " + poolId, true);
             } else {
                 threadSafePrint("Warning: No pool ID in login response", true);
                 poolId = "1"; // Fallback ID
+                sessionId = "1";  // Also set sessionId
             }
 
             // Get job
@@ -757,7 +830,7 @@ namespace PoolClient {
             Utils::threadSafePrint("  Height: " + std::to_string(job.height), true);
             Utils::threadSafePrint("  Job ID: " + job.getJobId(), true);
             Utils::threadSafePrint("  Target: 0x" + job.target, true);
-            Utils::threadSafePrint("  Blob: " + job.blob, true);
+            Utils::threadSafePrint("  Blob: " + job.blobHex, true);
             Utils::threadSafePrint("  Seed Hash: " + job.seedHash, true);
             Utils::threadSafePrint("  Difficulty: " + std::to_string(job.difficulty), true);
         }

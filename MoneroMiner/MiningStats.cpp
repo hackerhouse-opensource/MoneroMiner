@@ -71,46 +71,72 @@ namespace MiningStats {
     }
 
     void globalStatsMonitor() {
+        auto lastUpdate = std::chrono::steady_clock::now();
+        uint64_t lastHashCount = 0;
+        
         while (!shouldStop) {
-            std::this_thread::sleep_for(std::chrono::seconds(5));
+            std::this_thread::sleep_for(std::chrono::seconds(10));
             
-            std::lock_guard<std::mutex> lock(statsMutex);
+            auto now = std::chrono::steady_clock::now();
+            auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdate).count();
             
-            // Update global stats from all threads
-            uint64_t totalHashes = 0;
-            uint64_t totalAcceptedShares = 0;
-            uint64_t totalRejectedShares = 0;
-            double totalHashrate = 0.0;
-            
-            for (const auto& data : threadData) {
-                if (data) {
-                    totalHashes += data->getTotalHashCount();
-                    totalAcceptedShares += data->getAcceptedShares();
-                    totalRejectedShares += data->getRejectedShares();
-                    totalHashrate += data->getHashrate();
+            if (elapsed >= 10) {
+                // Calculate total hashrate from all threads
+                double totalHashrate = 0.0;
+                uint64_t totalHashes = 0;
+                
+                // FIXED: Access the GLOBAL threadData, not local
+                for (auto* data : ::threadData) {  // Use global scope
+                    if (data) {
+                        totalHashrate += data->getHashrate();
+                        totalHashes += data->getTotalHashCount();
+                    }
                 }
-            }
-            
-            // Print global stats
-            std::stringstream ss;
-            ss << "Global Hash Rate: " << std::fixed << std::setprecision(2) 
-               << (totalHashrate / 1000.0) << " kH/s | "
-               << "Shares: " << totalAcceptedShares << "/" << totalRejectedShares 
-               << " | Total Hashes: " << totalHashes << std::endl;
-            
-            // Print individual thread stats
-            for (const auto& data : threadData) {
-                if (data) {
-                    ss << "Thread " << data->getThreadId() 
-                       << " Hash Rate: " << std::fixed << std::setprecision(2) 
-                       << (data->getHashrate() / 1000.0) << " kH/s | "
-                       << "Hashes: " << data->getTotalHashCount() 
-                       << " | Shares: " << data->getAcceptedShares() << "/" 
-                       << data->getRejectedShares() << std::endl;
+                
+                // Also calculate from hash delta
+                uint64_t hashDelta = totalHashes - lastHashCount;
+                double measuredHashrate = 0.0;
+                if (elapsed > 0) {
+                    measuredHashrate = static_cast<double>(hashDelta) / static_cast<double>(elapsed);
                 }
+                
+                // Use measured if thread hashrates aren't updating
+                if (totalHashrate < 1.0 && measuredHashrate > 0) {
+                    totalHashrate = measuredHashrate;
+                }
+                
+                double kHashrate = totalHashrate / 1000.0;
+                
+                uint64_t accepted = acceptedShares.load();
+                uint64_t rejected = rejectedShares.load();
+                uint64_t total = accepted + rejected;
+                
+                std::stringstream ss;
+                ss << "\n=== MINING STATISTICS ===\n";
+                ss << "Global Hash Rate: " << std::fixed << std::setprecision(2) << kHashrate << " kH/s\n";
+                ss << "Total Hashes: " << totalHashes << "\n";
+                ss << "Shares: " << accepted << " accepted / " << rejected << " rejected";
+                if (total > 0) {
+                    double acceptRate = (static_cast<double>(accepted) / static_cast<double>(total)) * 100.0;
+                    ss << " (" << std::fixed << std::setprecision(1) << acceptRate << "% accept rate)";
+                }
+                ss << "\n";
+                
+                ss << "Thread breakdown:\n";
+                for (auto* data : ::threadData) {
+                    if (data) {
+                        double threadKH = data->getHashrate() / 1000.0;
+                        ss << "  Thread " << data->getThreadId() << ": " 
+                           << std::fixed << std::setprecision(2) << threadKH << " kH/s, "
+                           << data->getTotalHashCount() << " hashes\n";
+                    }
+                }
+                
+                Utils::threadSafePrint(ss.str(), false);
+                
+                lastUpdate = now;
+                lastHashCount = totalHashes;
             }
-            
-            threadSafePrint(ss.str(), true);
         }
     }
 
@@ -141,10 +167,10 @@ namespace MiningStats {
         auto now = std::chrono::steady_clock::now();
         auto elapsed = std::chrono::duration<double>(now - lastUpdate).count();
         
-        if (elapsed >= 1.0) {  // Update every second
+        if (elapsed >= 1.0) {
             uint64_t currentHashes = totalHashes.load();
             uint64_t hashCount = currentHashes - lastHashCount;
-            double hashRate = static_cast<double>(hashCount) / elapsed / 1000.0; // kH/s
+            double hashRate = static_cast<double>(hashCount) / elapsed / 1000.0;
             
             std::stringstream ss;
             ss << "[" << Utils::getCurrentTimestamp() << "] "
@@ -158,4 +184,4 @@ namespace MiningStats {
             globalHashRate = hashRate;
         }
     }
-} 
+}

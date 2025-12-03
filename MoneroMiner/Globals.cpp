@@ -67,15 +67,3 @@ std::string getCurrentTimestamp() {
     timestamp = timestamp.substr(0, timestamp.length() - 1); // Remove newline
     return timestamp;
 }
-
-void threadSafePrint(const std::string& message, bool toLogFile) {
-    std::lock_guard<std::mutex> consoleLock(consoleMutex);
-    std::cout << message << std::endl;
-
-    if (toLogFile && config.useLogFile) {
-        std::lock_guard<std::mutex> logLock(logfileMutex);
-        if (logFile.is_open()) {
-            logFile << getCurrentTimestamp() << " " << message << std::endl;
-        }
-    }
-} 
