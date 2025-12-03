@@ -7,11 +7,13 @@
 #include <sstream>
 #include <iomanip>
 #include <chrono>
+#include <iostream>
 
-// Global variables definitions
+// Define global variables
 bool debugMode = false;
 std::atomic<bool> shouldStop(false);
 std::atomic<bool> showedInitMessage(false);
+Config config;  // Define the global config instance
 std::ofstream logFile;
 std::mutex consoleMutex;
 std::mutex logfileMutex;

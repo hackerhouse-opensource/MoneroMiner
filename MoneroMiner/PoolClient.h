@@ -28,19 +28,45 @@ namespace PoolClient {
     extern std::string poolId;
     extern std::vector<std::shared_ptr<MiningThreadData>> threadData;
 
+    // Core networking functions
     bool initialize();
-    bool connect(const std::string& address, const std::string& port);
+    bool connect();
     bool login(const std::string& wallet, const std::string& password, 
                const std::string& worker, const std::string& userAgent);
+    void cleanup();
+
+    // Job handling
+    void startJobListener();
+    void stopJobListener();
+    Job getCurrentJob();
+    
+    // Share submission
+    bool submitShare(const std::string& jobId, uint32_t nonce, const std::vector<uint8_t>& hash);
+    
+    // Status getters
+    bool isConnected();
+    std::string getCurrentTarget();
+    uint64_t getCurrentDifficulty();
+
     void jobListener();
     bool submitShare(const std::string& jobId, const std::string& nonce, 
                     const std::string& hash, const std::string& algo);
-    void cleanup();
     
     void handleSeedHashChange(const std::string& newSeedHash);
     void processNewJob(const picojson::object& jobObj);
     bool handleLoginResponse(const std::string& response);
     std::string sendAndReceive(const std::string& payload);
     std::string receiveData(SOCKET sock);
-    bool sendData(const std::string& data);
-} 
+    std::string sendData(const std::string& data);
+    void distributeJob(const Job& job);
+
+    bool submitShare(const std::string& jobId, 
+                    const std::string& nonce, 
+                    const std::string& result, 
+                    const std::string& id);
+    bool submitShare(const std::string& jobId, uint64_t nonce, 
+                    const std::vector<uint8_t>& hash);  // Add this overload
+
+    std::string getPoolId();
+    bool reconnect();
+}

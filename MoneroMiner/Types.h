@@ -5,6 +5,8 @@
 #include <atomic>
 #include <chrono>
 #include <mutex>
+#include <cstdint>
+#include <array>
 
 // Forward declaration of formatHashrate function
 std::string formatHashrate(double hashrate);
@@ -33,23 +35,43 @@ struct ThreadMiningStats {
     std::mutex statsMutex;
 };
 
-// Configuration structure
-struct MinerConfig {
-    std::string poolAddress = "xmr-eu1.nanopool.org";
-    std::string poolPort = "10300";
-    std::string walletAddress = "8BghJxGWaE2Ekh8KrrEEqhGMLVnB17cCATNscfEyH8qq9uvrG3WwYPXbvqfx1HqY96ZaF3yVYtcQ2X1KUMNt2Pr29M41jHf";
-    std::string workerName = "miniminer";
-    std::string password = "x";
-    std::string userAgent = "miniminer/1.0.0";
-    std::string logFile = "MoneroMiner.log";
-    bool useLogFile = false;
-    int numThreads;
-    bool debugMode = false;
+struct uint256_t {
+    std::array<uint64_t, 4> words;  // Using std::array instead of raw array
 
-    MinerConfig() {
-        numThreads = std::thread::hardware_concurrency();
-        if (numThreads == 0) {
-            numThreads = 4;
+    uint256_t() : words{0, 0, 0, 0} {}  // Initialize all words to 0
+
+    // Array access operator
+    uint64_t& operator[](size_t index) {
+        return words[index];
+    }
+    
+    const uint64_t& operator[](size_t index) const {
+        return words[index];
+    }
+
+    // Comparison operators
+    bool operator<=(const uint256_t& other) const {
+        for (int i = 3; i >= 0; i--) {
+            if (words[i] < other.words[i]) return true;
+            if (words[i] > other.words[i]) return false;
         }
+        return true;
+    }
+
+    bool operator<(const uint256_t& other) const {
+        for (int i = 3; i >= 0; i--) {
+            if (words[i] < other.words[i]) return true;
+            if (words[i] > other.words[i]) return false;
+        }
+        return false;
+    }
+
+    bool operator>(const uint256_t& other) const {
+        return !(*this <= other);
+    }
+
+    // Clear method to replace memset
+    void clear() {
+        words.fill(0);
     }
 }; 

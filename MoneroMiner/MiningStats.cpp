@@ -20,7 +20,27 @@ namespace MiningStats {
     std::vector<MiningThreadData*> threadData;
     std::mutex hashMutex;
     std::unordered_map<int, uint64_t> hashCounts;
-    uint64_t totalHashes = 0;
+    std::atomic<uint64_t> totalHashes(0);
+    std::atomic<uint64_t> acceptedShares{0};
+    std::atomic<uint64_t> rejectedShares{0};
+    std::atomic<uint64_t> foundShares(0);
+    std::chrono::steady_clock::time_point startTime = std::chrono::steady_clock::now();
+    double globalHashRate = 0.0;
+    uint64_t lastTotalHashes = 0;
+    std::chrono::steady_clock::time_point lastUpdate = std::chrono::steady_clock::now();
+
+    std::string formatDuration(int64_t seconds) {
+        int64_t hours = seconds / 3600;
+        seconds %= 3600;
+        int64_t minutes = seconds / 60;
+        seconds %= 60;
+        
+        std::stringstream ss;
+        ss << std::setfill('0') << std::setw(2) << hours << ":"
+           << std::setfill('0') << std::setw(2) << minutes << ":"
+           << std::setfill('0') << std::setw(2) << seconds;
+        return ss.str();
+    }
 
     void initializeStats(const Config& config) {
         threadStats.clear();
@@ -112,5 +132,30 @@ namespace MiningStats {
     uint64_t getTotalHashes() {
         std::lock_guard<std::mutex> lock(hashMutex);
         return totalHashes;
+    }
+
+    void updateStats() {
+        static auto lastUpdate = std::chrono::steady_clock::now();
+        static uint64_t lastHashCount = totalHashes;
+        
+        auto now = std::chrono::steady_clock::now();
+        auto elapsed = std::chrono::duration<double>(now - lastUpdate).count();
+        
+        if (elapsed >= 1.0) {  // Update every second
+            uint64_t currentHashes = totalHashes.load();
+            uint64_t hashCount = currentHashes - lastHashCount;
+            double hashRate = static_cast<double>(hashCount) / elapsed / 1000.0; // kH/s
+            
+            std::stringstream ss;
+            ss << "[" << Utils::getCurrentTimestamp() << "] "
+               << "Hash Rate: " << std::fixed << std::setprecision(2) << hashRate << " kH/s | "
+               << "Shares: " << acceptedShares << "/" << (acceptedShares + rejectedShares) << " | "
+               << "Total Hashes: " << currentHashes;
+            Utils::threadSafePrint(ss.str(), true);
+            
+            lastUpdate = now;
+            lastHashCount = currentHashes;
+            globalHashRate = hashRate;
+        }
     }
 } 

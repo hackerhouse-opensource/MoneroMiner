@@ -1,72 +1,50 @@
 #include "Utils.h"
-#include "Globals.h"
+#include "Config.h"
+#include "Globals.h"  // This includes the global config variable
 #include <sstream>
 #include <iomanip>
 #include <mutex>
 #include <iostream>
 #include <fstream>
 #include <chrono>
-#include "Types.h"
 
-extern std::mutex consoleMutex;
-extern std::mutex logfileMutex;
-extern std::ofstream logFile;
-extern bool debugMode;
+std::mutex Utils::printMutex;
 
-// Static mutex for thread-safe printing
-static std::mutex printMutex;
+std::string Utils::bytesToHex(const std::vector<uint8_t>& bytes) {
+    return bytesToHex(bytes.data(), bytes.size());
+}
 
-// Explicit template instantiations for bytesToHex
-template std::string bytesToHex<std::vector<uint8_t>::iterator>(
-    std::vector<uint8_t>::iterator begin,
-    std::vector<uint8_t>::iterator end
-);
-
-template std::string bytesToHex<const uint8_t*>(
-    const uint8_t* begin,
-    const uint8_t* end
-);
-
-std::string bytesToHex(const std::vector<uint8_t>& bytes) {
+std::string Utils::bytesToHex(const uint8_t* bytes, size_t length) {
     std::stringstream ss;
     ss << std::hex << std::setfill('0');
-    for (const auto& byte : bytes) {
-        ss << std::setw(2) << static_cast<int>(byte);
+    for (size_t i = 0; i < length; i++) {
+        ss << std::setw(2) << static_cast<int>(bytes[i]);
     }
     return ss.str();
 }
 
-template<typename Iterator>
-std::string bytesToHex(Iterator begin, Iterator end) {
+std::string Utils::formatHex(uint64_t value, int width) {
     std::stringstream ss;
-    ss << std::hex << std::setfill('0');
-    for (auto it = begin; it != end; ++it) {
-        ss << std::setw(2) << static_cast<int>(*it);
-    }
+    ss << std::hex << std::setw(width) << std::setfill('0') << value;
     return ss.str();
 }
 
-// Explicit template instantiations
-template std::string bytesToHex<uint8_t*>(uint8_t*, uint8_t*);
-template std::string bytesToHex<std::vector<uint8_t>::const_iterator>(std::vector<uint8_t>::const_iterator, std::vector<uint8_t>::const_iterator);
-
-std::vector<uint8_t> hexToBytes(const std::string& hex) {
+std::vector<uint8_t> Utils::hexToBytes(const std::string& hex) {
     std::vector<uint8_t> bytes;
     for (size_t i = 0; i < hex.length(); i += 2) {
-        std::string byteString = hex.substr(i, 2);
-        uint8_t byte = static_cast<uint8_t>(std::stoi(byteString, nullptr, 16));
+        uint8_t byte = (Utils::hexCharToInt(hex[i]) << 4) | Utils::hexCharToInt(hex[i + 1]);
         bytes.push_back(byte);
     }
     return bytes;
 }
 
-std::string formatThreadId(int threadId) {
+std::string Utils::formatThreadId(int threadId) {
     std::stringstream ss;
     ss << "Thread-" << threadId;
     return ss.str();
 }
 
-std::string formatRuntime(uint64_t seconds) {
+std::string Utils::formatRuntime(uint64_t seconds) {
     uint64_t hours = seconds / 3600;
     uint64_t minutes = (seconds % 3600) / 60;
     seconds = seconds % 60;
@@ -82,27 +60,17 @@ std::string formatRuntime(uint64_t seconds) {
     return ss.str();
 }
 
-std::string getCurrentTimestamp() {
+std::string Utils::getCurrentTimestamp() {
     auto now = std::chrono::system_clock::now();
     auto now_c = std::chrono::system_clock::to_time_t(now);
-    std::stringstream ss;
-    struct tm timeinfo;
-    localtime_s(&timeinfo, &now_c);
-    ss << std::put_time(&timeinfo, "[%Y-%m-%d %H:%M:%S] ");
-    return ss.str();
+    char buffer[26];
+    ctime_s(buffer, sizeof(buffer), &now_c);
+    std::string timestamp(buffer);
+    timestamp = timestamp.substr(0, timestamp.length() - 1); // Remove newline
+    return timestamp;
 }
 
-void threadSafePrint(const std::string& message, bool addNewline) {
-    std::lock_guard<std::mutex> lock(consoleMutex);
-    std::cout << message;
-    if (addNewline) std::cout << std::endl;
-    if (logFile.is_open()) {
-        logFile << message;
-        if (addNewline) logFile << std::endl;
-    }
-}
-
-std::string formatHashrate(double hashrate) {
+std::string Utils::formatHashrate(double hashrate) {
     std::stringstream ss;
     ss << std::fixed << std::setprecision(2);
     if (hashrate >= 1e9) {
@@ -117,7 +85,7 @@ std::string formatHashrate(double hashrate) {
     return ss.str();
 }
 
-void initializeLogging(const std::string& filename) {
+void Utils::initializeLogging(const std::string& filename) {
     std::lock_guard<std::mutex> lock(consoleMutex);
     if (logFile.is_open()) {
         logFile.close();
@@ -128,9 +96,62 @@ void initializeLogging(const std::string& filename) {
     }
 }
 
-void cleanupLogging() {
+void Utils::cleanupLogging() {
     std::lock_guard<std::mutex> lock(consoleMutex);
     if (logFile.is_open()) {
         logFile.close();
     }
+}
+
+void Utils::threadSafePrint(const std::string& message, bool addNewline) {
+    std::lock_guard<std::mutex> lock(printMutex);
+    std::cout << message;
+    if (addNewline) {
+        std::cout << std::endl;
+    }
+    
+    if (config.useLogFile) {
+        std::lock_guard<std::mutex> logLock(logfileMutex);
+        if (logFile.is_open()) {
+            logFile << getCurrentTimestamp() << " " << message;
+            if (addNewline) {
+                logFile << std::endl;
+            }
+        }
+    }
+}
+
+bool Utils::compareHashes(const uint8_t* hash1, const uint8_t* hash2, size_t length) {
+    for (size_t i = 0; i < length; i++) {
+        if (hash1[i] != hash2[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void Utils::reverseBytes(uint8_t* bytes, size_t length) {
+    for (size_t i = 0; i < length / 2; i++) {
+        std::swap(bytes[i], bytes[length - 1 - i]);
+    }
+}
+
+uint64_t Utils::hashToUint64(const uint8_t* hash, int offset) {
+    uint64_t result = 0;
+    for (int i = 0; i < 8; i++) {
+        result |= static_cast<uint64_t>(hash[offset + i]) << (i * 8);
+    }
+    return result;
+}
+
+uint8_t Utils::hexCharToInt(char c) {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    return 0;
+}
+
+char Utils::intToHexChar(uint8_t value) {
+    value &= 0xF;
+    return value < 10 ? '0' + value : 'a' + (value - 10);
 } 

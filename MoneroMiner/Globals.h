@@ -9,17 +9,17 @@
 #include <queue>
 #include "Config.h"
 #include "Job.h"
-#include "MiningThreadData.h"
 #include "Types.h"
 #include "randomx.h"
 
-// Forward declaration
+// Forward declarations
 class MiningThreadData;
 
 // Global variables
 extern bool debugMode;
 extern std::atomic<bool> shouldStop;
 extern std::atomic<bool> showedInitMessage;
+extern Config config;
 extern std::ofstream logFile;
 extern std::mutex consoleMutex;
 extern std::mutex logfileMutex;
@@ -54,7 +54,6 @@ extern std::string currentSeedHash;
 extern std::mutex cacheMutex;
 extern std::mutex seedHashMutex;
 
-// Utility functions
-std::string bytesToHex(const std::vector<uint8_t>& bytes);
-std::string getCurrentTimestamp();
-void threadSafePrint(const std::string& message, bool toLogFile); 
+// Utility functions declarations
+// void threadSafePrint(const std::string& message, bool toLogFile = false);
+// std::string getCurrentTimestamp(); 

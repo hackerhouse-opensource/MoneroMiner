@@ -6,6 +6,7 @@
 #include "RandomXManager.h"
 #include "MiningThreadData.h"
 #include "Job.h"
+#include "MiningStats.h"
 #include <iostream>
 #include <sstream>
 #include <iomanip>
@@ -37,6 +38,172 @@ namespace PoolClient {
     // Forward declarations
     bool sendRequest(const std::string& request);
     void processNewJob(const picojson::object& jobObj);
+    bool processShareResponse(const std::string& response);
+
+    class ShareSubmitter {
+    private:
+        static std::mutex submitMutex;
+        
+    public:
+        static bool submitShare(const std::string& jobId, uint32_t nonce, 
+                              const std::vector<uint8_t>& hash) {
+            std::lock_guard<std::mutex> lock(submitMutex);
+            
+            std::string nonceHex = Utils::formatHex(nonce, 8);
+            std::string hashHex = Utils::bytesToHex(hash);
+            
+            picojson::object submitObj;
+            submitObj["id"] = picojson::value(1.0);
+            submitObj["jsonrpc"] = picojson::value("2.0");
+            submitObj["method"] = picojson::value("submit");
+            
+            picojson::object params;
+            params["id"] = picojson::value(poolId);
+            params["job_id"] = picojson::value(jobId);
+            params["nonce"] = picojson::value(nonceHex);
+            params["result"] = picojson::value(hashHex);
+            
+            submitObj["params"] = picojson::value(params);
+            
+            std::string request = picojson::value(submitObj).serialize() + "\n";
+            std::string response = sendData(request);
+            
+            return processShareResponse(response);
+        }
+    };
+
+    bool processShareResponse(const std::string& response) {
+        if (response.empty()) {
+            Utils::threadSafePrint("ERROR: Empty response from pool", true);
+            return false;
+        }
+
+        try {
+            picojson::value v;
+            std::string err = picojson::parse(v, response);
+            if (err.empty() && v.is<picojson::object>()) {
+                const picojson::object& obj = v.get<picojson::object>();
+                
+                if (config.debugMode) {
+                    Utils::threadSafePrint("Parsed pool response: " + v.serialize(), true);
+                }
+
+                if (obj.find("error") != obj.end() && !obj.at("error").is<picojson::null>()) {
+                    Utils::threadSafePrint("Share rejected - Error: " + obj.at("error").serialize(), true);
+                    MiningStats::rejectedShares++;
+                    return false;
+                }
+                else if (obj.find("result") != obj.end()) {
+                    const picojson::value& result = obj.at("result");
+                    bool accepted = false;
+                    
+                    if (result.is<picojson::object>()) {
+                        const picojson::object& resultObj = result.get<picojson::object>();
+                        if (resultObj.find("status") != resultObj.end()) {
+                            accepted = (resultObj.at("status").get<std::string>() == "OK");
+                        }
+                    } else if (result.is<bool>()) {
+                        accepted = result.get<bool>();
+                    }
+                    
+                    if (accepted) {
+                        MiningStats::acceptedShares++;
+                        Utils::threadSafePrint("SHARE ACCEPTED BY POOL!", true);
+                    } else {
+                        MiningStats::rejectedShares++;
+                        Utils::threadSafePrint("Share rejected by pool", true);
+                    }
+                    return accepted;
+                }
+            }
+        }
+        catch (const std::exception& e) {
+            Utils::threadSafePrint("Error processing pool response: " + std::string(e.what()), true);
+            return false;
+        }
+        return false;
+    }
+
+    bool submitShare(const std::string& jobId, 
+                    const std::string& nonce, 
+                    const std::string& result, 
+                    const std::string& id) {
+        std::string submitRequest = "{\"id\":1,\"jsonrpc\":\"2.0\",\"method\":\"submit\","
+            "\"params\":{\"id\":\"" + id + "\","
+            "\"job_id\":\"" + jobId + "\","
+            "\"nonce\":\"" + nonce + "\","
+            "\"result\":\"" + result + "\"}}";
+
+        if (config.debugMode) {
+            Utils::threadSafePrint("\n=== Share Submission ===", true);
+            Utils::threadSafePrint("Job ID: " + jobId, true);
+            Utils::threadSafePrint("Nonce: " + nonce, true);
+            Utils::threadSafePrint("Result: " + result, true);
+        }
+
+        std::string response = sendData(submitRequest);
+        return processShareResponse(response);
+    }
+
+    bool submitShare(const std::string& jobId, 
+                    uint32_t nonce, 
+                    const std::vector<uint8_t>& hash) {
+        std::string nonceHex = Utils::formatHex(nonce, 8);
+        std::string hashHex = Utils::bytesToHex(hash);
+        
+        return submitShare(jobId, nonceHex, hashHex, poolId);
+    }
+
+    bool submitShare(const std::string& jobId, uint64_t nonce, const std::vector<uint8_t>& hash) {
+        if (poolId.empty()) {
+            Utils::threadSafePrint("Cannot submit share: No pool session ID", true);
+            return false;
+        }
+
+        try {
+            std::lock_guard<std::mutex> lock(submitMutex);
+            
+            // Convert nonce to hex (little-endian)
+            std::stringstream nonceHex;
+            nonceHex << std::hex << std::setw(8) << std::setfill('0');
+            for (int i = 0; i < 4; i++) {
+                nonceHex << std::setw(2) << static_cast<int>((nonce >> (i * 8)) & 0xFF);
+            }
+            
+            // Convert hash to hex
+            std::string hashHex = Utils::bytesToHex(hash);
+            
+            // Create submit request
+            picojson::object submitObj;
+            submitObj["id"] = picojson::value(static_cast<double>(jsonRpcId.fetch_add(1)));
+            submitObj["jsonrpc"] = picojson::value("2.0");
+            submitObj["method"] = picojson::value("submit");
+            
+            picojson::object params;
+            params["id"] = picojson::value(poolId);
+            params["job_id"] = picojson::value(jobId);
+            params["nonce"] = picojson::value(nonceHex.str());
+            params["result"] = picojson::value(hashHex);
+            
+            submitObj["params"] = picojson::value(params);
+            
+            std::string request = picojson::value(submitObj).serialize() + "\n";
+            
+            if (config.debugMode) {
+                Utils::threadSafePrint("\n=== Share Submission ===", true);
+                Utils::threadSafePrint("Job ID: " + jobId, true);
+                Utils::threadSafePrint("Nonce: " + nonceHex.str(), true);
+                Utils::threadSafePrint("Result: " + hashHex, true);
+            }
+            
+            std::string response = sendData(request);
+            return processShareResponse(response);
+        }
+        catch (const std::exception& e) {
+            Utils::threadSafePrint("Error submitting share: " + std::string(e.what()), true);
+            return false;
+        }
+    }
 
     std::string receiveData(SOCKET socket) {
         if (socket == INVALID_SOCKET) {
@@ -124,84 +291,70 @@ namespace PoolClient {
         return true;
     }
 
-    bool connect(const std::string& address, const std::string& port) {
-        threadSafePrint("Attempting to connect to " + address + ":" + port, true);
-        
-        // Close existing socket if any
-        if (poolSocket != INVALID_SOCKET) {
-            closesocket(poolSocket);
-            poolSocket = INVALID_SOCKET;
+    bool connect() {
+        // Parse pool address and port
+        size_t colonPos = config.poolAddress.find(':');
+        if (colonPos == std::string::npos) {
+            Utils::threadSafePrint("Invalid pool address format. Expected format: hostname:port", true);
+            return false;
         }
 
+        std::string host = config.poolAddress.substr(0, colonPos);
+        std::string portStr = config.poolAddress.substr(colonPos + 1);
+        
+        // Remove any trailing :0 or other invalid suffixes
+        size_t invalidPos = portStr.find(':');
+        if (invalidPos != std::string::npos) {
+            portStr = portStr.substr(0, invalidPos);
+        }
+
+        if (config.debugMode) {
+            Utils::threadSafePrint("Attempting to connect to " + host + ":" + portStr, true);
+        }
+
+        // Initialize Winsock
+        WSADATA wsaData;
+        if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+            Utils::threadSafePrint("WSAStartup failed", true);
+            return false;
+        }
+
+        // Get address info
         struct addrinfo hints = {}, *result = nullptr;
-        hints.ai_family = AF_UNSPEC;
+        hints.ai_family = AF_INET;
         hints.ai_socktype = SOCK_STREAM;
         hints.ai_protocol = IPPROTO_TCP;
 
-        int status = getaddrinfo(address.c_str(), port.c_str(), &hints, &result);
-        if (status != 0) {
-            char errorMsg[256];
-            strcpy_s(errorMsg, gai_strerrorA(status));
-            threadSafePrint("getaddrinfo failed: " + std::string(errorMsg));
+        if (getaddrinfo(host.c_str(), portStr.c_str(), &hints, &result) != 0) {
+            Utils::threadSafePrint("Failed to resolve pool address: " + host, true);
+            WSACleanup();
             return false;
         }
 
-        bool connected = false;
-        // Try each address until we connect
-        for (struct addrinfo* ptr = result; ptr != nullptr; ptr = ptr->ai_next) {
-            // Create socket
-            poolSocket = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
-            if (poolSocket == INVALID_SOCKET) {
-                threadSafePrint("socket failed: " + std::to_string(WSAGetLastError()));
-                continue;
-            }
+        // Create socket and connect
+        poolSocket = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
+        if (poolSocket == INVALID_SOCKET) {
+            Utils::threadSafePrint("Failed to create socket", true);
+            freeaddrinfo(result);
+            WSACleanup();
+            return false;
+        }
 
-            // Set socket options
-            int optval = 1;
-            if (setsockopt(poolSocket, SOL_SOCKET, SO_KEEPALIVE, (char*)&optval, sizeof(optval)) == SOCKET_ERROR) {
-                threadSafePrint("setsockopt SO_KEEPALIVE failed: " + std::to_string(WSAGetLastError()));
-                closesocket(poolSocket);
-                poolSocket = INVALID_SOCKET;
-                continue;
-            }
+        // Set socket timeout
+        DWORD timeout = 10000; // 10 seconds
+        setsockopt(poolSocket, SOL_SOCKET, SO_RCVTIMEO, (char*)&timeout, sizeof(timeout));
+        setsockopt(poolSocket, SOL_SOCKET, SO_SNDTIMEO, (char*)&timeout, sizeof(timeout));
 
-            // Set TCP_NODELAY to disable Nagle's algorithm
-            if (setsockopt(poolSocket, IPPROTO_TCP, TCP_NODELAY, (char*)&optval, sizeof(optval)) == SOCKET_ERROR) {
-                threadSafePrint("setsockopt TCP_NODELAY failed: " + std::to_string(WSAGetLastError()));
-                closesocket(poolSocket);
-                poolSocket = INVALID_SOCKET;
-                continue;
-            }
-
-            // Connect to server
-            status = ::connect(poolSocket, ptr->ai_addr, static_cast<int>(ptr->ai_addrlen));
-            if (status == SOCKET_ERROR) {
-                int error = WSAGetLastError();
-                threadSafePrint("connect failed: " + std::to_string(error));
-                closesocket(poolSocket);
-                poolSocket = INVALID_SOCKET;
-                continue;
-            }
-
-            // Verify socket is valid after connection
-            if (poolSocket == INVALID_SOCKET) {
-                threadSafePrint("Socket became invalid after connection");
-                continue;
-            }
-
-            // Connection successful
-            connected = true;
-            threadSafePrint("Successfully connected to pool", true);
-            break;
+        if (connect(poolSocket, result->ai_addr, (int)result->ai_addrlen) == SOCKET_ERROR) {
+            Utils::threadSafePrint("Failed to connect to pool: " + host + ":" + portStr, true);
+            closesocket(poolSocket);
+            freeaddrinfo(result);
+            WSACleanup();
+            return false;
         }
 
         freeaddrinfo(result);
-        
-        if (!connected) {
-            threadSafePrint("Failed to connect to any pool address", true);
-            return false;
-        }
-        
+        Utils::threadSafePrint("Successfully connected to pool", true);
         return true;
     }
 
@@ -342,7 +495,7 @@ namespace PoolClient {
             // Verify socket is valid
             if (poolSocket == INVALID_SOCKET) {
                 threadSafePrint("Pool connection lost, attempting to reconnect...", true);
-                if (!connect(config.poolAddress, std::to_string(config.poolPort))) {
+                if (!connect()) {
                     threadSafePrint("Failed to reconnect to pool", true);
                     std::this_thread::sleep_for(std::chrono::seconds(5));
                     continue;
@@ -389,190 +542,36 @@ namespace PoolClient {
         }
     }
 
-    void processNewJob(const picojson::object& jobObj) {
+    void processNewJob(const picojson::object& jobData) {
         try {
-            // Extract job details
-            std::string jobId = jobObj.at("job_id").get<std::string>();
-            std::string blob = jobObj.at("blob").get<std::string>();
-            std::string target = jobObj.at("target").get<std::string>();
-            uint64_t height = static_cast<uint64_t>(jobObj.at("height").get<double>());
-            std::string seedHash = jobObj.at("seed_hash").get<std::string>();
+            // Extract job data
+            std::string blob = jobData.at("blob").get<std::string>();
+            std::string jobId = jobData.at("job_id").get<std::string>();
+            std::string target = jobData.at("target").get<std::string>();
+            uint64_t height = static_cast<uint64_t>(jobData.at("height").get<double>());
+            std::string seedHash = jobData.at("seed_hash").get<std::string>();
 
-            // Create new job
-            Job newJob(jobId, blob, target, static_cast<uint32_t>(height), seedHash);
-
-            // Update active job ID atomically
-            uint32_t jobIdNum = static_cast<uint32_t>(std::stoul(jobId));
-            if (jobIdNum != activeJobId.load()) {
-                activeJobId.store(jobIdNum);
-                notifiedJobId.store(jobIdNum);
-
-                // Initialize RandomX with new seed hash if needed
-                if (!RandomXManager::initialize(seedHash)) {
-                    threadSafePrint("Failed to initialize RandomX with seed hash: " + seedHash, true);
-                    return;
-                }
-
-                // Clear existing job queue and add new job
-                {
-                    std::lock_guard<std::mutex> lock(jobMutex);
-                    // Clear the queue
-                    std::queue<Job> empty;
-                    std::swap(jobQueue, empty);
-                    // Add the new job
-                    jobQueue.push(newJob);
-                    
-                    if (debugMode) {
-                        threadSafePrint("Job queue updated with new job: " + jobId, true);
-                        threadSafePrint("Queue size: " + std::to_string(jobQueue.size()), true);
-                    }
-                }
-
-                // Set job information in RandomXManager
-                RandomXManager::setJobInfo(height, jobId);
-                
-                // Set target for hash comparison
-                RandomXManager::setTarget(target);
-                
-                // Print job details
-                threadSafePrint("New job details:", true);
-                threadSafePrint("  Height: " + std::to_string(height), true);
-                threadSafePrint("  Job ID: " + jobId, true);
-                threadSafePrint("  Target: 0x" + target, true);
-                threadSafePrint("  Blob: " + blob, true);
-                threadSafePrint("  Seed Hash: " + seedHash, true);
-                
-                // Calculate and print difficulty
-                double difficulty = newJob.calculateDifficulty();
-                threadSafePrint("  Difficulty: " + std::to_string(difficulty), true);
-
-                // Update thread data with new job
-                for (auto& data : threadData) {
-                    if (data) {
-                        data->updateJob(newJob);
-                        if (debugMode) {
-                            threadSafePrint("Updated thread " + std::to_string(data->getThreadId()) + 
-                                " with new job: " + jobId, true);
-                        }
-                    }
-                }
-
-                // Notify all mining threads about the new job
-                jobQueueCondition.notify_all();
-                if (debugMode) {
-                    threadSafePrint("Notified all mining threads about new job", true);
-                }
-
-                threadSafePrint("Job processed and distributed to all threads", true);
-            } else {
-                if (debugMode) {
-                    threadSafePrint("Skipping duplicate job: " + jobId, true);
-                }
+            // Set target and get difficulty from RandomXManager
+            if (!RandomXManager::setTargetAndDifficulty(target)) {
+                Utils::threadSafePrint("Failed to set target", true);
+                return;
             }
+
+            // Create new job with 5 parameters (matching Job constructor)
+            Job job;
+            job.blob = blob;
+            job.jobId = jobId;
+            job.target = target;
+            job.height = height;
+            job.seedHash = seedHash;
+            job.difficulty = RandomXManager::getDifficulty();
+
+            // Distribute job to mining threads
+            distributeJob(job);
         }
         catch (const std::exception& e) {
-            threadSafePrint("Error processing job: " + std::string(e.what()), true);
+            Utils::threadSafePrint("Error processing new job: " + std::string(e.what()), true);
         }
-        catch (...) {
-            threadSafePrint("Unknown error processing job", true);
-        }
-    }
-
-    bool submitShare(const std::string& jobId, const std::string& nonce, 
-                    const std::string& result, const std::string& algorithm) {
-        std::lock_guard<std::mutex> lock(submitMutex);
-        std::lock_guard<std::mutex> sockLock(socketMutex);
-
-        if (poolSocket == INVALID_SOCKET) {
-            threadSafePrint("Cannot submit share: Not connected to pool", true);
-            return false;
-        }
-
-        // Construct JSON request
-        std::stringstream ss;
-        ss << "{\"id\":1,\"jsonrpc\":\"2.0\",\"method\":\"submit\",\"params\":{"
-           << "\"id\":\"" << poolId << "\","
-           << "\"job_id\":\"" << jobId << "\","
-           << "\"nonce\":\"" << nonce << "\","
-           << "\"result\":\"" << result << "\","
-           << "\"algo\":\"" << algorithm << "\"}}";
-        
-        std::string request = ss.str();
-
-        if (config.debugMode) {
-            threadSafePrint("\nSubmitting share to pool:", true);
-            threadSafePrint("  Pool ID: " + poolId, true);
-            threadSafePrint("  Job ID: " + jobId, true);
-            threadSafePrint("  Nonce: " + nonce, true);
-            threadSafePrint("  Result: " + result, true);
-            threadSafePrint("  Request: " + request, true);
-        }
-
-        // Send request with newline
-        request += "\n";
-        int bytesSent = send(poolSocket, request.c_str(), static_cast<int>(request.length()), 0);
-        if (bytesSent == SOCKET_ERROR) {
-            threadSafePrint("Failed to send share: " + std::to_string(WSAGetLastError()), true);
-            return false;
-        }
-
-        // Receive response with timeout
-        fd_set readSet;
-        struct timeval timeout;
-        FD_ZERO(&readSet);
-        FD_SET(poolSocket, &readSet);
-        timeout.tv_sec = 10;
-        timeout.tv_usec = 0;
-
-        int selectResult = select(0, &readSet, nullptr, nullptr, &timeout);
-        if (selectResult <= 0) {
-            threadSafePrint("Timeout or error waiting for pool response", true);
-            return false;
-        }
-
-        char buffer[4096];
-        int bytesReceived = recv(poolSocket, buffer, sizeof(buffer) - 1, 0);
-        if (bytesReceived <= 0) {
-            threadSafePrint("Failed to receive pool response", true);
-            return false;
-        }
-
-        buffer[bytesReceived] = '\0';
-        std::string response(buffer);
-
-        if (config.debugMode) {
-            threadSafePrint("Pool response: " + response, true);
-        }
-
-        // Parse response
-        try {
-            picojson::value v;
-            std::string err = picojson::parse(v, response);
-            if (err.empty() && v.is<picojson::object>()) {
-                const picojson::object& obj = v.get<picojson::object>();
-                if (obj.find("result") != obj.end() && 
-                    obj.at("result").is<picojson::object>()) {
-                    const picojson::object& result = obj.at("result").get<picojson::object>();
-                    if (result.find("status") != result.end()) {
-                        std::string status = result.at("status").get<std::string>();
-                        bool accepted = (status == "OK");
-                        
-                        if (config.debugMode) {
-                            threadSafePrint("Share " + std::string(accepted ? "accepted" : "rejected") + 
-                                          " by pool (status: " + status + ")", true);
-                        }
-                        
-                        return accepted;
-                    }
-                }
-            }
-            threadSafePrint("Invalid response format from pool", true);
-        }
-        catch (const std::exception& e) {
-            threadSafePrint("Error parsing share response: " + std::string(e.what()), true);
-        }
-
-        return false;
     }
 
     void handleSeedHashChange(const std::string& newSeedHash) {
@@ -715,18 +714,71 @@ namespace PoolClient {
         return response;
     }
 
-    bool sendData(const std::string& data) {
-        if (poolSocket == INVALID_SOCKET) {
-            threadSafePrint("Cannot send data: Invalid socket", true);
-            return false;
+    std::string sendData(const std::string& data) {
+        if (config.debugMode) {
+            Utils::threadSafePrint("\nSending to pool: " + data, true);
         }
 
-        std::string dataWithNewline = data + "\n";
-        int result = send(poolSocket, dataWithNewline.c_str(), static_cast<int>(dataWithNewline.length()), 0);
-        if (result == SOCKET_ERROR) {
-            threadSafePrint("Failed to send data: " + std::to_string(WSAGetLastError()), true);
+        std::lock_guard<std::mutex> lock(socketMutex);
+        if (poolSocket == INVALID_SOCKET) {
+            Utils::threadSafePrint("Cannot send data: Not connected to pool", true);
+            return "";
+        }
+
+        int bytesSent = send(poolSocket, data.c_str(), static_cast<int>(data.length()), 0);
+        if (bytesSent == SOCKET_ERROR) {
+            Utils::threadSafePrint("Failed to send data: " + std::to_string(WSAGetLastError()), true);
+            return "";
+        }
+
+        std::string response = receiveData(poolSocket);
+        
+        if (config.debugMode) {
+            Utils::threadSafePrint("Received from pool: " + response, true);
+        }
+
+        return response;
+    }
+
+    void distributeJob(const Job& job) {
+        std::lock_guard<std::mutex> lock(jobMutex);
+        
+        // Clear existing jobs from queue
+        std::queue<Job> empty;
+        std::swap(jobQueue, empty);
+        
+        // Add new job to queue
+        jobQueue.push(job);
+        
+        if (config.debugMode) {
+            Utils::threadSafePrint("Job queue updated with new job: " + job.getJobId(), true);
+            Utils::threadSafePrint("Queue size: " + std::to_string(jobQueue.size()), true);
+            Utils::threadSafePrint("New job details:", true);
+            Utils::threadSafePrint("  Height: " + std::to_string(job.height), true);
+            Utils::threadSafePrint("  Job ID: " + job.getJobId(), true);
+            Utils::threadSafePrint("  Target: 0x" + job.target, true);
+            Utils::threadSafePrint("  Blob: " + job.blob, true);
+            Utils::threadSafePrint("  Seed Hash: " + job.seedHash, true);
+            Utils::threadSafePrint("  Difficulty: " + std::to_string(job.difficulty), true);
+        }
+
+        // Handle seed hash change if needed
+        handleSeedHashChange(job.seedHash);
+
+        // Notify all waiting threads
+        jobQueueCondition.notify_all();
+        jobAvailable.notify_all();
+    }
+
+    std::string getPoolId() {
+        return poolId;
+    }
+
+    bool reconnect() {
+        cleanup();
+        if (!connect()) {
             return false;
         }
-        return true;
+        return login(config.walletAddress, config.password, config.workerName, config.userAgent);
     }
-} 
+}

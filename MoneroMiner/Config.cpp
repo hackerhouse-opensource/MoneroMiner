@@ -4,8 +4,23 @@
 #include <string>
 #include <thread>
 #include <sstream>
+#include <fstream>
+#include "Utils.h"
 
-Config config;
+Config::Config() {
+    setDefaults();
+}
+
+void Config::setDefaults() {
+    poolAddress = "xmr-eu1.nanopool.org:14444";
+    walletAddress = "48edfHu7V9Z84YzzMa6fUueoELZ9ZRXq9VetWzYGzKt52XU5xvqgzYnDK9URnRoJMk1j8nLwEVsaSWJ4fhdUyZijBGUicoD"; // Default test wallet
+    workerName = "worker1";
+    userAgent = "MoneroMiner/1.0.0";
+    numThreads = std::thread::hardware_concurrency();
+    debugMode = false;
+    useLogFile = false;
+    logFileName = "monerominer.log";
+}
 
 bool Config::parseCommandLine(int argc, char* argv[]) {
     for (int i = 1; i < argc; i++) {
@@ -27,11 +42,11 @@ bool Config::parseCommandLine(int argc, char* argv[]) {
             }
         }
         else if (arg == "--pool" && i + 1 < argc) {
-            std::string poolArg = argv[++i];
-            size_t colonPos = poolArg.find(':');
-            if (colonPos != std::string::npos) {
-                poolAddress = poolArg.substr(0, colonPos);
-                poolPort = std::stoi(poolArg.substr(colonPos + 1));
+            poolAddress = argv[++i];
+            // Remove any :0 suffix if present
+            size_t pos = poolAddress.find(":0");
+            if (pos != std::string::npos) {
+                poolAddress = poolAddress.substr(0, pos);
             }
         }
         else if (arg == "--wallet" && i + 1 < argc) {
@@ -67,4 +82,15 @@ bool validateConfig(const Config& config) {
     }
 
     return true;
+}
+
+void Config::printConfig() const {
+    std::cout << "Current configuration:" << std::endl;
+    std::cout << "Pool address: " << poolAddress << std::endl;
+    std::cout << "Wallet: " << walletAddress << std::endl;
+    std::cout << "Worker name: " << workerName << std::endl;
+    std::cout << "User agent: " << userAgent << std::endl;
+    std::cout << "Number of threads: " << numThreads << std::endl;
+    std::cout << "Debug mode: " << (debugMode ? "enabled" : "disabled") << std::endl;
+    std::cout << "Log file: " << logFileName << std::endl;
 } 

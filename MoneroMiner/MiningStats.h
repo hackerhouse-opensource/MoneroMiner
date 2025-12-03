@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include "Config.h"
 #include "MiningThreadData.h"
 #include "Types.h"
@@ -11,16 +12,19 @@
 #include <mutex>
 #include <unordered_map>
 
+class MiningThreadData;  // Forward declaration
+
 namespace MiningStats {
     extern std::atomic<bool> shouldStop;
     extern std::vector<std::unique_ptr<ThreadMiningStats>> threadStats;
     extern GlobalStats globalStats;
     extern std::mutex statsMutex;
     extern std::vector<MiningThreadData*> threadData;
+    extern std::atomic<uint64_t> acceptedShares;
+    extern std::atomic<uint64_t> rejectedShares;
 
     void initializeStats(const Config& config);
-    void updateThreadStats(MiningThreadData* data, uint64_t hashCount, uint64_t totalHashCount,
-                          int elapsedSeconds, const std::string& jobId, uint32_t currentNonce);
+    void updateThreadStats(const MiningThreadData* data);
     void globalStatsMonitor();
     void stopStatsMonitor();
     void updateHashCount(int threadId, uint64_t count);
