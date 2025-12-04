@@ -183,61 +183,45 @@ namespace PoolClient {
     }
 
     bool connect() {
-        size_t colonPos = config.poolAddress.find(':');
-        if (colonPos == std::string::npos) {
-            Utils::threadSafePrint("Invalid pool address format", true);
+        if (config.poolAddress.empty() || config.poolPort == 0) {
+            Utils::threadSafePrint("Invalid pool configuration", true);
             return false;
         }
-
-        std::string host = config.poolAddress.substr(0, colonPos);
-        std::string portStr = config.poolAddress.substr(colonPos + 1);
         
-        size_t invalidPos = portStr.find(':');
-        if (invalidPos != std::string::npos) {
-            portStr = portStr.substr(0, invalidPos);
-        }
-
-        if (config.debugMode) {
-            Utils::threadSafePrint("Connecting to " + host + ":" + portStr, true);
-        }
-
-        WSADATA wsaData;
-        if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-            Utils::threadSafePrint("WSAStartup failed", true);
-            return false;
-        }
-
+        std::string fullAddress = config.poolAddress + ":" + std::to_string(config.poolPort);
+        Utils::threadSafePrint("Connecting to " + fullAddress, true);
+        
+        // Resolve hostname
         struct addrinfo hints = {}, *result = nullptr;
         hints.ai_family = AF_INET;
         hints.ai_socktype = SOCK_STREAM;
         hints.ai_protocol = IPPROTO_TCP;
-
-        if (getaddrinfo(host.c_str(), portStr.c_str(), &hints, &result) != 0) {
-            Utils::threadSafePrint("Failed to resolve pool address: " + host, true);
-            WSACleanup();
+        
+        std::string portStr = std::to_string(config.poolPort);
+        int res = getaddrinfo(config.poolAddress.c_str(), portStr.c_str(), &hints, &result);
+        
+        if (res != 0) {
+            Utils::threadSafePrint("Failed to resolve hostname: " + config.poolAddress, true);
             return false;
         }
-
+        
+        // Create socket
         poolSocket = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
         if (poolSocket == INVALID_SOCKET) {
-            Utils::threadSafePrint("Failed to create socket", true);
+            Utils::threadSafePrint("Failed to create socket: " + std::to_string(WSAGetLastError()), true);
             freeaddrinfo(result);
-            WSACleanup();
             return false;
         }
-
-        DWORD timeout = 10000;
-        setsockopt(poolSocket, SOL_SOCKET, SO_RCVTIMEO, (char*)&timeout, sizeof(timeout));
-        setsockopt(poolSocket, SOL_SOCKET, SO_SNDTIMEO, (char*)&timeout, sizeof(timeout));
-
-        if (::connect(poolSocket, result->ai_addr, (int)result->ai_addrlen) == SOCKET_ERROR) {
-            Utils::threadSafePrint("Failed to connect to pool", true);
+        
+        // Connect
+        if (::connect(poolSocket, result->ai_addr, static_cast<int>(result->ai_addrlen)) == SOCKET_ERROR) {
+            Utils::threadSafePrint("Failed to connect to pool: " + std::to_string(WSAGetLastError()), true);
             closesocket(poolSocket);
+            poolSocket = INVALID_SOCKET;
             freeaddrinfo(result);
-            WSACleanup();
             return false;
         }
-
+        
         freeaddrinfo(result);
         Utils::threadSafePrint("Connected to pool", true);
         return true;
@@ -245,85 +229,131 @@ namespace PoolClient {
 
     bool login(const std::string& wallet, const std::string& password, 
                const std::string& worker, const std::string& userAgent) {
-        if (poolSocket == INVALID_SOCKET) {
-            Utils::threadSafePrint("Cannot login: Invalid socket", true);
+        picojson::object loginObj;
+        loginObj["id"] = picojson::value(static_cast<double>(1));
+        loginObj["jsonrpc"] = picojson::value("2.0");
+        loginObj["method"] = picojson::value("login");
+        
+        picojson::object params;
+        params["login"] = picojson::value(wallet);
+        params["pass"] = picojson::value(password);
+        params["agent"] = picojson::value(userAgent);
+        params["rigid"] = picojson::value(worker);
+        
+        loginObj["params"] = picojson::value(params);
+        
+        std::string payload = picojson::value(loginObj).serialize() + "\n";
+        
+        Utils::threadSafePrint("Sending login request", true);
+        if (config.debugMode) {
+            Utils::threadSafePrint("[POOL TX] " + payload, true);
+        }
+        
+        int bytesSent = send(poolSocket, payload.c_str(), static_cast<int>(payload.length()), 0);
+        if (bytesSent == SOCKET_ERROR) {
+            Utils::threadSafePrint("Failed to send login: " + std::to_string(WSAGetLastError()), true);
             return false;
         }
-
+        
+        // Wait for login response with timeout
+        fd_set readSet;
+        FD_ZERO(&readSet);
+        FD_SET(poolSocket, &readSet);
+        
+        struct timeval timeout;
+        timeout.tv_sec = 10;
+        timeout.tv_usec = 0;
+        
+        int result = select(0, &readSet, nullptr, nullptr, &timeout);
+        if (result <= 0) {
+            Utils::threadSafePrint("Timeout waiting for login response", true);
+            return false;
+        }
+        
+        // Receive response
+        char buffer[8192];
+        int bytesReceived = recv(poolSocket, buffer, sizeof(buffer) - 1, 0);
+        if (bytesReceived <= 0) {
+            Utils::threadSafePrint("Failed to receive login response: " + std::to_string(WSAGetLastError()), true);
+            return false;
+        }
+        
+        buffer[bytesReceived] = '\0';
+        std::string response(buffer);
+        
+        // Remove trailing newline/carriage return
+        while (!response.empty() && (response.back() == '\n' || response.back() == '\r')) {
+            response.pop_back();
+        }
+        
+        Utils::threadSafePrint("Received login response", true);
+        if (config.debugMode) {
+            Utils::threadSafePrint("[POOL RX] " + response, true);
+        }
+        
+        // Parse response
         try {
-            picojson::object loginObj;
-            loginObj["id"] = picojson::value(1.0);
-            loginObj["jsonrpc"] = picojson::value("2.0");
-            loginObj["method"] = picojson::value("login");
-            
-            picojson::object params;
-            params["agent"] = picojson::value(userAgent);
-            params["login"] = picojson::value(wallet);
-            params["pass"] = picojson::value(password);
-            params["worker"] = picojson::value(worker);
-            
-            loginObj["params"] = picojson::value(params);
-            
-            std::string request = picojson::value(loginObj).serialize();
-            Utils::threadSafePrint("Sending login request", true);
-            
-            std::string fullRequest = request + "\n";
-            int sendResult = send(poolSocket, fullRequest.c_str(), static_cast<int>(fullRequest.length()), 0);
-            if (sendResult == SOCKET_ERROR) {
-                Utils::threadSafePrint("Failed to send login: " + std::to_string(WSAGetLastError()), true);
-                return false;
-            }
-
-            char buffer[4096];
-            std::string response;
-            bool complete = false;
-            
-            while (!complete) {
-                int bytesReceived = recv(poolSocket, buffer, sizeof(buffer) - 1, 0);
-                if (bytesReceived == SOCKET_ERROR || bytesReceived == 0) {
-                    Utils::threadSafePrint("Failed to receive login response", true);
-                    return false;
-                }
-
-                buffer[bytesReceived] = '\0';
-                response += buffer;
-
-                try {
-                    picojson::value v;
-                    std::string err = picojson::parse(v, response);
-                    if (err.empty()) complete = true;
-                } catch (...) {
-                    continue;
-                }
-            }
-
-            while (!response.empty() && (response.back() == '\n' || response.back() == '\r')) {
-                response.pop_back();
-            }
-
-            if (response.empty()) {
-                Utils::threadSafePrint("Empty login response", true);
-                return false;
-            }
-
-            Utils::threadSafePrint("Received login response", true);
-            
-            if (!handleLoginResponse(response)) {
+            picojson::value v;
+            std::string err = picojson::parse(v, response);
+            if (!err.empty()) {
+                Utils::threadSafePrint("JSON parse error: " + err, true);
+                Utils::threadSafePrint("Raw response: " + response, true);
                 return false;
             }
             
-            {
-                std::lock_guard<std::mutex> lock(jobMutex);
-                if (jobQueue.empty()) {
-                    Utils::threadSafePrint("No job in login response", true);
-                    return false;
+            if (!v.is<picojson::object>()) {
+                Utils::threadSafePrint("Invalid JSON response format", true);
+                return false;
+            }
+            
+            const picojson::object& obj = v.get<picojson::object>();
+            
+            // Check for error first
+            if (obj.find("error") != obj.end() && !obj.at("error").is<picojson::null>()) {
+                Utils::threadSafePrint("Pool login error: " + obj.at("error").serialize(), true);
+                return false;
+            }
+            
+            // Get result
+            if (obj.find("result") == obj.end()) {
+                Utils::threadSafePrint("No result in login response", true);
+                Utils::threadSafePrint("Full response: " + response, true);
+                return false;
+            }
+            
+            const picojson::value& resultVal = obj.at("result");
+            if (!resultVal.is<picojson::object>()) {
+                Utils::threadSafePrint("Result is not an object", true);
+                return false;
+            }
+            
+            const picojson::object& result = resultVal.get<picojson::object>();
+            
+            // Extract session ID
+            if (result.find("id") == result.end()) {
+                Utils::threadSafePrint("No session ID in result", true);
+                Utils::threadSafePrint("Result keys: ", true);
+                for (const auto& kv : result) {
+                    Utils::threadSafePrint("  - " + kv.first, true);
                 }
+                return false;
+            }
+            
+            sessionId = result.at("id").get<std::string>();
+            Utils::threadSafePrint("Session ID: " + sessionId, true);
+            
+            // Extract job
+            if (result.find("job") != result.end() && result.at("job").is<picojson::object>()) {
+                const picojson::object& jobObj = result.at("job").get<picojson::object>();
+                processNewJob(jobObj);
+            } else {
+                Utils::threadSafePrint("No job in login response (will wait for job notification)", true);
             }
             
             return true;
         }
         catch (const std::exception& e) {
-            Utils::threadSafePrint("Login error: " + std::string(e.what()), true);
+            Utils::threadSafePrint("Exception parsing login response: " + std::string(e.what()), true);
             return false;
         }
     }
@@ -352,37 +382,122 @@ namespace PoolClient {
     }
 
     void jobListener() {
+        auto lastKeepalive = std::chrono::steady_clock::now();
+        std::string buffer;
+        int keepaliveCount = 0;
+        
         while (!shouldStop) {
-            if (poolSocket == INVALID_SOCKET) {
-                Utils::threadSafePrint("Pool connection lost", true);
-                std::this_thread::sleep_for(std::chrono::seconds(5));
-                continue;
-            }
-
-            std::string response = receiveData(poolSocket);
-            if (response.empty()) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                continue;
-            }
-
-            try {
-                picojson::value v;
-                std::string err = picojson::parse(v, response);
-                if (!err.empty()) continue;
-                if (!v.is<picojson::object>()) continue;
-
-                const picojson::object& obj = v.get<picojson::object>();
-                if (obj.find("method") != obj.end()) {
-                    const std::string& method = obj.at("method").get<std::string>();
-                    if (method == "job") {
-                        const picojson::object& jobObj = obj.at("params").get<picojson::object>();
-                        processNewJob(jobObj);
+            // Non-blocking receive with timeout
+            fd_set readSet;
+            FD_ZERO(&readSet);
+            FD_SET(poolSocket, &readSet);
+            
+            struct timeval timeout;
+            timeout.tv_sec = 0;
+            timeout.tv_usec = 100000; // 100ms
+            
+            int result = select(0, &readSet, nullptr, nullptr, &timeout);
+            
+            if (result > 0 && FD_ISSET(poolSocket, &readSet)) {
+                char chunk[4096];
+                int bytesReceived = recv(poolSocket, chunk, sizeof(chunk) - 1, 0);
+                
+                if (bytesReceived > 0) {
+                    chunk[bytesReceived] = '\0';
+                    buffer += chunk;
+                    
+                    // Debug raw data
+                    if (config.debugMode) {
+                        Utils::threadSafePrint("[POOL RX] " + std::string(chunk), true);
                     }
+                    
+                    // Process complete JSON messages (line-delimited)
+                    size_t pos = 0;
+                    while ((pos = buffer.find('\n')) != std::string::npos) {
+                        std::string message = buffer.substr(0, pos);
+                        buffer.erase(0, pos + 1);
+                        
+                        // Remove carriage return if present
+                        if (!message.empty() && message.back() == '\r') {
+                            message.pop_back();
+                        }
+                        
+                        if (message.empty()) continue;
+                        
+                        try {
+                            picojson::value v;
+                            std::string err = picojson::parse(v, message);
+                            
+                            if (err.empty() && v.is<picojson::object>()) {
+                                const picojson::object& obj = v.get<picojson::object>();
+                                
+                                // Handle job notification
+                                if (obj.find("method") != obj.end()) {
+                                    std::string method = obj.at("method").get<std::string>();
+                                    
+                                    if (method == "job") {
+                                        if (obj.find("params") != obj.end() && obj.at("params").is<picojson::object>()) {
+                                            const picojson::object& params = obj.at("params").get<picojson::object>();
+                                            processNewJob(params);
+                                        }
+                                    }
+                                }
+                                
+                                // Log keepalive responses
+                                if (config.debugMode && obj.find("result") != obj.end()) {
+                                    Utils::threadSafePrint("[POOL] Received result response", true);
+                                }
+                            }
+                        } catch (const std::exception& e) {
+                            if (config.debugMode) {
+                                Utils::threadSafePrint("[POOL] Parse error: " + std::string(e.what()), true);
+                            }
+                        }
+                    }
+                } else if (bytesReceived == 0) {
+                    Utils::threadSafePrint("Pool connection closed", true);
+                    break;
                 }
             }
-            catch (const std::exception& e) {
-                Utils::threadSafePrint("Error processing response: " + std::string(e.what()), true);
+            
+            // Send keepalive every 30 seconds
+            auto now = std::chrono::steady_clock::now();
+            auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - lastKeepalive).count();
+            
+            if (elapsed >= 30) {
+                keepaliveCount++;
+                
+                // Calculate current hashrate
+                double totalHashrate = 0.0;
+                for (size_t i = 0; i < threadData.size(); i++) {
+                    if (threadData[i] != nullptr) {
+                        totalHashrate += threadData[i]->getHashrate();
+                    }
+                }
+                
+                // Nanopool keepalive format
+                picojson::object keepalive;
+                keepalive["id"] = picojson::value(static_cast<double>(jsonRpcId.fetch_add(1)));
+                keepalive["jsonrpc"] = picojson::value("2.0");
+                keepalive["method"] = picojson::value("keepalived");
+                
+                picojson::object params;
+                params["id"] = picojson::value(sessionId);
+                keepalive["params"] = picojson::value(params);
+                
+                std::string payload = picojson::value(keepalive).serialize() + "\n";
+                
+                int bytesSent = send(poolSocket, payload.c_str(), static_cast<int>(payload.length()), 0);
+                
+                if (bytesSent > 0 && config.debugMode) {
+                    Utils::threadSafePrint("[KEEPALIVE #" + std::to_string(keepaliveCount) + 
+                        "] Sent | Hashrate: " + std::to_string(static_cast<int>(totalHashrate)) + " H/s", true);
+                }
+                
+                lastKeepalive = now;
             }
+            
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
     }
 
@@ -400,8 +515,6 @@ namespace PoolClient {
             }
 
             Job job(blobStr, jobId, target, height, seedHash);
-            job.difficulty = static_cast<uint64_t>(RandomXManager::getDifficulty());
-
             distributeJob(job);
         }
         catch (const std::exception& e) {
@@ -497,14 +610,11 @@ namespace PoolClient {
 
     void distributeJob(const Job& job) {
         std::lock_guard<std::mutex> lock(jobMutex);
+        
+        // Clear old jobs
         std::queue<Job> empty;
         std::swap(jobQueue, empty);
         jobQueue.push(job);
-        
-        if (config.debugMode) {
-            Utils::threadSafePrint("[JOB] ID=" + job.jobId + " Height=" + 
-                std::to_string(job.height), true);
-        }
         
         handleSeedHashChange(job.seedHash);
         jobQueueCondition.notify_all();

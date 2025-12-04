@@ -7,7 +7,7 @@ class Config {
 public:
     // Configuration settings
     std::string poolAddress;
-    uint16_t poolPort;
+    int poolPort;  
     std::string walletAddress;
     std::string workerName;
     std::string password;
@@ -27,4 +27,4 @@ public:
     
 private:
     void printUsage() const;
-}; 
+};

@@ -165,6 +165,7 @@ void miningThread(MiningThreadData* data) {
         uint64_t maxNonce = localNonce + 0x10000000ULL;
         std::string lastJobId;
         auto lastHashrateUpdate = std::chrono::steady_clock::now();
+        auto lastDebugOutput = lastHashrateUpdate;
         uint64_t hashesInPeriod = 0;
         uint64_t hashesTotal = 0;
         std::vector<uint8_t> workingBlob;
@@ -181,43 +182,34 @@ void miningThread(MiningThreadData* data) {
             try {
                 Job jobCopy;
                 std::string currentJobId;
-                
                 {
                     std::lock_guard<std::mutex> lock(PoolClient::jobMutex);
                     if (PoolClient::jobQueue.empty()) {
                         std::this_thread::sleep_for(std::chrono::milliseconds(100));
                         continue;
                     }
-                    
-                    // CRITICAL: Use copy constructor, NOT assignment!
-                    jobCopy = PoolClient::jobQueue.front();  // This calls operator=
+                    jobCopy = PoolClient::jobQueue.front();
                     currentJobId = jobCopy.getJobId();
                 }
-                
-                // Remove the debug spam - only log once per job change
+
                 if (currentJobId != lastJobId) {
                     if (config.debugMode) {
                         std::stringstream ss;
-                        ss << "\n[T" << data->getThreadId() << "] *** NEW JOB *** " << currentJobId
+                        ss << "[T" << data->getThreadId() << "] *** NEW JOB *** " << currentJobId
                            << " | Height: " << jobCopy.height
                            << " | Diff: " << jobCopy.difficulty
-                           << " | Previous job hashes: " << hashesTotal << "\n";
-                        ss << "Target (LE hex): ";
+                           << " | Tested: " << hashesTotal << "\n";
+                        ss << "Target (hex): ";
                         for (int i = 0; i < 32; i++) ss << std::hex << std::setw(2) << std::setfill('0') << (int)jobCopy.targetBytes[i];
-                        
+                        ss << "\nPool communication: Job received from pool, processing...";
                         Utils::threadSafePrint(ss.str(), true);
                     }
-                    
                     lastJobId = currentJobId;
                     localNonce = static_cast<uint64_t>(data->getThreadId()) * 0x10000000ULL;
                     maxNonce = localNonce + 0x10000000ULL;
                     hashesInPeriod = 0;
                     hashesTotal = 0;
-                    debugHashCounter = 0;
                     lastHashrateUpdate = std::chrono::steady_clock::now();
-                    
-                    // Don't loop here - process immediately
-                    continue;
                 }
 
                 if (localNonce >= maxNonce) {
@@ -228,7 +220,7 @@ void miningThread(MiningThreadData* data) {
                 workingBlob = jobCopy.getBlobBytes();
                 if (workingBlob.empty() || workingBlob.size() < 76) {
                     if (config.debugMode) {
-                        Utils::threadSafePrint("[T" + std::to_string(data->getThreadId()) + "] FATAL: Blob too short", true);
+                        Utils::threadSafePrint("[T" + std::to_string(data->getThreadId()) + "] FATAL: Blob too short (" + std::to_string(workingBlob.size()) + " bytes, need >= 76 for rx/0)", true);
                     }
                     std::this_thread::sleep_for(std::chrono::milliseconds(100));
                     continue;
@@ -236,130 +228,118 @@ void miningThread(MiningThreadData* data) {
 
                 if (jobCopy.nonceOffset + 4 > workingBlob.size()) {
                     if (config.debugMode) {
-                        Utils::threadSafePrint("[T" + std::to_string(data->getThreadId()) + "] FATAL: Invalid nonce offset", true);
+                        Utils::threadSafePrint("[T" + std::to_string(data->getThreadId()) + "] FATAL: Nonce offset " + std::to_string(jobCopy.nonceOffset) + " exceeds blob size " + std::to_string(workingBlob.size()), true);
                     }
                     std::this_thread::sleep_for(std::chrono::milliseconds(100));
                     continue;
                 }
 
-                // CRITICAL: Insert nonce as LITTLE-ENDIAN 32-bit value
                 uint32_t nonce32 = static_cast<uint32_t>(localNonce & 0xFFFFFFFFULL);
                 size_t offset = jobCopy.nonceOffset;
-                workingBlob[offset + 0] = static_cast<uint8_t>((nonce32 >>  0) & 0xFF);
-                workingBlob[offset + 1] = static_cast<uint8_t>((nonce32 >>  8) & 0xFF);
+                workingBlob[offset] = static_cast<uint8_t>(nonce32 & 0xFF);
+                workingBlob[offset + 1] = static_cast<uint8_t>((nonce32 >> 8) & 0xFF);
                 workingBlob[offset + 2] = static_cast<uint8_t>((nonce32 >> 16) & 0xFF);
                 workingBlob[offset + 3] = static_cast<uint8_t>((nonce32 >> 24) & 0xFF);
 
-                // Calculate hash
+                // --- DEBUG: Print full blob and nonce ---
+                if (config.debugMode && localNonce < static_cast<uint64_t>(data->getThreadId()) * 0x10000000ULL + 3) {
+                    std::stringstream ss;
+                    ss << "[T" << data->getThreadId() << "] Nonce 0x" << std::hex << std::setw(8) << std::setfill('0') << nonce32;
+                    ss << " written at offset " << std::dec << offset << " (0x" << std::hex << offset << ")\n";
+                    ss << "  Bytes[" << std::dec << offset << "-" << (offset+3) << "]: ";
+                    for (size_t i = offset; i < offset + 4; i++) {
+                        ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(workingBlob[i]) << " ";
+                    }
+                    ss << "\n  Full blob (76 bytes for RandomX):\n  ";
+                    for (size_t i = 0; i < 76; i++) {
+                        ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(workingBlob[i]);
+                        if ((i + 1) % 32 == 0 && i + 1 < 76) ss << "\n  ";
+                    }
+                    Utils::threadSafePrint(ss.str(), true);
+                }
+
+                // --- DEBUG: Print RandomX VM pointer ---
+                if (config.debugMode && debugHashCounter % 10000 == 0) {
+                    std::stringstream ss;
+                    ss << "[T" << data->getThreadId() << "] RandomX VM pointer: " << std::hex << data->getVM();
+                    if (data->getVM() == nullptr) {
+                        ss << " [ERROR: VM is nullptr! RandomX not initialized for this thread]";
+                    }
+                    Utils::threadSafePrint(ss.str(), true);
+                }
+
+                // --- Hash calculation ---
                 bool hashOk = false;
                 {
+                    // Defensive: zero hashResult before calculation
                     std::fill(hashResult.begin(), hashResult.end(), 0);
                     hashOk = data->calculateHashAndCheckTarget(workingBlob, std::vector<uint8_t>(jobCopy.targetBytes, jobCopy.targetBytes + 32), hashResult);
                 }
 
+                // --- DEBUG: Print hash and target every 10000 hashes ---
                 debugHashCounter++;
-                
-                // Enhanced debug output every 1000 hashes
-                if (config.debugMode && (debugHashCounter % 1000 == 0)) {
+                if (config.debugMode && (debugHashCounter % 10000 == 0)) {
                     std::stringstream ss;
-                    ss << "[T" << data->getThreadId() << "] Hash #" << debugHashCounter 
-                       << " | Nonce: 0x" << std::hex << std::setw(8) << std::setfill('0') << nonce32 << "\n";
-                    
-                    // Show hash in both formats
-                    ss << "  Hash (LE): ";
-                    for (int i = 0; i < 32; i++) ss << std::hex << std::setw(2) << std::setfill('0') << (int)hashResult[i];
-                    
-                    ss << "\n  Target:    ";
-                    for (int i = 0; i < 32; i++) ss << std::hex << std::setw(2) << std::setfill('0') << (int)jobCopy.targetBytes[i];
-                    
-                    // Show byte-by-byte comparison of first 8 bytes
-                    ss << "\n  Byte comparison (LE):";
-                    bool stillValid = true;
-                    for (int i = 0; i < 8; i++) {
-                        ss << "\n    [" << i << "] Hash: 0x" << std::hex << std::setw(2) << std::setfill('0') << (int)hashResult[i]
-                           << " vs Target: 0x" << std::hex << std::setw(2) << std::setfill('0') << (int)jobCopy.targetBytes[i];
-                        
-                        if (stillValid) {
-                            if (hashResult[i] < jobCopy.targetBytes[i]) {
-                                ss << " ✓ PASS (lower)";
-                                stillValid = false; // Would be valid if rest are zeros
-                            } else if (hashResult[i] > jobCopy.targetBytes[i]) {
-                                ss << " ✗ FAIL (higher)";
-                                stillValid = false;
-                            } else {
-                                ss << " = (continue check)";
-                            }
-                        }
-                    }
-                    
-                    ss << "\n  Hash LSW: 0x";
-                    uint64_t hashLSW = 0;
-                    for (int i = 0; i < 8; i++) {
-                        hashLSW |= static_cast<uint64_t>(hashResult[i]) << (i * 8);
-                    }
-                    ss << std::hex << std::setw(16) << std::setfill('0') << hashLSW;
-                    
-                    ss << " | Target LSW: 0x";
-                    uint64_t targetLSW = 0;
-                    for (int i = 0; i < 8; i++) {
-                        targetLSW |= static_cast<uint64_t>(jobCopy.targetBytes[i]) << (i * 8);
-                    }
-                    ss << std::hex << std::setw(16) << std::setfill('0') << targetLSW;
-                    
-                    ss << "\n  Valid: " << (hashOk ? "YES *** SHARE FOUND! ***" : "NO");
-                    ss << "\n  Expected shares so far: " << std::fixed << std::setprecision(2) 
-                       << (static_cast<double>(hashesTotal) / static_cast<double>(jobCopy.difficulty));
-                    
+                    ss << "[T" << data->getThreadId() << "] Nonce: 0x" << std::hex << std::setw(8) << std::setfill('0') << nonce32 << "\n";
+                    ss << "Hash (hex): ";
+                    for (int i = 0; i < 32; i++) ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hashResult[i]);
+                    ss << "\nTarget (hex): ";
+                    for (int i = 0; i < 32; i++) ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(jobCopy.targetBytes[i]);
+                    ss << "\nComparison: hash < target? " << (hashOk ? "YES" : "NO");
                     bool isAllZeros = std::all_of(hashResult.begin(), hashResult.end(), [](uint8_t b){ return b == 0; });
-                    if (isAllZeros) ss << " [WARNING: All zeros - VM error!]";
-                    
+                    if (isAllZeros) ss << "\n*** WARNING: Hash is all zeros - VM/calculation error detected! ***";
                     Utils::threadSafePrint(ss.str(), true);
                 }
 
-                // Check for valid share
+                // --- Only submit non-zero hashes ---
                 bool isAllZeros = std::all_of(hashResult.begin(), hashResult.end(), [](uint8_t b){ return b == 0; });
                 if (hashOk && !isAllZeros) {
-                    // CRITICAL FIX: Format nonce as 8-character hex (little-endian bytes)
+                    Utils::threadSafePrint("[T" + std::to_string(data->getThreadId()) + "] VALID SHARE FOUND, submitting to pool...", true);
+
+                    // Prepare nonce and hash hex
                     std::stringstream nonceStream;
-                    nonceStream << std::hex << std::setw(2) << std::setfill('0') << (int)workingBlob[offset + 0];
-                    nonceStream << std::hex << std::setw(2) << std::setfill('0') << (int)workingBlob[offset + 1];
-                    nonceStream << std::hex << std::setw(2) << std::setfill('0') << (int)workingBlob[offset + 2];
-                    nonceStream << std::hex << std::setw(2) << std::setfill('0') << (int)workingBlob[offset + 3];
+                    nonceStream << std::hex << std::setw(8) << std::setfill('0') << nonce32;
                     std::string nonceHex = nonceStream.str();
-                    
-                    // CRITICAL FIX: Send hash in LITTLE-ENDIAN byte order (as calculated by RandomX)
                     std::stringstream hashStream;
-                    for (int i = 0; i < 32; i++) {
-                        hashStream << std::hex << std::setw(2) << std::setfill('0') << (int)hashResult[i];
-                    }
+                    for (int i = 0; i < 32; i++) hashStream << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hashResult[i]);
                     std::string hashHex = hashStream.str();
 
-                    Utils::threadSafePrint("\n*** VALID SHARE FOUND! ***", true);
-                    Utils::threadSafePrint("  Job: " + currentJobId, true);
-                    Utils::threadSafePrint("  Nonce: " + nonceHex, true);
-                    Utils::threadSafePrint("  Hash: " + hashHex, true);
-                    Utils::threadSafePrint("  After " + std::to_string(hashesTotal) + " hashes", true);
-                    
+                    Utils::threadSafePrint("*** SHARE FOUND! *** T" + std::to_string(data->getThreadId()) + " | Job:" + currentJobId + " | Nonce:0x" + nonceHex, true);
+
                     if (config.debugMode) {
-                        Utils::threadSafePrint("  Blob with nonce (first 50 bytes): ", true);
-                        for (size_t i = 0; i < 50 && i < workingBlob.size(); i++) {
-                            std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)workingBlob[i];
-                        }
-                        std::cout << std::dec << std::endl;
+                        std::stringstream ss;
+                        ss << "[SUBMIT] FULL Details:\n";
+                        ss << "  Hash (LE for pool): " << hashHex << "\n";
+                        ss << "  Nonce: 0x" << nonceHex << "\n";
+                        ss << "  Job ID: " << currentJobId << "\n";
+                        ss << "  Blob size: " << workingBlob.size() << " bytes\n";
+                        ss << "  Target (LE): ";
+                        for (int i = 0; i < 32; i++) ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(jobCopy.targetBytes[i]);
+                        Utils::threadSafePrint(ss.str(), true);
                     }
 
-                    // Submit share - let PoolClient handle the actual submission format
                     if (PoolClient::submitShare(currentJobId, nonceHex, hashHex, "rx/0")) {
                         data->incrementAccepted();
-                        Utils::threadSafePrint("*** SHARE ACCEPTED BY POOL! *** Total: " + std::to_string(acceptedShares.load()), true);
+                        Utils::threadSafePrint("*** SHARE ACCEPTED! *** Total: " + std::to_string(acceptedShares.load()), true);
                     } else {
                         data->incrementRejected();
-                        Utils::threadSafePrint("Share rejected by pool. Total: " + std::to_string(rejectedShares.load()), true);
+                        Utils::threadSafePrint("Share rejected. Total: " + std::to_string(rejectedShares.load()), true);
                     }
+                } else if (hashOk && isAllZeros) {
+                    Utils::threadSafePrint("[T" + std::to_string(data->getThreadId()) + "] Hash is all zeros, not submitting to pool.", true);
                 }
 
                 hashesInPeriod++;
                 hashesTotal++;
+
+                if (config.debugMode) {
+                    auto now = std::chrono::steady_clock::now();
+                    auto debugElapsed = std::chrono::duration_cast<std::chrono::seconds>(now - lastDebugOutput).count();
+                    if (debugElapsed >= 30) {
+                        Utils::threadSafePrint("[T" + std::to_string(data->getThreadId()) + "] Mining | Nonce:0x" + Utils::formatHex(nonce32, 8) + " | " + std::to_string(static_cast<int>(data->getHashrate())) + " H/s", true);
+                        lastDebugOutput = now;
+                    }
+                }
 
                 localNonce++;
                 auto now = std::chrono::steady_clock::now();
@@ -367,16 +347,9 @@ void miningThread(MiningThreadData* data) {
                 if (elapsed >= 5 && hashesInPeriod > 0) {
                     double hashrate = static_cast<double>(hashesInPeriod) / static_cast<double>(elapsed);
                     data->setHashrate(hashrate);
-                    
-                    if (config.debugMode) {
-                        Utils::threadSafePrint("[T" + std::to_string(data->getThreadId()) + "] Hashrate: " + 
-                            std::to_string(static_cast<int>(hashrate)) + " H/s | Total: " + std::to_string(hashesTotal), true);
-                    }
-                    
                     lastHashrateUpdate = now;
                     hashesInPeriod = 0;
                 }
-                
                 if ((localNonce & 0xFF) == 0) {
                     std::this_thread::yield();
                 }
@@ -403,23 +376,18 @@ void processNewJob(const picojson::object& jobObj) {
 
         Job job(blob, jobId, target, height, seedHash);
 
-        // Set target in RandomXManager (for legacy compatibility)
         if (!RandomXManager::setTargetAndDifficulty(target)) {
             Utils::threadSafePrint("Failed to set target", true);
             return;
         }
 
-        // DON'T overwrite job.difficulty - it's already calculated correctly in Job constructor!
-        // job.difficulty is already set from the target in Job::Job()
+        job.difficulty = static_cast<uint64_t>(RandomXManager::getDifficulty());
 
-        // FIX C4244 WARNING - Explicit intermediate variable
         uint32_t jobIdNum = 0;
         try {
-            size_t pos = 0;
-            uint32_t temp = static_cast<uint32_t>(std::stoul(jobId, &pos, 10));
-            jobIdNum = temp;
-        } catch (const std::exception&) {
-            jobIdNum = static_cast<uint32_t>(std::hash<std::string>{}(jobId));
+            jobIdNum = static_cast<uint32_t>(std::stoul(jobId));
+        } catch (...) {
+            jobIdNum = 0;
         }
         
         if (jobIdNum != activeJobId.load()) {
@@ -437,20 +405,33 @@ void processNewJob(const picojson::object& jobObj) {
                     PoolClient::jobQueue.pop();
                 }
                 PoolClient::jobQueue.push(job);
+                
+                if (debugMode) {
+                    Utils::threadSafePrint("Job queue updated with new job: " + jobId, true);
+                    Utils::threadSafePrint("Queue size: " + std::to_string(PoolClient::jobQueue.size()), true);
+                }
             }
 
-            if (!config.debugMode) {
-                Utils::threadSafePrint("New job: " + jobId + " | Height: " + std::to_string(height), false);
-            } else {
-                Utils::threadSafePrint("New job details:", true);
-                Utils::threadSafePrint("  Height: " + std::to_string(height), true);
-                Utils::threadSafePrint("  Job ID: " + jobId, true);
-                Utils::threadSafePrint("  Target: 0x" + target, true);
-                Utils::threadSafePrint("  Difficulty: " + std::to_string(job.difficulty), true);
-            }
+            Utils::threadSafePrint("New job details:", true);
+            Utils::threadSafePrint("  Height: " + std::to_string(height), true);
+            Utils::threadSafePrint("  Job ID: " + jobId, true);
+            Utils::threadSafePrint("  Target: 0x" + target, true);
+            Utils::threadSafePrint("  Blob: " + blob, true);
+            Utils::threadSafePrint("  Seed Hash: " + seedHash, true);
+            Utils::threadSafePrint("  Difficulty: " + std::to_string(job.difficulty), true);
 
             PoolClient::jobAvailable.notify_all();
             PoolClient::jobQueueCondition.notify_all();
+            
+            if (debugMode) {
+                Utils::threadSafePrint("Notified all mining threads about new job", true);
+            }
+
+            Utils::threadSafePrint("Job processed and distributed to all threads", true);
+        } else {
+            if (debugMode) {
+                Utils::threadSafePrint("Skipping duplicate job: " + jobId, true);
+            }
         }
     }
     catch (const std::exception& e) {
@@ -755,10 +736,10 @@ bool startMining() {
         return false;
     }
 
-    // Initialize thread data - FIX: use explicit cast to avoid warning
+    // Initialize thread data
     threadData.resize(config.numThreads);
-    for (size_t i = 0; i < static_cast<size_t>(config.numThreads); i++) {
-        threadData[i] = new MiningThreadData(static_cast<int>(i));
+    for (int i = 0; i < config.numThreads; i++) {
+        threadData[i] = new MiningThreadData(i);
         if (!threadData[i]->initializeVM()) {
             Utils::threadSafePrint("Failed to initialize VM for thread " + std::to_string(i), true);
             return false;
@@ -784,8 +765,8 @@ bool startMining() {
         return false;
     }
 
-    // Start mining threads - FIX: use int instead of size_t
-    for (size_t i = 0; i < static_cast<size_t>(config.numThreads); i++) {
+    // Start mining threads
+    for (int i = 0; i < config.numThreads; i++) {
         miningThreads.emplace_back(miningThread, threadData[i]);
         if (config.debugMode) {
             Utils::threadSafePrint("Started mining thread " + std::to_string(i), true);
@@ -822,53 +803,60 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Load configuration FIRST
+    // Load configuration
     if (!loadConfig()) {
         std::cerr << "Failed to load configuration" << std::endl;
         WSACleanup();
         return 1;
     }
 
-    // THEN parse command line arguments (so they override config file)
-    if (!config.parseCommandLine(argc, argv)) {
-        WSACleanup();
-        return 0;  // --help was shown
+    // Parse command line arguments
+    for (int i = 1; i < argc; i++) {
+        std::string arg = argv[i];
+        if (arg == "--debug") {
+            config.debugMode = true;
+        }
+        else if (arg == "--threads" && i + 1 < argc) {
+            config.numThreads = std::stoi(argv[++i]);
+        }
+        else if (arg == "--pool" && i + 1 < argc) {
+            config.poolAddress = argv[++i];
+        }
+        else if (arg == "--wallet" && i + 1 < argc) {
+            config.walletAddress = argv[++i];
+        }
+        else if (arg == "--worker" && i + 1 < argc) {
+            config.workerName = argv[++i];
+        }
+        else if (arg == "--user-agent" && i + 1 < argc) {
+            config.userAgent = argv[++i];
+        }
+        else if (arg == "--log-file" && i + 1 < argc) {
+            config.logFileName = argv[++i];
+            config.useLogFile = true;
+        }
+        else if (arg != "--help" && arg != "-h") {
+            std::cerr << "Unknown argument: " << arg << std::endl;
+            printHelp();
+            WSACleanup();
+            return 1;
+        }
     }
 
     // Print current configuration
     config.printConfig();
-    
-    // Show system info with XMRig-style output
-    if (config.debugMode) {
-        Utils::threadSafePrint("=== MoneroMiner v1.0.0 ===", true);
-        
-        // CPU detection
-        char cpuBrand[0x40];
-        int cpuInfo[4] = {0};
-        __cpuid(cpuInfo, 0x80000002);
-        memcpy(cpuBrand, cpuInfo, sizeof(cpuInfo));
-        __cpuid(cpuInfo, 0x80000003);
-        memcpy(cpuBrand + 16, cpuInfo, sizeof(cpuInfo));
-        __cpuid(cpuInfo, 0x80000004);
-        memcpy(cpuBrand + 32, cpuInfo, sizeof(cpuInfo));
-        
-        Utils::threadSafePrint(std::string("CPU: ") + cpuBrand, true);
-        Utils::threadSafePrint("Logical cores: " + std::to_string(sysInfo.dwNumberOfProcessors), true);
-        
-        // Memory info
-        MEMORYSTATUSEX memInfo;
-        memInfo.dwLength = sizeof(MEMORYSTATUSEX);
-        GlobalMemoryStatusEx(&memInfo);
-        Utils::threadSafePrint("Memory: " + std::to_string(memInfo.ullAvailPhys / (1024*1024*1024)) + "/" + 
-                              std::to_string(memInfo.ullTotalPhys / (1024*1024*1024)) + " GB", true);
-        
-        Utils::threadSafePrint("Pool: " + config.poolAddress + ":" + std::to_string(config.poolPort), true);
-        Utils::threadSafePrint("Threads: " + std::to_string(config.numThreads), true);
-        Utils::threadSafePrint("Worker: " + config.workerName, true);
-        Utils::threadSafePrint("Algorithm: RandomX (rx/0)", true);
-    } else {
+
+    // Show system info
+    if (!config.debugMode) {
         Utils::threadSafePrint("MoneroMiner v1.0.0 | CPU:" + std::to_string(sysInfo.dwNumberOfProcessors) + 
             " cores | Pool:" + config.poolAddress + " | Threads:" + std::to_string(config.numThreads), true);
+    } else {
+        Utils::threadSafePrint("=== MoneroMiner v1.0.0 ===", true);
+        Utils::threadSafePrint("CPU: " + std::to_string(sysInfo.dwNumberOfProcessors) + " cores", true);
+        Utils::threadSafePrint("Pool: " + config.poolAddress, true);
+        Utils::threadSafePrint("Threads: " + std::to_string(config.numThreads), true);
+        Utils::threadSafePrint("Worker: " + config.workerName, true);
+        Utils::threadSafePrint("Debug mode: ENABLED", true);
     }
     
     // Start mining
@@ -879,54 +867,22 @@ int main(int argc, char* argv[]) {
     }
 
     // Start statistics monitoring thread
-    std::thread statsThread(MiningStatsUtil::globalStatsMonitor);
+    std::thread statsThread(MiningStatsUtil::globalStatsMonitor);  // Use new namespace name
     
     // Keep the miner running
-    Utils::threadSafePrint("=== MINER IS NOW RUNNING ===", !config.debugMode);
-    Utils::threadSafePrint("Press Ctrl+C to stop mining", !config.debugMode);
+    Utils::threadSafePrint("=== MINER IS NOW RUNNING ===", true);
+    Utils::threadSafePrint("Press Ctrl+C to stop mining", true);
     
     // Main loop - keep program alive while mining threads work
-    auto lastStatsTime = std::chrono::steady_clock::now();
-    int secondsCounter = 0;
-    
     while (!shouldStop) {
         std::this_thread::sleep_for(std::chrono::seconds(1));
-        secondsCounter++;
         
-        // Display stats every 10 seconds in non-debug mode
-        if (!config.debugMode && secondsCounter >= 10) {
-            auto now = std::chrono::steady_clock::now();
-            auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - lastStatsTime).count();
-            
-            if (elapsed >= 10) {
-                // Calculate total hashrate
-                double totalHashrate = 0.0;
-                for (size_t i = 0; i < threadData.size(); i++) {
-                    if (threadData[i] != nullptr) {
-                        totalHashrate += threadData[i]->getHashrate();
-                    }
-                }
-                
-                // Get current difficulty
-                uint64_t currentDiff = 0;
-                {
-                    std::lock_guard<std::mutex> lock(PoolClient::jobMutex);
-                    if (!PoolClient::jobQueue.empty()) {
-                        currentDiff = PoolClient::jobQueue.front().difficulty;
-                    }
-                }
-                
-                std::stringstream ss;
-                ss << "[" << secondsCounter << "s] ";
-                ss << "Hashrate: " << std::fixed << std::setprecision(1) << totalHashrate << " H/s";
-                ss << " | Difficulty: " << currentDiff;
-                ss << " | Accepted: " << acceptedShares.load();
-                ss << " | Rejected: " << rejectedShares.load();
-                
-                Utils::threadSafePrint(ss.str(), false);
-                lastStatsTime = now;
-                secondsCounter = 0;
-            }
+        // Print status every 60 seconds
+        static int counter = 0;
+        if (++counter >= 60) {
+            counter = 0;
+            Utils::threadSafePrint("Miner still running... (" + 
+                std::to_string(config.numThreads) + " threads active)", true);
         }
     }
 
@@ -943,11 +899,6 @@ int main(int argc, char* argv[]) {
     // Wait for job listener thread
     if (jobListenerThread.joinable()) {
         jobListenerThread.join();
-    }
-    
-    // Wait for stats thread
-    if (statsThread.joinable()) {
-        statsThread.join();
     }
 
     // Cleanup thread data

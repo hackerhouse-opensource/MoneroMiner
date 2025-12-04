@@ -29,6 +29,8 @@ public:
     void incrementRejected() { rejectedShares.fetch_add(1); }
     uint64_t getAcceptedShares() const { return acceptedShares.load(); }
     uint64_t getRejectedShares() const { return rejectedShares.load(); }
+    void setVM(randomx_vm* vmPtr) { vm = vmPtr; }
+    randomx_vm* getVM() const { return vm; }
 
 private:
     int threadId;
@@ -36,4 +38,5 @@ private:
     std::atomic<uint64_t> hashCount{0};
     std::atomic<uint64_t> acceptedShares{0};
     std::atomic<uint64_t> rejectedShares{0};
+    randomx_vm* vm = nullptr;
 };

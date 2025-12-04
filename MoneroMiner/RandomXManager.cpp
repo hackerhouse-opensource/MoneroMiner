@@ -330,51 +330,54 @@ void RandomXManager::cleanup() {
     currentSeedHash.clear();
 }
 
-bool RandomXManager::setTargetAndDifficulty(const std::string& hexTarget) {
-    // Parse target as big-endian 32-bit value
-    uint32_t targetBE = std::stoul(hexTarget, nullptr, 16);
-    
-    // Convert to little-endian for difficulty calculation
-    uint32_t difficulty32 = ((targetBE & 0xFF) << 24) |
-                            ((targetBE & 0xFF00) << 8) |
-                            ((targetBE & 0xFF0000) >> 8) |
-                            ((targetBE & 0xFF000000) >> 24);
-    
-    currentDifficulty = static_cast<double>(difficulty32);
-    
-    // CRITICAL FIX: Proper target calculation for Monero
-    // The target represents a 256-bit threshold value
-    // For Monero: valid hash must have hash < (0xFFFFFFFF / difficulty) in the first 64 bits
-    // This is a simplified representation of the full 256-bit comparison
-    
-    if (difficulty32 == 0) {
-        difficulty32 = 1; // Prevent division by zero
+bool RandomXManager::setTargetAndDifficulty(const std::string& targetHex) {
+    if (targetHex.length() != 8) {
+        return false;
     }
     
-    // Calculate 64-bit target threshold (approximate 256-bit target)
-    uint64_t target64 = 0xFFFFFFFFFFFFFFFFULL / static_cast<uint64_t>(difficulty32);
-    
-    // Set up 256-bit target for comparison (little-endian)
-    expandedTarget.data[0] = 0xFFFFFFFFFFFFFFFFULL;
-    expandedTarget.data[1] = 0xFFFFFFFFFFFFFFFFULL;
-    expandedTarget.data[2] = 0xFFFFFFFFFFFFFFFFULL;
-    expandedTarget.data[3] = 0xFFFFFFFFFFFFFFFFULL;
-    
-    if (config.debugMode) {
-        Utils::threadSafePrint("=== TARGET SET ===", true);
-        Utils::threadSafePrint("Raw target: 0x" + hexTarget, true);
-        Utils::threadSafePrint("Difficulty: " + std::to_string(difficulty32), true);
-        Utils::threadSafePrint("Target threshold: 0x" + Utils::formatHex(target64, 16), true);
+    try {
+        // Parse pool's target value
+        uint32_t poolTarget = static_cast<uint32_t>(std::stoul(targetHex, nullptr, 16));
+        
+        // Monero difficulty calculation:
+        // difficulty = max_target / current_target
+        // where max_target = 0xFFFFFFFFFFFFFFFF for the 64-bit comparison
+        
+        // For Nanopool's 0xf3220000:
+        // difficulty = 0xFFFFFFFFFFFFFFFF / 0xf3220000 = ~4.4 million (not 4 billion!)
+        
+        // The pool sends the HIGH 32 bits of a 64-bit difficulty representation
+        // So we need: difficulty = 0xFFFFFFFF / (poolTarget >> 24)
+        
+        // Actually, the pool target IS the difficulty encoded
+        // Nanopool sends: 0xf3220000 which means difficulty = 0xFFFFFFFFFFFFFFFF / 0x00000000f3220000
+        
+        uint64_t targetDiff = static_cast<uint64_t>(poolTarget);
+        currentDifficulty = 0xFFFFFFFFFFFFFFFFULL / targetDiff;
+        
+        if (config.debugMode) {
+            std::stringstream ss;
+            ss << "=== TARGET SET ===" << std::endl;
+            ss << "Raw target: 0x" << std::hex << poolTarget << std::endl;
+            ss << "Difficulty: " << std::dec << currentDifficulty << std::endl;
+            ss << "Target threshold: 0x" << std::hex << std::setw(16) << std::setfill('0') 
+               << (0xFFFFFFFFFFFFFFFFULL / currentDifficulty);
+            Utils::threadSafePrint(ss.str(), true);
+        }
+        
+        return true;
     }
-    
-    return true;
+    catch (const std::exception& e) {
+        Utils::threadSafePrint("Error parsing target: " + std::string(e.what()), true);
+        return false;
+    }
 }
 
 bool RandomXManager::checkTarget(const uint8_t* hash) {
     if (!hash) return false;
     
     uint256_t hashValue;
-    hashValue = uint256_t();  // FIX: Initialize instead of .clear()
+    hashValue = uint256_t();
     
     // Read hash as little-endian 256-bit integer
     for (int wordIdx = 0; wordIdx < 4; wordIdx++) {
@@ -388,14 +391,9 @@ bool RandomXManager::checkTarget(const uint8_t* hash) {
         hashValue.data[wordIdx] = word;
     }
     
-    // CRITICAL FIX: Proper 256-bit comparison for Monero
-    // Compare from most significant word to least significant word
-    // Hash must be strictly less than target
-    
     // First check higher order words - they must all be zero for a valid share
     if (hashValue.data[3] > 0 || hashValue.data[2] > 0 || hashValue.data[1] > 0) {
-        return false; // Hash too large
-        
+        return false;
     }
     
     // Now compare the least significant word
@@ -405,12 +403,10 @@ bool RandomXManager::checkTarget(const uint8_t* hash) {
         std::lock_guard<std::mutex> lock(hashMutex);
         lastHash.assign(hash, hash + RANDOMX_HASH_SIZE);
         
-        if (config.debugMode) {
-            Utils::threadSafePrint("*** VALID SHARE FOUND ***", true);
-            Utils::threadSafePrint("Hash:   0x" + Utils::formatHex(hashValue.data[0], 16), true);
-            Utils::threadSafePrint("Target: 0x" + Utils::formatHex(expandedTarget.data[0], 16), true);
-            Utils::threadSafePrint("Full:   " + Utils::bytesToHex(hash, 32), true);
-        }
+        Utils::threadSafePrint("\n*** VALID SHARE FOUND ***", true);
+        Utils::threadSafePrint("Hash LSW:   0x" + Utils::formatHex(hashValue.data[0], 16), true);
+        Utils::threadSafePrint("Target LSW: 0x" + Utils::formatHex(expandedTarget.data[0], 16), true);
+        Utils::threadSafePrint("Full hash:  " + Utils::bytesToHex(hash, 32), true);
     }
     
     return valid;
@@ -454,19 +450,41 @@ bool RandomXManager::calculateHashForThread(int threadId, const std::vector<uint
     alignas(64) uint8_t blob[MAX_BLOB_SIZE];
     alignas(64) uint8_t hash[RANDOMX_HASH_SIZE];
     
+    // CRITICAL FIX: DON'T insert nonce - it's already in the input blob!
+    // The calling code (MoneroMiner.cpp) already wrote the nonce to the blob
     std::memcpy(blob, input.data(), input.size());
     
-    // CRITICAL FIX: Proper nonce insertion (little-endian at bytes 39-42)
-    uint32_t nonce32 = static_cast<uint32_t>(nonce & 0xFFFFFFFF);
-    blob[39] = static_cast<uint8_t>(nonce32);
-    blob[40] = static_cast<uint8_t>(nonce32 >> 8);
-    blob[41] = static_cast<uint8_t>(nonce32 >> 16);
-    blob[42] = static_cast<uint8_t>(nonce32 >> 24);
-    
-    // Calculate hash
+    // Calculate hash directly
     randomx_calculate_hash(vm, blob, input.size(), hash);
     
-    return checkTarget(hash);
+    // Debug logging (only every 10000th hash)
+    static std::atomic<uint64_t> hashCounter{0};
+    uint64_t count = hashCounter.fetch_add(1);
+    
+    if (config.debugMode && (count % 10000 == 0)) {
+        std::stringstream ss;
+        ss << "\n[RandomX] Hash #" << count;
+        ss << "\n  Input blob (first 50 bytes): ";
+        for (size_t i = 0; i < 50 && i < input.size(); i++) {
+            ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(input[i]) << " ";
+        }
+        ss << "\n  Hash LSW: 0x" << std::hex << std::setw(16) << std::setfill('0');
+        uint64_t hashLSW = 0;
+        for (int i = 0; i < 8; i++) {
+            hashLSW |= static_cast<uint64_t>(hash[i]) << (i * 8);
+        }
+        ss << hashLSW;
+        ss << " | Target LSW: 0x" << std::hex << std::setw(16) << std::setfill('0') << expandedTarget.data[0];
+        Utils::threadSafePrint(ss.str(), true);
+    }
+    
+    bool wouldBeValid = checkTarget(hash);
+    
+    if (wouldBeValid) {
+        Utils::threadSafePrint("\n!!! VALID SHARE DETECTED !!!", true);
+    }
+    
+    return wouldBeValid;
 }
 
 std::string RandomXManager::getTargetHex() {
@@ -502,4 +520,16 @@ double RandomXManager::getTargetThreshold() {
     result += static_cast<double>(expandedTarget.data[1]) * 18446744073709551616.0;  // FIX
     
     return result;
+}
+
+randomx_dataset* RandomXManager::getDataset() {
+    return dataset;
+}
+
+randomx_cache* RandomXManager::getCache() {
+    return cache;
+}
+
+randomx_flags RandomXManager::getVMFlags() {
+    return static_cast<randomx_flags>(flags);  // FIX: changed from vmFlags to flags
 }

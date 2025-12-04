@@ -6,9 +6,9 @@
 #include <shared_mutex>
 #include <unordered_map>
 #include "randomx.h"
-#include "Types.h"
+#include "Types.h"  // FIX: Ensure Types.h is included
 #include "Difficulty.h"
-#include <filesystem>  // ADD THIS
+#include <filesystem>
 
 class MiningThreadData;
 
@@ -53,6 +53,9 @@ public:
     // Getters
     static bool isInitialized() { return initialized; }
     static const std::string& getCurrentSeedHash() { return currentSeedHash; }
+    static randomx_dataset* getDataset();
+    static randomx_cache* getCache();
+    static randomx_flags getVMFlags();
 
 private:
     static std::shared_mutex vmMutex;
@@ -70,7 +73,7 @@ private:
     static bool useLightMode;
     
     static std::vector<uint8_t> lastHash;
-    static uint256_t expandedTarget;
+    static uint256_t expandedTarget;  // FIX: Ensure uint256_t is defined before use
     static double currentDifficulty;
     static int flags;
 };

@@ -6,7 +6,7 @@ A lightweight, high-performance Monero (XMR) CPU miner using the RandomX algorit
 
 - **Multi-threaded mining** with optimized CPU utilization
 - **Pool mining support** with stratum protocol
-- **Real-time statistics** with exciting console output
+- **Real-time statistics** with console output
 - **Persistent dataset caching** for improved startup time
 - **Share tracking** and acceptance rate monitoring
 - **Debug mode** for detailed mining information
@@ -28,40 +28,38 @@ MoneroMiner.exe --wallet YOUR_WALLET_ADDRESS
 ## Optional Configuration
 
 - `--threads N`: Number of mining threads (default: CPU cores)
-- `--pool-address URL`: Mining pool address (default: xmr-eu1.nanopool.org)
-- `--pool-port PORT`: Mining pool port (default: 14444)
-- `--worker-name NAME`: Worker name for pool identification (default: worker1)
+- `--pool ADDRESS:PORT`: Mining pool (default: xmr-us-east1.nanopool.org:10300)
+- `--worker NAME`: Worker name for pool identification (default: worker1)
 - `--debug`: Enable detailed debug logging with mining statistics
-- `--logfile [FILE]`: Enable logging to file (default: monerominer.log)
+- `--logfile`: Enable logging to file (default: monerominer.log)
 
 ## Examples
 
 Basic usage:
 
 ```bash
-MoneroMiner.exe --wallet YOUR_WALLET_ADDRESS
+MoneroMiner.exe --wallet YOUR_WALLET_ADDRESS --threads 8
 ```
 
 Advanced usage with debug mode:
 
 ```bash
-MoneroMiner.exe --wallet YOUR_WALLET_ADDRESS --threads 4 --debug
+MoneroMiner.exe --wallet YOUR_WALLET_ADDRESS --pool pool.supportxmr.com:3333 --threads 4 --debug
 ```
 
 ## Console Output
 
 ### Normal Mode
 
-- Real-time hashrate in kH/s
-- Total hashes computed
-- Accepted/Rejected shares with percentage
-- Uptime display
+- Real-time hashrate in H/s
+- Current difficulty
+- Accepted/Rejected shares
 
 ### Debug Mode
 
-- Per-thread mining progress
-- Job change notifications
-- Share submission details
+- Per-thread mining progress with hash comparisons
+- Job change notifications with height/difficulty
+- Share submission details and pool responses
 - Target and difficulty information
 - RandomX initialization details
 
@@ -78,7 +76,7 @@ Hacker Fantastic (https://hacker.house)
 
 ## License
 
-Attribution-NonCommercial-NoDerivatives 4.0 International
+Attribution-NonCommercial-NoDerivatives 4.0 International  
 https://creativecommons.org/licenses/by-nc-nd/4.0/
 
 ## Donations
@@ -86,5 +84,5 @@ https://creativecommons.org/licenses/by-nc-nd/4.0/
 If you find this miner useful, consider donating XMR to support development:
 
 ```
-8BghJxGWaE2Ekh8KrrEEqhGMLVnB17cCATNscfEyH8qq9uvrG3WwYPXbvqfx1HqY96ZaF3yVYtcQ2X1KUMNt2Pr29M41jHf
+48edfHu7V9Z84YzzMa6fUueoELZ9ZRXq9VetWzYGzKt52XU5xvqgzYnDK9URnRoJMk1j8nLwEVsaSWJ4fhdUyZijBGUicoD
 ```

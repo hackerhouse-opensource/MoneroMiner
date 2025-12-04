@@ -72,4 +72,14 @@ namespace PoolClient {
     
     std::string getPoolId();
     bool reconnect();
+
+    class PoolClient {
+    public:
+        // ...existing code...
+        
+        // REMOVE THIS LINE (around line 80):
+        // void handleShareResponse(const json& response);
+        
+        // ...existing code...
+    };
 }
