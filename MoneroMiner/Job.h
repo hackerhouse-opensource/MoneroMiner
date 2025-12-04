@@ -3,25 +3,27 @@
 #include <string>
 #include <vector>
 #include <cstdint>
-#include <atomic>
+#include "Difficulty.h"  // ADD THIS
 
 // Mining job structure
 class Job {
 public:
     // Data members
+    std::string blob;
     std::string jobId;
-    std::string blobHex;            // Original hex string from pool
-    std::vector<uint8_t> blob;      // Binary blob data (converted from hex)
     std::string target;
+    std::vector<uint8_t> targetBytes;  // Keep for compatibility
+    uint256_t target256;  // ADD THIS - proper 256-bit target
+    uint64_t height;
     std::string seedHash;
-    uint64_t height = 0;
-    uint64_t difficulty = 0;
+    uint64_t difficulty;
+    size_t nonceOffset;  // ADD THIS LINE
 
     // Constructors
-    Job() = default;
+    Job() : height(0), difficulty(0), nonceOffset(39) {}  // MODIFY THIS LINE
 
-    Job(const std::string& blobHex, const std::string& jobId,
-        const std::string& target, uint64_t height, const std::string& seedHash);
+    Job(const std::string& b, const std::string& j, const std::string& t,
+        uint64_t h, const std::string& s);
 
     // Copy constructor and assignment
     Job(const Job& other);
@@ -31,6 +33,9 @@ public:
     bool isValid() const;
     void clear();
     const std::string& getJobId() const { return jobId; }
-    const std::vector<uint8_t>& getBlobBytes() const { return blob; }
-    const std::string& getBlobHex() const { return blobHex; }
+    std::vector<uint8_t> getBlobBytes() const;
+
+private:
+    void parseTargetBytes();
+    void parseNonceOffset();  // ADD THIS LINE
 };

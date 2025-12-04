@@ -1,24 +1,31 @@
 #pragma once
 
-#include <string>
-#include <fstream>
-#include <mutex>
 #include <atomic>
-#include <vector>
+#include <mutex>
 #include <condition_variable>
+#include <string>
 #include <queue>
-#include "Config.h"
-#include "Job.h"
-#include "Types.h"
-#include "randomx.h"
+#include <vector>
+#include <fstream>
 
 // Forward declarations
+class Config;
 class MiningThreadData;
+class Job;
+
+// Proper forward declaration for RandomX types
+struct randomx_cache;
+struct randomx_dataset;
+
+// Global atomic variables
+extern std::atomic<bool> shouldStop;
+extern std::atomic<uint32_t> activeJobId;
+extern std::atomic<uint32_t> notifiedJobId;
+extern std::atomic<bool> newJobAvailable;
+extern std::atomic<uint64_t> jsonRpcId;
 
 // Global variables
 extern bool debugMode;
-extern std::atomic<bool> shouldStop;
-extern std::atomic<bool> showedInitMessage;
 extern Config config;
 extern std::ofstream logFile;
 extern std::mutex consoleMutex;
@@ -35,17 +42,10 @@ extern std::string currentJobId;
 extern std::atomic<uint64_t> totalHashes;
 
 // Global variables declarations
-extern std::atomic<uint32_t> activeJobId;
-extern std::atomic<uint32_t> notifiedJobId;
-extern std::atomic<bool> newJobAvailable;
 extern std::atomic<uint64_t> acceptedShares;
 extern std::atomic<uint64_t> rejectedShares;
-extern std::atomic<uint64_t> jsonRpcId;
 extern std::string sessionId;
 extern std::vector<MiningThreadData*> threadData;
-
-// Global configuration and stats
-extern GlobalStats globalStats;
 
 // RandomX globals
 extern randomx_cache* currentCache;
@@ -56,4 +56,4 @@ extern std::mutex seedHashMutex;
 
 // Utility functions declarations
 // void threadSafePrint(const std::string& message, bool toLogFile = false);
-// std::string getCurrentTimestamp(); 
+// std::string getCurrentTimestamp();

@@ -11,10 +11,13 @@ std::string Utils::logFileName = "monerominer.log";
 std::string Utils::bytesToHex(const std::vector<uint8_t>& bytes) {
     std::stringstream ss;
     ss << std::hex << std::setfill('0');
-    // Output bytes in ORDER - do NOT reverse!
-    for (const auto& byte : bytes) {
-        ss << std::setw(2) << static_cast<unsigned int>(byte);
+    
+    // Output bytes EXACTLY as they are - DO NOT REVERSE
+    // RandomX outputs hashes in little-endian byte order already
+    for (size_t i = 0; i < bytes.size(); i++) {
+        ss << std::setw(2) << static_cast<unsigned int>(bytes[i]);
     }
+    
     return ss.str();
 }
 

@@ -148,6 +148,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Config.cpp" />
+    <ClCompile Include="Difficulty.cpp" />
     <ClCompile Include="Globals.cpp" />
     <ClCompile Include="Job.cpp" />
     <ClCompile Include="MiningStats.cpp" />
@@ -160,6 +161,7 @@
   <ItemGroup>
     <ClInclude Include="Config.h" />
     <ClInclude Include="Constants.h" />
+    <ClInclude Include="Difficulty.h" />
     <ClInclude Include="HashBuffers.h" />
     <ClInclude Include="Job.h" />
     <ClInclude Include="MiningStats.h" />

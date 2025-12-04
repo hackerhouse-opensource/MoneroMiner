@@ -7,6 +7,8 @@
 #include <unordered_map>
 #include "randomx.h"
 #include "Types.h"
+#include "Difficulty.h"
+#include <filesystem>  // ADD THIS
 
 class MiningThreadData;
 
@@ -30,8 +32,10 @@ public:
     // Target/difficulty
     static bool setTargetAndDifficulty(const std::string& targetHex);
     static bool checkTarget(const uint8_t* hash);
-    static double getDifficulty() { return currentDifficulty; }
+    static double getDifficulty();
     static double getCurrentDifficulty() { return currentDifficulty; }
+    static std::string getTargetHex();
+    static double getTargetThreshold();
     
     // Last hash result
     static std::vector<uint8_t> getLastHash();
@@ -56,6 +60,7 @@ private:
     static std::mutex hashMutex;
     static std::mutex cacheMutex;
     static std::mutex seedHashMutex;
+    static std::mutex targetMutex;
     
     static std::unordered_map<int, randomx_vm*> vms;
     static randomx_cache* cache;

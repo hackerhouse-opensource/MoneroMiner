@@ -25,6 +25,7 @@
 #include <iomanip>
 #include <sstream>
 #include <fstream>
+#include <unordered_set>
 
 // Global variable declarations (not definitions)
 extern std::atomic<uint32_t> activeJobId;
@@ -77,7 +78,7 @@ void printHelp() {
 
 bool validateConfig() {
     if (config.walletAddress.empty()) {
-        threadSafePrint("Error: Wallet address is required\n", false);
+        Utils::threadSafePrint("Error: Wallet address is required\n", false);
         return false;
     }
     if (config.numThreads <= 0) {
@@ -85,13 +86,13 @@ bool validateConfig() {
         if (config.numThreads == 0) {
             config.numThreads = 4;
         }
-        threadSafePrint("Using " + std::to_string(config.numThreads) + " threads", false);
+        Utils::threadSafePrint("Using " + std::to_string(config.numThreads) + " threads", false);
     }
     return true;
 }
 
 void signalHandler(int signum) {
-    threadSafePrint("Received signal " + std::to_string(signum) + ", shutting down...", false);
+    Utils::threadSafePrint("Received signal " + std::to_string(signum) + ", shutting down...", false);
     shouldStop = true;
 }
 
@@ -115,13 +116,30 @@ void miningThread(MiningThreadData* data) {
         }
 
         uint64_t localNonce = static_cast<uint64_t>(data->getThreadId()) * 0x10000000ULL;
+        uint64_t maxNonce = localNonce + 0x10000000ULL;
+        
         std::string lastJobId;
         auto lastHashrateUpdate = std::chrono::steady_clock::now();
+        auto lastDebugOutput = lastHashrateUpdate;
         uint64_t hashesInPeriod = 0;
+        uint64_t hashesTotal = 0;
+        
+        std::vector<uint8_t> workingBlob;
+        workingBlob.reserve(128);
+        std::vector<uint8_t> hashResult(32);
+        
+        if (config.debugMode) {
+            Utils::threadSafePrint("[T" + std::to_string(data->getThreadId()) + 
+                "] Started | Nonce range: 0x" + Utils::formatHex(localNonce, 8) + 
+                " - 0x" + Utils::formatHex(maxNonce, 8), true);
+        }
         
         while (!shouldStop) {
             try {
                 Job jobCopy;
+                std::string currentJobId;
+                
+                // CRITICAL FIX: Check for new job EVERY iteration
                 {
                     std::lock_guard<std::mutex> lock(PoolClient::jobMutex);
                     if (PoolClient::jobQueue.empty()) {
@@ -129,52 +147,173 @@ void miningThread(MiningThreadData* data) {
                         continue;
                     }
                     jobCopy = PoolClient::jobQueue.front();
+                    currentJobId = jobCopy.getJobId();
                 }
 
-                // Job changed - reset nonce
-                if (jobCopy.getJobId() != lastJobId) {
-                    lastJobId = jobCopy.getJobId();
+                // CRITICAL: If job changed, reset nonce immediately
+                if (currentJobId != lastJobId) {
+                    if (config.debugMode && !lastJobId.empty()) {
+                        Utils::threadSafePrint("[T" + std::to_string(data->getThreadId()) + 
+                            "] *** NEW JOB *** " + currentJobId + 
+                            " | Height:" + std::to_string(jobCopy.height) +
+                            " | Diff:" + std::to_string(jobCopy.difficulty) +
+                            " | Tested:" + std::to_string(hashesTotal), true);
+                    }
+                    
+                    if (config.debugMode) {
+                        std::stringstream ss;
+                        ss << "[T" << data->getThreadId() << "] Target (LE FULL): ";
+                        for (size_t i = 0; i < 32; i++) {
+                            ss << std::hex << std::setw(2) << std::setfill('0') 
+                               << static_cast<int>(jobCopy.targetBytes[i]);
+                        }
+                        Utils::threadSafePrint(ss.str(), true);
+                    }
+                    
+                    lastJobId = currentJobId;
                     localNonce = static_cast<uint64_t>(data->getThreadId()) * 0x10000000ULL;
-                    lastHashrateUpdate = std::chrono::steady_clock::now();
+                    maxNonce = localNonce + 0x10000000ULL;
                     hashesInPeriod = 0;
+                    hashesTotal = 0;
+                    lastHashrateUpdate = std::chrono::steady_clock::now();
                 }
 
-                std::vector<uint8_t> input = jobCopy.getBlobBytes();
-                if (input.empty() || input.size() < 43) {
+                if (localNonce >= maxNonce) {
                     std::this_thread::sleep_for(std::chrono::milliseconds(100));
                     continue;
                 }
 
-                bool shareFound = data->calculateHash(input, localNonce);
-                hashesInPeriod++;
+                workingBlob = jobCopy.getBlobBytes();
+                if (workingBlob.empty() || workingBlob.size() < jobCopy.nonceOffset + 4) {  // CHANGE THIS LINE
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                    continue;
+                }
+
+                // FIX line 547 - cast to avoid warning:
+                uint32_t nonce32 = static_cast<uint32_t>(localNonce & 0xFFFFFFFFULL);  // ADD explicit cast
                 
-                if (shareFound) {
-                    Utils::threadSafePrint("\n>>> Thread " + std::to_string(data->getThreadId()) + 
-                        " found share! Nonce: 0x" + Utils::formatHex(localNonce, 16), true);
+                // CRITICAL DEBUG: Show blob BEFORE nonce insertion (first time only)
+                if (config.debugMode && localNonce == static_cast<uint64_t>(data->getThreadId()) * 0x10000000ULL) {
+                    std::stringstream ss;
+                    ss << "[T" << data->getThreadId() << "] BLOB BEFORE nonce (first 50 bytes):\n  ";
+                    for (size_t i = 0; i < std::min<size_t>(50, workingBlob.size()); i++) {
+                        ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(workingBlob[i]) << " ";
+                        if ((i + 1) % 20 == 0) ss << "\n  ";
+                    }
+                    ss << "\n  Blob size: " << std::dec << workingBlob.size() << " bytes";
+                    Utils::threadSafePrint(ss.str(), true);
+                }
+                
+                // Insert nonce at the correct offset (use job's nonceOffset)
+                size_t offset = jobCopy.nonceOffset;  // ADD THIS LINE
+                workingBlob[offset] = static_cast<uint8_t>(nonce32 & 0xFF);  // CHANGE from [39]
+                workingBlob[offset + 1] = static_cast<uint8_t>((nonce32 >> 8) & 0xFF);  // CHANGE from [40]
+                workingBlob[offset + 2] = static_cast<uint8_t>((nonce32 >> 16) & 0xFF);  // CHANGE from [41]
+                workingBlob[offset + 3] = static_cast<uint8_t>((nonce32 >> 24) & 0xFF);  // CHANGE from [42]
+
+                // CRITICAL DEBUG: Show blob AFTER nonce insertion for first few nonces
+                if (config.debugMode && localNonce < static_cast<uint64_t>(data->getThreadId()) * 0x10000000ULL + 3) {
+                    std::stringstream ss;
+                    ss << "[T" << data->getThreadId() << "] Nonce 0x" << std::hex << std::setw(8) << std::setfill('0') << nonce32;
+                    ss << " | Blob[35-45]: ";
+                    for (int i = 35; i <= 45 && i < static_cast<int>(workingBlob.size()); i++) {
+                        ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(workingBlob[i]) << " ";
+                    }
+                    Utils::threadSafePrint(ss.str(), true);
+                }
+
+                bool meetsTarget = data->calculateHashAndCheckTarget(
+                    workingBlob, 
+                    jobCopy.targetBytes, 
+                    hashResult
+                );
+                
+                hashesInPeriod++;
+                hashesTotal++;
+                
+                if (config.debugMode) {
+                    auto now = std::chrono::steady_clock::now();
+                    auto debugElapsed = std::chrono::duration_cast<std::chrono::seconds>(now - lastDebugOutput).count();
+                    if (debugElapsed >= 30) {
+                        Utils::threadSafePrint("[T" + std::to_string(data->getThreadId()) + 
+                            "] Mining | Nonce:0x" + Utils::formatHex(nonce32, 8) + " | " +
+                            std::to_string(static_cast<int>(data->getHashrate())) + " H/s", true);
+                        lastDebugOutput = now;
+                    }
+                }
+                
+                if (meetsTarget) {
+                    // CRITICAL: Re-check job ID hasn't changed before submitting
+                    std::string submitJobId;
+                    {
+                        std::lock_guard<std::mutex> lock(PoolClient::jobMutex);
+                        if (!PoolClient::jobQueue.empty()) {
+                            submitJobId = PoolClient::jobQueue.front().getJobId();
+                        }
+                    }
                     
-                    std::vector<uint8_t> hash = RandomXManager::getLastHash();
-                    if (!hash.empty()) {
-                        if (PoolClient::submitShare(lastJobId, localNonce, hash)) {
+                    // Only submit if job hasn't changed
+                    if (submitJobId == currentJobId) {
+                        std::stringstream nonceStream;
+                        nonceStream << std::hex << std::setw(8) << std::setfill('0') << nonce32;
+                        std::string nonceHex = nonceStream.str();
+                        
+                        std::stringstream hashStream;
+                        for (int i = 0; i < 32; i++) {
+                            hashStream << std::hex << std::setw(2) << std::setfill('0')
+                                       << static_cast<int>(hashResult[i]);
+                        }
+                        std::string hashHex = hashStream.str();
+                        
+                        Utils::threadSafePrint("*** SHARE FOUND! *** T" + std::to_string(data->getThreadId()) + 
+                            " | Job:" + currentJobId + " | Nonce:0x" + nonceHex, true);
+                        
+                        if (config.debugMode) {
+                            std::stringstream ss;
+                            ss << "[SUBMIT] FULL Details:\n";
+                            ss << "  Hash (LE for pool): " << hashHex << "\n";
+                            ss << "  Nonce: 0x" << nonceHex << "\n";
+                            ss << "  Job ID: " << currentJobId << "\n";
+                            ss << "  Blob size: " << workingBlob.size() << " bytes\n";
+                            ss << "  Target (LE): ";
+                            for (int i = 0; i < 32; i++) {
+                                ss << std::hex << std::setw(2) << std::setfill('0') 
+                                   << static_cast<int>(jobCopy.targetBytes[i]);
+                            }
+                            Utils::threadSafePrint(ss.str(), true);
+                        }
+                        
+                        if (PoolClient::submitShare(currentJobId, nonceHex, hashHex, "rx/0")) {
                             data->incrementAccepted();
+                            Utils::threadSafePrint("*** SHARE ACCEPTED! *** Total: " + 
+                                std::to_string(acceptedShares.load()), true);
                         } else {
                             data->incrementRejected();
+                            Utils::threadSafePrint("Share rejected. Total: " + 
+                                std::to_string(rejectedShares.load()), true);
+                        }
+                    } else {
+                        if (config.debugMode) {
+                            Utils::threadSafePrint("[T" + std::to_string(data->getThreadId()) + 
+                                "] Discarding stale share (job changed from " + currentJobId + 
+                                " to " + submitJobId + ")", true);
                         }
                     }
                 }
 
                 localNonce++;
                 
-                // Update hashrate every 5 seconds
                 auto now = std::chrono::steady_clock::now();
                 auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - lastHashrateUpdate).count();
-                if (elapsed >= 5) {
+                if (elapsed >= 5 && hashesInPeriod > 0) {
                     double hashrate = static_cast<double>(hashesInPeriod) / static_cast<double>(elapsed);
                     data->setHashrate(hashrate);
                     lastHashrateUpdate = now;
                     hashesInPeriod = 0;
                 }
                 
-                if (localNonce % 100 == 0) {
+                // CRITICAL: Check for new job every 256 hashes (not just 16384)
+                if ((localNonce & 0xFF) == 0) {
                     std::this_thread::yield();
                 }
             }
@@ -198,80 +337,78 @@ void processNewJob(const picojson::object& jobObj) {
         uint64_t height = static_cast<uint64_t>(jobObj.at("height").get<double>());
         std::string seedHash = jobObj.at("seed_hash").get<std::string>();
 
-        // Create new job
         Job job(blob, jobId, target, height, seedHash);
 
-        // Set target and get difficulty from RandomXManager
         if (!RandomXManager::setTargetAndDifficulty(target)) {
             Utils::threadSafePrint("Failed to set target", true);
             return;
         }
 
-        // Set the job's difficulty
         job.difficulty = static_cast<uint64_t>(RandomXManager::getDifficulty());
 
-        // Update active job ID atomically
-        uint32_t jobIdNum = static_cast<uint32_t>(std::stoul(jobId));
+        uint32_t jobIdNum = 0;
+        try {
+            unsigned long long temp = std::stoull(jobId);
+            jobIdNum = static_cast<uint32_t>(temp & 0xFFFFFFFFULL);
+        } catch (...) {
+            jobIdNum = 0;
+        }
+        
         if (jobIdNum != activeJobId.load()) {
             activeJobId.store(jobIdNum);
             notifiedJobId.store(jobIdNum);
 
-            // Initialize RandomX with new seed hash if needed
             if (!RandomXManager::initialize(seedHash)) {
-                threadSafePrint("Failed to initialize RandomX with seed hash: " + seedHash, true);
+                Utils::threadSafePrint("Failed to initialize RandomX with seed hash: " + seedHash, true);
                 return;
             }
 
-            // Safely replace job in queue
             {
                 std::lock_guard<std::mutex> lock(PoolClient::jobMutex);
-                // Clear the queue and add new job
                 while (!PoolClient::jobQueue.empty()) {
                     PoolClient::jobQueue.pop();
                 }
                 PoolClient::jobQueue.push(job);
                 
                 if (debugMode) {
-                    threadSafePrint("Job queue updated with new job: " + jobId, true);
-                    threadSafePrint("Queue size: " + std::to_string(PoolClient::jobQueue.size()), true);
+                    Utils::threadSafePrint("Job queue updated with new job: " + jobId, true);
+                    Utils::threadSafePrint("Queue size: " + std::to_string(PoolClient::jobQueue.size()), true);
                 }
             }
 
-            // Print job details
-            threadSafePrint("New job details:", true);
-            threadSafePrint("  Height: " + std::to_string(height), true);
-            threadSafePrint("  Job ID: " + jobId, true);
-            threadSafePrint("  Target: 0x" + target, true);
-            threadSafePrint("  Blob: " + blob, true);
-            threadSafePrint("  Seed Hash: " + seedHash, true);
-            threadSafePrint("  Difficulty: " + std::to_string(job.difficulty), true);
+            Utils::threadSafePrint("New job details:", true);
+            Utils::threadSafePrint("  Height: " + std::to_string(height), true);
+            Utils::threadSafePrint("  Job ID: " + jobId, true);
+            Utils::threadSafePrint("  Target: 0x" + target, true);
+            Utils::threadSafePrint("  Blob: " + blob, true);
+            Utils::threadSafePrint("  Seed Hash: " + seedHash, true);
+            Utils::threadSafePrint("  Difficulty: " + std::to_string(job.difficulty), true);
 
-            // Notify all mining threads about the new job
             PoolClient::jobAvailable.notify_all();
             PoolClient::jobQueueCondition.notify_all();
             
             if (debugMode) {
-                threadSafePrint("Notified all mining threads about new job", true);
+                Utils::threadSafePrint("Notified all mining threads about new job", true);
             }
 
-            threadSafePrint("Job processed and distributed to all threads", true);
+            Utils::threadSafePrint("Job processed and distributed to all threads", true);
         } else {
             if (debugMode) {
-                threadSafePrint("Skipping duplicate job: " + jobId, true);
+                Utils::threadSafePrint("Skipping duplicate job: " + jobId, true);
             }
         }
     }
     catch (const std::exception& e) {
-        threadSafePrint("Error processing job: " + std::string(e.what()), true);
+        Utils::threadSafePrint("Error processing job: " + std::string(e.what()), true);
     }
     catch (...) {
-        threadSafePrint("Unknown error processing job", true);
+        Utils::threadSafePrint("Unknown error processing job", true);
     }
 }
 
 bool submitShare(const std::string& jobId, const std::string& nonce, const std::string& hash, const std::string& algo) {
     if (PoolClient::sessionId.empty()) {
-        threadSafePrint("Cannot submit share: Not logged in", true);
+        Utils::threadSafePrint("Cannot submit share: Not logged in", true);
         return false;
     }
 
@@ -287,13 +424,13 @@ void handleShareResponse(const std::string& response, bool& accepted) {
     picojson::value v;
     std::string err = picojson::parse(v, response);
     if (!err.empty()) {
-        threadSafePrint("Failed to parse share response: " + err, true);
+        Utils::threadSafePrint("Failed to parse share response: " + err, true);
         accepted = false;
         return;
     }
 
     if (!v.is<picojson::object>()) {
-        threadSafePrint("Invalid share response format", true);
+        Utils::threadSafePrint("Invalid share response format", true);
         accepted = false;
         return;
     }
@@ -308,10 +445,10 @@ void handleShareResponse(const std::string& response, bool& accepted) {
                 accepted = (status == "OK");
                 if (accepted) {
                     acceptedShares++;
-                    threadSafePrint("Share accepted!", true);
+                    Utils::threadSafePrint("Share accepted!", true);
                 } else {
                     rejectedShares++;
-                    threadSafePrint("Share rejected: " + status, true);
+                    Utils::threadSafePrint("Share rejected: " + status, true);
                 }
             }
         }
@@ -320,7 +457,7 @@ void handleShareResponse(const std::string& response, bool& accepted) {
         if (error.is<picojson::object>()) {
             const picojson::object& errorObj = error.get<picojson::object>();
             if (errorObj.find("message") != errorObj.end()) {
-                threadSafePrint("Share submission error: " + errorObj.at("message").get<std::string>(), true);
+                Utils::threadSafePrint("Share submission error: " + errorObj.at("message").get<std::string>(), true);
             }
         }
         accepted = false;
@@ -336,7 +473,7 @@ std::string sendAndReceive(SOCKET sock, const std::string& payload) {
     int bytesSent = send(sock, fullPayload.c_str(), static_cast<int>(fullPayload.length()), 0);
     if (bytesSent == SOCKET_ERROR) {
         int error = WSAGetLastError();
-        threadSafePrint("Failed to send data: " + std::to_string(error), true);
+        Utils::threadSafePrint("Failed to send data: " + std::to_string(error), true);
         return "";
     }
 
@@ -352,11 +489,11 @@ std::string sendAndReceive(SOCKET sock, const std::string& payload) {
     // Wait for data with timeout
     int result = select(0, &readSet, nullptr, nullptr, &timeout);
     if (result == 0) {
-        threadSafePrint("Timeout waiting for response", true);
+        Utils::threadSafePrint("Timeout waiting for response", true);
         return "";
     }
     if (result == SOCKET_ERROR) {
-        threadSafePrint("Select error: " + std::to_string(WSAGetLastError()), true);
+        Utils::threadSafePrint("Select error: " + std::to_string(WSAGetLastError()), true);
         return "";
     }
 
@@ -369,7 +506,7 @@ std::string sendAndReceive(SOCKET sock, const std::string& payload) {
         int bytesReceived = recv(sock, buffer, sizeof(buffer) - 1, 0);
         if (bytesReceived == SOCKET_ERROR) {
             int error = WSAGetLastError();
-            threadSafePrint("Failed to receive data: " + std::to_string(error), true);
+            Utils::threadSafePrint("Failed to receive data: " + std::to_string(error), true);
             return "";
         }
         if (bytesReceived == 0) {
@@ -398,7 +535,7 @@ std::string sendAndReceive(SOCKET sock, const std::string& payload) {
     }
 
     if (response.empty()) {
-        threadSafePrint("Received empty response", true);
+        Utils::threadSafePrint("Received empty response", true);
     }
 
     return response;
@@ -429,49 +566,47 @@ void handleLoginResponse(const std::string& response) {
         picojson::value v;
         std::string err = picojson::parse(v, response);
         if (!err.empty()) {
-            threadSafePrint("JSON parse error: " + err, true);
+            Utils::threadSafePrint("JSON parse error: " + err, true);
             return;
         }
 
         if (!v.is<picojson::object>()) {
-            threadSafePrint("Invalid JSON response format", true);
+            Utils::threadSafePrint("Invalid JSON response format", true);
             return;
         }
 
         const picojson::object& obj = v.get<picojson::object>();
         if (obj.find("result") == obj.end()) {
-            threadSafePrint("No result in response", true);
+            Utils::threadSafePrint("No result in response", true);
             return;
         }
 
         const picojson::object& result = obj.at("result").get<picojson::object>();
         if (result.find("id") == result.end()) {
-            threadSafePrint("No session ID in response", true);
+            Utils::threadSafePrint("No session ID in response", true);
             return;
         }
 
         sessionId = result.at("id").get<std::string>();
-        threadSafePrint("Session ID: " + sessionId, true);
+        Utils::threadSafePrint("Session ID: " + sessionId, true);
 
-        // Process the job from login response
         if (result.find("job") != result.end()) {
             const picojson::object& jobObj = result.at("job").get<picojson::object>();
             processNewJob(jobObj);
         } else {
-            threadSafePrint("No job in login response", true);
+            Utils::threadSafePrint("No job in login response", true);
         }
     }
     catch (const std::exception& e) {
-        threadSafePrint("Error processing login response: " + std::string(e.what()), true);
+        Utils::threadSafePrint("Error processing login response: " + std::string(e.what()), true);
     }
     catch (...) {
-        threadSafePrint("Unknown error processing login response", true);
+        Utils::threadSafePrint("Unknown error processing login response", true);
     }
 }
 
 bool loadConfig() {
     try {
-        // Try to load from config.json if it exists
         std::ifstream file("config.json");
         if (file.is_open()) {
             picojson::value v;
@@ -515,12 +650,10 @@ bool loadConfig() {
             }
             file.close();
         }
-        // If no config file exists or it's invalid, use default values
-        // The default values are already set in the Config constructor
         return true;
     }
     catch (const std::exception& e) {
-        threadSafePrint("Error loading config: " + std::string(e.what()), true);
+        Utils::threadSafePrint("Error loading config: " + std::string(e.what()), true);
         return false;
     }
 }
@@ -559,19 +692,20 @@ bool startMining() {
         return false;
     }
 
-    // Initialize thread data
+    // Initialize thread data - FIX WARNING: use size_t for loop counter
     threadData.resize(config.numThreads);
-    for (int i = 0; i < config.numThreads; i++) {
-        threadData[i] = new MiningThreadData(i);
-        if (!threadData[i]) {
-            Utils::threadSafePrint("Failed to create thread data for thread " + std::to_string(i), true);
-            return false;
-        }
-        // Initialize VM for each thread
+    for (size_t i = 0; i < static_cast<size_t>(config.numThreads); i++) {
+        threadData[i] = new MiningThreadData(static_cast<int>(i));
         if (!threadData[i]->initializeVM()) {
             Utils::threadSafePrint("Failed to initialize VM for thread " + std::to_string(i), true);
             return false;
         }
+        if (config.debugMode && i < 4) {
+            Utils::threadSafePrint("VM ready for thread " + std::to_string(i), true);
+        }
+    }
+    if (!config.debugMode) {
+        Utils::threadSafePrint("Initialized " + std::to_string(config.numThreads) + " mining threads", true);
     }
     
     // Start job listener thread
@@ -587,24 +721,36 @@ bool startMining() {
         return false;
     }
 
-    // Start mining threads
-    for (int i = 0; i < config.numThreads; i++) {
+    // Start mining threads - FIX WARNING: use size_t for loop counter
+    for (size_t i = 0; i < static_cast<size_t>(config.numThreads); i++) {
         miningThreads.emplace_back(miningThread, threadData[i]);
-        Utils::threadSafePrint("Started mining thread " + std::to_string(i), true);
+        if (config.debugMode) {
+            Utils::threadSafePrint("Started mining thread " + std::to_string(i), true);
+        }
     }
-
-    Utils::threadSafePrint("=== MINING STARTED WITH " + std::to_string(config.numThreads) + " THREADS ===", true);
+    
+    if (!config.debugMode) {
+        Utils::threadSafePrint("Mining started - Press Ctrl+C to stop", true);
+    } else {
+        Utils::threadSafePrint("=== MINING STARTED WITH " + std::to_string(config.numThreads) + " THREADS ===", true);
+        Utils::threadSafePrint("Press Ctrl+C to stop mining", true);
+    }
+    
     return true;
 }
 
 int main(int argc, char* argv[]) {
-    // Check for --help first, regardless of position
+    // Check for --help first
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             printHelp();
             return 0;
         }
     }
+
+    // Get system info early
+    SYSTEM_INFO sysInfo;
+    GetSystemInfo(&sysInfo);
 
     // Initialize Winsock
     WSADATA wsaData;
@@ -656,6 +802,19 @@ int main(int argc, char* argv[]) {
     // Print current configuration
     config.printConfig();
 
+    // Show system info
+    if (!config.debugMode) {
+        Utils::threadSafePrint("MoneroMiner v1.0.0 | CPU:" + std::to_string(sysInfo.dwNumberOfProcessors) + 
+            " cores | Pool:" + config.poolAddress + " | Threads:" + std::to_string(config.numThreads), true);
+    } else {
+        Utils::threadSafePrint("=== MoneroMiner v1.0.0 ===", true);
+        Utils::threadSafePrint("CPU: " + std::to_string(sysInfo.dwNumberOfProcessors) + " cores", true);
+        Utils::threadSafePrint("Pool: " + config.poolAddress, true);
+        Utils::threadSafePrint("Threads: " + std::to_string(config.numThreads), true);
+        Utils::threadSafePrint("Worker: " + config.workerName, true);
+        Utils::threadSafePrint("Debug mode: ENABLED", true);
+    }
+    
     // Start mining
     if (!startMining()) {
         std::cerr << "Failed to start mining" << std::endl;
@@ -664,9 +823,8 @@ int main(int argc, char* argv[]) {
     }
 
     // Start statistics monitoring thread
-    std::thread statsThread(MiningStats::globalStatsMonitor);
-    statsThread.detach();
-
+    std::thread statsThread(MiningStatsUtil::globalStatsMonitor);  // Use new namespace name
+    
     // Keep the miner running
     Utils::threadSafePrint("=== MINER IS NOW RUNNING ===", true);
     Utils::threadSafePrint("Press Ctrl+C to stop mining", true);

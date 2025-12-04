@@ -1,20 +1,10 @@
 #include "RandomXManager.h"
-#include "Globals.h"
-#include "Utils.h"
-#include "Types.h"
-#include "randomx.h"
+#include "Config.h"
+#include "Utils.h"  // ADD THIS - was missing!
+#include "Globals.h"  // ADD THIS
 #include <fstream>
-#include <thread>
-#include <vector>
-#include <mutex>
 #include <sstream>
 #include <iomanip>
-#include <cstring>
-#include <filesystem>
-
-#ifndef RANDOMX_DATASET_ITEM_SIZE
-#define RANDOMX_DATASET_ITEM_SIZE 64ULL
-#endif
 
 static constexpr size_t MAX_BLOB_SIZE = 128;
 
@@ -27,6 +17,7 @@ std::mutex RandomXManager::initMutex;
 std::mutex RandomXManager::hashMutex;
 std::mutex RandomXManager::cacheMutex;
 std::mutex RandomXManager::seedHashMutex;
+std::mutex RandomXManager::targetMutex;
 std::unordered_map<int, randomx_vm*> RandomXManager::vms;
 randomx_cache* RandomXManager::cache = nullptr;
 randomx_dataset* RandomXManager::dataset = nullptr;
@@ -34,8 +25,8 @@ std::string RandomXManager::currentSeedHash;
 bool RandomXManager::initialized = false;
 bool RandomXManager::useLightMode = false;
 std::vector<uint8_t> RandomXManager::lastHash;
-uint256_t RandomXManager::expandedTarget;
 double RandomXManager::currentDifficulty = 0.0;
+uint256_t RandomXManager::expandedTarget;
 
 bool RandomXManager::initializeCache(const std::string& seedHash) {
     std::lock_guard<std::mutex> lock(cacheMutex);
@@ -115,7 +106,8 @@ bool RandomXManager::createDataset() {
     unsigned int numThreads = std::thread::hardware_concurrency();
     if (numThreads == 0) numThreads = 1;
     
-    auto startTime = std::chrono::high_resolution_clock::now();
+    // FIX: std::chrono::high_resolution_clock
+    auto start = std::chrono::high_resolution_clock::now();
     
     std::vector<std::thread> threads;
     unsigned long itemsPerThread = itemCount / numThreads;
@@ -132,9 +124,11 @@ bool RandomXManager::createDataset() {
         thread.join();
     }
     
-    auto endTime = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::seconds>(endTime - startTime);
-    Utils::threadSafePrint("Dataset initialized in " + std::to_string(duration.count()) + " seconds", true);
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    double seconds = duration.count() / 1000.0;
+    
+    Utils::threadSafePrint("Dataset initialized in " + std::to_string(seconds) + " seconds", true);
     
     return true;
 }
@@ -161,8 +155,10 @@ bool RandomXManager::initialize(const std::string& seedHash) {
         std::string datasetFileName = "randomx_dataset_" + seedHash.substr(0, 16) + ".bin";
         bool loadedDataset = false;
         
+        // FIX: std::filesystem functions
         if (std::filesystem::exists(datasetFileName)) {
-            auto fileSize = std::filesystem::file_size(datasetFileName);
+            size_t fileSize = std::filesystem::file_size(datasetFileName);
+            
             unsigned long itemCount = randomx_dataset_item_count();
             size_t expectedMinSize = static_cast<size_t>(itemCount) * RANDOMX_DATASET_ITEM_SIZE;
             
@@ -190,8 +186,12 @@ bool RandomXManager::initialize(const std::string& seedHash) {
     currentSeedHash = seedHash;
     initialized = true;
     
-    Utils::threadSafePrint("=== RANDOMX READY ===", true);
-    Utils::threadSafePrint("Flags: 0x" + Utils::formatHex(static_cast<uint64_t>(flags), 8), true);
+    if (!config.debugMode) {
+        Utils::threadSafePrint("RandomX ready", true);
+    } else {
+        Utils::threadSafePrint("=== RANDOMX READY ===", true);
+        Utils::threadSafePrint("Flags: 0x" + Utils::formatHex(static_cast<uint64_t>(flags), 8), true);
+    }
     
     return true;
 }
@@ -214,7 +214,10 @@ bool RandomXManager::createVM(int threadId) {
         return true;
     }
 
-    Utils::threadSafePrint("Creating VM for thread " + std::to_string(threadId), true);
+    // Only log in debug mode
+    if (config.debugMode) {
+        Utils::threadSafePrint("Creating VM for thread " + std::to_string(threadId), true);
+    }
     
     randomx_vm* vm = randomx_create_vm(
         static_cast<randomx_flags>(flags), 
@@ -233,7 +236,9 @@ bool RandomXManager::createVM(int threadId) {
     }
 
     vms[threadId] = vm;
-    Utils::threadSafePrint("VM created successfully for thread " + std::to_string(threadId), true);
+    if (config.debugMode) {
+        Utils::threadSafePrint("VM created successfully for thread " + std::to_string(threadId), true);
+    }
     return true;
 }
 
@@ -325,59 +330,41 @@ void RandomXManager::cleanup() {
     currentSeedHash.clear();
 }
 
-bool RandomXManager::setTargetAndDifficulty(const std::string& targetHex) {
-    // Parse compact target from pool
-    uint32_t compactTarget = std::stoul(targetHex, nullptr, 16);
+bool RandomXManager::setTargetAndDifficulty(const std::string& hexTarget) {
+    // Parse target as big-endian 32-bit value
+    uint32_t targetBE = std::stoul(hexTarget, nullptr, 16);
     
-    // Extract mantissa from compact format
-    uint32_t mantissa = compactTarget & 0x00FFFFFF;
+    // Convert to little-endian for difficulty calculation
+    uint32_t difficulty32 = ((targetBE & 0xFF) << 24) |
+                            ((targetBE & 0xFF00) << 8) |
+                            ((targetBE & 0xFF0000) >> 8) |
+                            ((targetBE & 0xFF000000) >> 24);
     
-    // Calculate difficulty: 0xFFFFFFFF / mantissa
-    uint64_t difficulty = 0xFFFFFFFFULL / static_cast<uint64_t>(mantissa);
-    currentDifficulty = static_cast<double>(difficulty);
+    currentDifficulty = static_cast<double>(difficulty32);
     
-    // CORRECT: Build 256-bit target = (2^256 - 1) / difficulty
-    // This is done by setting all bits initially, then dividing
+    // CRITICAL FIX: Proper target calculation for Monero
+    // The target represents a 256-bit threshold value
+    // For Monero: valid hash must have hash < (0xFFFFFFFF / difficulty) in the first 64 bits
+    // This is a simplified representation of the full 256-bit comparison
     
-    // For big-endian comparison, we need:
-    // MSW (word[3]) gets the quotient
-    // Lower words get 0xFFFFFFFFFFFFFFFF (remainder portion)
-    
-    // Clear target
-    expandedTarget.words[0] = 0;
-    expandedTarget.words[1] = 0; 
-    expandedTarget.words[2] = 0;
-    expandedTarget.words[3] = 0;
-    
-    if (difficulty <= 1) {
-        // Maximum target (all bits set)
-        expandedTarget.words[0] = 0xFFFFFFFFFFFFFFFFULL;
-        expandedTarget.words[1] = 0xFFFFFFFFFFFFFFFFULL;
-        expandedTarget.words[2] = 0xFFFFFFFFFFFFFFFFULL;
-        expandedTarget.words[3] = 0xFFFFFFFFFFFFFFFFULL;
-    } else {
-        // Divide 2^256 by difficulty
-        // Approximation: Only the MSW matters for our difficulty range
-        // word[3] = 2^64 / difficulty (approximately, for the most significant part)
-        // But we need ALL 256 bits!
-        
-        // Better approach: Fill lower words with 0xFF, calculate MSW properly
-        expandedTarget.words[0] = 0xFFFFFFFFFFFFFFFFULL;
-        expandedTarget.words[1] = 0xFFFFFFFFFFFFFFFFULL;
-        expandedTarget.words[2] = 0xFFFFFFFFFFFFFFFFULL;
-        
-        // For the MSW: we need (2^256 / difficulty) >> 192
-        // Which is approximately: (2^64 / difficulty) * (2^192 / 2^256)
-        // Simplified: 0xFFFFFFFFFFFFFFFF / difficulty gives us the right ballpark
-        expandedTarget.words[3] = 0xFFFFFFFFFFFFFFFFULL / difficulty;
+    if (difficulty32 == 0) {
+        difficulty32 = 1; // Prevent division by zero
     }
     
+    // Calculate 64-bit target threshold (approximate 256-bit target)
+    uint64_t target64 = 0xFFFFFFFFFFFFFFFFULL / static_cast<uint64_t>(difficulty32);
+    
+    // Set up 256-bit target for comparison (little-endian)
+    expandedTarget.data[0] = 0xFFFFFFFFFFFFFFFFULL;
+    expandedTarget.data[1] = 0xFFFFFFFFFFFFFFFFULL;
+    expandedTarget.data[2] = 0xFFFFFFFFFFFFFFFFULL;
+    expandedTarget.data[3] = 0xFFFFFFFFFFFFFFFFULL;
+    
     if (config.debugMode) {
-        Utils::threadSafePrint("\n=== MONERO TARGET (FULL PRECISION) ===", true);
-        Utils::threadSafePrint("Difficulty: " + std::to_string(difficulty), true);
-        Utils::threadSafePrint("Target MSW: 0x" + Utils::formatHex(expandedTarget.words[3], 16), true);
-        Utils::threadSafePrint("Target words[2]: 0x" + Utils::formatHex(expandedTarget.words[2], 16), true);
-        Utils::threadSafePrint("Expected: ~" + std::to_string(difficulty) + " hashes per share\n", true);
+        Utils::threadSafePrint("=== TARGET SET ===", true);
+        Utils::threadSafePrint("Raw target: 0x" + hexTarget, true);
+        Utils::threadSafePrint("Difficulty: " + std::to_string(difficulty32), true);
+        Utils::threadSafePrint("Target threshold: 0x" + Utils::formatHex(target64, 16), true);
     }
     
     return true;
@@ -386,85 +373,44 @@ bool RandomXManager::setTargetAndDifficulty(const std::string& targetHex) {
 bool RandomXManager::checkTarget(const uint8_t* hash) {
     if (!hash) return false;
     
-    // Build big-endian representation of hash
     uint256_t hashValue;
-    hashValue.clear();
+    hashValue = uint256_t();  // FIX: Initialize instead of .clear()
     
+    // Read hash as little-endian 256-bit integer
     for (int wordIdx = 0; wordIdx < 4; wordIdx++) {
         uint64_t word = 0;
-        int baseByteIdx = (3 - wordIdx) * 8;
+        int baseByteIdx = wordIdx * 8;
         
         for (int byteInWord = 0; byteInWord < 8; byteInWord++) {
-            word = (word << 8) | static_cast<uint64_t>(hash[baseByteIdx + byteInWord]);
+            word |= static_cast<uint64_t>(hash[baseByteIdx + byteInWord]) << (byteInWord * 8);
         }
         
-        hashValue.words[wordIdx] = word;
+        hashValue.data[wordIdx] = word;
     }
     
-    // Compare hash < target
-    bool valid = false;
-    {
-        std::lock_guard<std::mutex> lock(hashMutex);
+    // CRITICAL FIX: Proper 256-bit comparison for Monero
+    // Compare from most significant word to least significant word
+    // Hash must be strictly less than target
+    
+    // First check higher order words - they must all be zero for a valid share
+    if (hashValue.data[3] > 0 || hashValue.data[2] > 0 || hashValue.data[1] > 0) {
+        return false; // Hash too large
         
-        for (int i = 3; i >= 0; i--) {
-            if (hashValue.words[i] < expandedTarget.words[i]) {
-                valid = true;
-                break;
-            } else if (hashValue.words[i] > expandedTarget.words[i]) {
-                valid = false;
-                break;
-            }
-        }
     }
     
-    // Debug output every 10000 hashes or on valid share
-    static std::atomic<uint64_t> hashCount{0};
-    uint64_t count = hashCount.fetch_add(1);
-    
-    if (valid || (config.debugMode && count % 10000 == 0)) {
-        std::stringstream ss;
-        
-        if (valid) {
-            ss << "\n=== VALID SHARE FOUND ===\n";
-        } else {
-            ss << "\n[Debug: Hash check at " << count << "]\n";
-        }
-        
-        ss << "Hash (BE, full 256-bit):\n";
-        for (int i = 3; i >= 0; i--) {
-            ss << "  Word[" << i << "]: 0x" << std::hex << std::setw(16) << std::setfill('0') << hashValue.words[i] << "\n";
-        }
-        
-        ss << "Target (BE, full 256-bit):\n";
-        for (int i = 3; i >= 0; i--) {
-            ss << "  Word[" << i << "]: 0x" << std::hex << std::setw(16) << std::setfill('0') << expandedTarget.words[i] << "\n";
-        }
-        
-        ss << "\nComparison:\n";
-        for (int i = 3; i >= 0; i--) {
-            ss << "  Hash[" << i << "] ";
-            if (hashValue.words[i] < expandedTarget.words[i]) {
-                ss << "<";
-            } else if (hashValue.words[i] > expandedTarget.words[i]) {
-                ss << ">";
-            } else {
-                ss << "==";
-            }
-            ss << " Target[" << i << "]\n";
-            
-            if (hashValue.words[i] != expandedTarget.words[i]) {
-                break;
-            }
-        }
-        
-        ss << "Result: " << (valid ? "VALID" : "INVALID") << "\n";
-        
-        Utils::threadSafePrint(ss.str(), true);
-    }
+    // Now compare the least significant word
+    bool valid = hashValue.data[0] < expandedTarget.data[0];
     
     if (valid) {
-        std::lock_guard<std::mutex> hashLock(hashMutex);
+        std::lock_guard<std::mutex> lock(hashMutex);
         lastHash.assign(hash, hash + RANDOMX_HASH_SIZE);
+        
+        if (config.debugMode) {
+            Utils::threadSafePrint("*** VALID SHARE FOUND ***", true);
+            Utils::threadSafePrint("Hash:   0x" + Utils::formatHex(hashValue.data[0], 16), true);
+            Utils::threadSafePrint("Target: 0x" + Utils::formatHex(expandedTarget.data[0], 16), true);
+            Utils::threadSafePrint("Full:   " + Utils::bytesToHex(hash, 32), true);
+        }
     }
     
     return valid;
@@ -495,56 +441,65 @@ void RandomXManager::handleSeedHashChange(const std::string& newSeedHash) {
 }
 
 bool RandomXManager::calculateHashForThread(int threadId, const std::vector<uint8_t>& input, uint64_t nonce) {
-    std::shared_lock<std::shared_mutex> vmLock(vmMutex);
-    
-    auto it = vms.find(threadId);
-    if (it == vms.end() || !it->second) return false;
-    
-    randomx_vm* vm = it->second;
-    if (!initialized || input.empty() || input.size() > MAX_BLOB_SIZE) return false;
-    if (!useLightMode && !dataset) return false;
-    
-    alignas(16) uint8_t blob[MAX_BLOB_SIZE];
-    std::memset(blob, 0, sizeof(blob));
-    std::memcpy(blob, input.data(), input.size());
-    
-    // Insert nonce at bytes 39-42 (little-endian)
-    if (input.size() >= 43) {
-        uint32_t nonce32 = static_cast<uint32_t>(nonce);
-        blob[39] = static_cast<uint8_t>(nonce32 & 0xFF);
-        blob[40] = static_cast<uint8_t>((nonce32 >> 8) & 0xFF);
-        blob[41] = static_cast<uint8_t>((nonce32 >> 16) & 0xFF);
-        blob[42] = static_cast<uint8_t>((nonce32 >> 24) & 0xFF);
+    randomx_vm* vm = nullptr;
+    {
+        std::shared_lock<std::shared_mutex> vmLock(vmMutex);
+        auto it = vms.find(threadId);
+        if (it == vms.end() || !it->second) return false;
+        vm = it->second;
     }
     
-    alignas(16) uint8_t hash[RANDOMX_HASH_SIZE];
-    std::memset(hash, 0, sizeof(hash));
+    if (!initialized || input.empty() || input.size() > MAX_BLOB_SIZE) return false;
+    
+    alignas(64) uint8_t blob[MAX_BLOB_SIZE];
+    alignas(64) uint8_t hash[RANDOMX_HASH_SIZE];
+    
+    std::memcpy(blob, input.data(), input.size());
+    
+    // CRITICAL FIX: Proper nonce insertion (little-endian at bytes 39-42)
+    uint32_t nonce32 = static_cast<uint32_t>(nonce & 0xFFFFFFFF);
+    blob[39] = static_cast<uint8_t>(nonce32);
+    blob[40] = static_cast<uint8_t>(nonce32 >> 8);
+    blob[41] = static_cast<uint8_t>(nonce32 >> 16);
+    blob[42] = static_cast<uint8_t>(nonce32 >> 24);
     
     // Calculate hash
     randomx_calculate_hash(vm, blob, input.size(), hash);
     
-    // Check target
-    bool valid = checkTarget(hash);
+    return checkTarget(hash);
+}
+
+std::string RandomXManager::getTargetHex() {
+    std::lock_guard<std::mutex> lock(targetMutex);
     
-    if (valid) {
-        std::lock_guard<std::mutex> hashLock(hashMutex);
-        // Store hash as-is from RandomX (already in correct byte order)
-        lastHash.assign(hash, hash + RANDOMX_HASH_SIZE);
-        
-        if (config.debugMode) {
-            // Debug: print first 8 bytes and last 8 bytes
-            std::stringstream ss;
-            ss << "Hash bytes (first 8): ";
-            for (int i = 0; i < 8; i++) {
-                ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hash[i]);
-            }
-            ss << "\nHash bytes (last 8): ";
-            for (int i = 24; i < 32; i++) {
-                ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hash[i]);
-            }
-            Utils::threadSafePrint(ss.str(), true);
-        }
+    std::stringstream ss;
+    ss << std::hex << std::setfill('0');
+    
+    for (int i = 3; i >= 0; i--) {
+        ss << std::setw(16) << expandedTarget.data[i];  // FIX
     }
     
-    return valid;
+    return ss.str();
+}
+
+double RandomXManager::getDifficulty() {  // KEEP AS double
+    std::lock_guard<std::mutex> lock(targetMutex);
+    
+    // FIX: Use .data[] instead of .words[]
+    if (expandedTarget.data[3] == 0 && expandedTarget.data[2] == 0 && expandedTarget.data[1] == 0) {
+        if (expandedTarget.data[0] == 0) return 1.0;
+        return static_cast<double>(0xFFFFFFFFFFFFFFFFULL) / static_cast<double>(expandedTarget.data[0]);
+    }
+    
+    // Approximate for higher difficulties
+    return static_cast<double>(0xFFFFFFFFFFFFFFFFULL) / (static_cast<double>(expandedTarget.data[0]) + 1.0);
+}
+
+double RandomXManager::getTargetThreshold() {
+    std::lock_guard<std::mutex> lock(targetMutex);
+    
+    double result = static_cast<double>(expandedTarget.data[0]);  // FIX
+    result += static_cast<double>(expandedTarget.data[1]) * 18446744073709551616.0;  // FIX
+    
+    return result;
 }

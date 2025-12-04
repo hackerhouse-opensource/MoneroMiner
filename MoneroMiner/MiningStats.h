@@ -1,57 +1,68 @@
 #pragma once
 
-#include <cstdint>
-#include "Config.h"
-#include "MiningThreadData.h"
-#include "Types.h"
-#include <string>
+#include <atomic>
+#include <memory>
 #include <vector>
 #include <chrono>
-#include <memory>
-#include <atomic>
 #include <mutex>
-#include <unordered_map>
 
-class MiningThreadData;  // Forward declaration
+// Forward declaration
+class MiningThreadData;
 
-namespace MiningStats {
-    extern std::atomic<bool> shouldStop;
-    extern std::vector<std::unique_ptr<ThreadMiningStats>> threadStats;
-    extern GlobalStats globalStats;
-    extern std::mutex statsMutex;
-    extern std::vector<MiningThreadData*> threadData;
-    extern std::atomic<uint64_t> acceptedShares;
-    extern std::atomic<uint64_t> rejectedShares;
+struct ThreadMiningStats {
+    std::atomic<uint64_t> hashCount{0};
+    std::atomic<uint64_t> accepted{0};
+    std::atomic<uint64_t> rejected{0};
+    std::atomic<double> hashrate{0.0};
+    int threadId{0};
+    
+    // ADD THESE MISSING FIELDS:
+    std::chrono::steady_clock::time_point startTime;
+    uint64_t totalHashes{0};
+    uint64_t acceptedShares{0};
+    uint64_t rejectedShares{0};
+    double currentHashrate{0.0};
+    double runtime{0.0};
+    
+    ThreadMiningStats() : startTime(std::chrono::steady_clock::now()) {}
+    ThreadMiningStats(int id) : threadId(id), startTime(std::chrono::steady_clock::now()) {}
+};
 
-    void initializeStats(const Config& config);
-    void updateThreadStats(const MiningThreadData* data);
+extern std::vector<std::unique_ptr<ThreadMiningStats>> threadStats;
+
+class GlobalMiningStats {
+public:
+    // ADD THESE MISSING FIELDS:
+    std::chrono::steady_clock::time_point startTime;
+    uint64_t totalHashes{0};
+    uint64_t acceptedShares{0};
+    uint64_t rejectedShares{0};
+    double elapsedSeconds{0.0};
+    std::string currentJobId;
+    uint64_t currentNonce{0};
+    
+    GlobalMiningStats() : startTime(std::chrono::steady_clock::now()) {}
+    
+    // ...existing methods...
+};
+
+extern GlobalMiningStats globalStats;
+
+class MiningStats {
+public:
+    static std::mutex statsMutex;
+    
+    static void initializeThreadStats(int numThreads);
+    static void updateGlobalStats();
+    static void printStats(GlobalMiningStats& stats);
+    static void printCompactStats();  // ADD THIS LINE
+    
+    // ...existing methods...
+};
+
+namespace MiningStatsUtil {  // CHANGE FROM MiningStats to MiningStatsUtil
+    extern uint64_t acceptedShares;  // NOT std::atomic<uint64_t>
+    extern uint64_t rejectedShares;  // NOT std::atomic<uint64_t>
+    
     void globalStatsMonitor();
-    void stopStatsMonitor();
-    void updateHashCount(int threadId, uint64_t count);
-    uint64_t getHashCount(int threadId);
-    uint64_t getTotalHashes();
-
-    class MiningStats {
-    public:
-        static void updateHashCount(int threadId, uint64_t count) {
-            std::lock_guard<std::mutex> lock(mutex);
-            hashCounts[threadId] += count;
-            totalHashes += count;
-        }
-
-        static uint64_t getHashCount(int threadId) {
-            std::lock_guard<std::mutex> lock(mutex);
-            return hashCounts[threadId];
-        }
-
-        static uint64_t getTotalHashes() {
-            std::lock_guard<std::mutex> lock(mutex);
-            return totalHashes;
-        }
-
-    private:
-        static std::mutex mutex;
-        static std::unordered_map<int, uint64_t> hashCounts;
-        static uint64_t totalHashes;
-    };
-} 
+}

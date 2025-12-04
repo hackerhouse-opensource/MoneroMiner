@@ -42,6 +42,9 @@
     <ClCompile Include="Job.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Difficulty.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Config.h">
@@ -78,6 +81,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="RandomXManager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Difficulty.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -30,6 +30,3 @@ private:
     static std::mutex printMutex;
     static std::string logFileName;
 };
-
-// Global convenience function
-void threadSafePrint(const std::string& message, bool toLog = false);

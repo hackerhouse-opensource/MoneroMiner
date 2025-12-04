@@ -1,8 +1,9 @@
 #include "Globals.h"
 #include "Config.h"
-#include "Job.h"
 #include "MiningThreadData.h"
-#include "Types.h"
+#include "Job.h"
+#include "randomx.h"  // This defines the actual RandomX types
+#include <fstream>
 #include <queue>
 #include <sstream>
 #include <iomanip>
@@ -37,9 +38,6 @@ std::atomic<uint64_t> rejectedShares(0);
 std::atomic<uint64_t> jsonRpcId(0);
 std::string sessionId;
 std::vector<MiningThreadData*> threadData;
-
-// Global configuration and stats
-GlobalStats globalStats;
 
 // RandomX globals
 randomx_cache* currentCache = nullptr;

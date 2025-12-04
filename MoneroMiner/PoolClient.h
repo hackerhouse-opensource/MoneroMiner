@@ -41,7 +41,8 @@ namespace PoolClient {
     Job getCurrentJob();
     
     // Share submission
-    bool submitShare(const std::string& jobId, uint32_t nonce, const std::vector<uint8_t>& hash);
+    bool submitShare(const std::string& jobId, const std::string& nonceHex,
+                    const std::string& hashHex, const std::string& algo);
     
     // Status getters
     bool isConnected();
@@ -66,7 +67,9 @@ namespace PoolClient {
                     const std::string& id);
     bool submitShare(const std::string& jobId, uint64_t nonce, 
                     const std::vector<uint8_t>& hash);  // Add this overload
-
+    bool submitShare(const std::string& jobId, const std::string& nonceHex,
+                    const std::string& hashHex, const std::string& algo);
+    
     std::string getPoolId();
     bool reconnect();
 }

@@ -4,11 +4,12 @@ A lightweight, high-performance Monero (XMR) CPU miner using the RandomX algorit
 
 ## Features
 
-- Multi-threaded mining with optimized CPU utilization
-- Pool mining support with stratum protocol
-- Configurable via command-line options
-- Persistent dataset caching for improved startup time
-- Real-time mining statistics and share tracking
+- **Multi-threaded mining** with optimized CPU utilization
+- **Pool mining support** with stratum protocol
+- **Real-time statistics** with exciting console output
+- **Persistent dataset caching** for improved startup time
+- **Share tracking** and acceptance rate monitoring
+- **Debug mode** for detailed mining information
 
 ## Quick Start
 
@@ -26,11 +27,11 @@ MoneroMiner.exe --wallet YOUR_WALLET_ADDRESS
 
 ## Optional Configuration
 
-- `--threads N`: Number of mining threads (default: auto-detected)
+- `--threads N`: Number of mining threads (default: CPU cores)
 - `--pool-address URL`: Mining pool address (default: xmr-eu1.nanopool.org)
-- `--pool-port PORT`: Mining pool port (default: 10300)
-- `--worker-name NAME`: Worker name for pool identification (default: miniminer)
-- `--debug`: Enable detailed debug logging
+- `--pool-port PORT`: Mining pool port (default: 14444)
+- `--worker-name NAME`: Worker name for pool identification (default: worker1)
+- `--debug`: Enable detailed debug logging with mining statistics
 - `--logfile [FILE]`: Enable logging to file (default: monerominer.log)
 
 ## Examples
@@ -41,17 +42,35 @@ Basic usage:
 MoneroMiner.exe --wallet YOUR_WALLET_ADDRESS
 ```
 
-Advanced usage:
+Advanced usage with debug mode:
 
 ```bash
-MoneroMiner.exe --wallet YOUR_WALLET_ADDRESS --threads 4 --pool-address xmr-eu1.nanopool.org --debug
+MoneroMiner.exe --wallet YOUR_WALLET_ADDRESS --threads 4 --debug
 ```
+
+## Console Output
+
+### Normal Mode
+
+- Real-time hashrate in kH/s
+- Total hashes computed
+- Accepted/Rejected shares with percentage
+- Uptime display
+
+### Debug Mode
+
+- Per-thread mining progress
+- Job change notifications
+- Share submission details
+- Target and difficulty information
+- RandomX initialization details
 
 ## Performance Tips
 
 - Set thread count to match your CPU's physical core count
 - RandomX dataset is cached to disk for faster startup
-- Monitor debug output for initialization and mining status
+- Use `--debug` to monitor initialization and mining status
+- Modern CPUs with AES-NI support will have better performance
 
 ## Author
 
