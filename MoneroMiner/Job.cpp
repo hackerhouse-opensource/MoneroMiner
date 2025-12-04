@@ -24,11 +24,6 @@ Job::Job(const Job& other)
     , blob(other.blob)
 {
     memcpy(targetBytes, other.targetBytes, 32);
-    
-    if (config.debugMode) {
-        Utils::threadSafePrint("[JOB COPY] Copied difficulty: " + std::to_string(difficulty) + 
-            " from source: " + std::to_string(other.difficulty), true);
-    }
 }
 
 // Copy assignment
@@ -97,12 +92,6 @@ Job::Job(const std::string& blobHex, const std::string& id, const std::string& t
         
         for (int i = 0; i < 8; i++) {
             targetBytes[i] = static_cast<uint8_t>((target64 >> (i * 8)) & 0xFF);
-        }
-        
-        // Only print in debug mode
-        if (config.debugMode) {
-            Utils::threadSafePrint("[JOB CTOR] Difficulty set to: " + std::to_string(difficulty) + 
-                " | Target: 0x" + Utils::formatHex(target64, 16), true);
         }
     } else {
         Utils::threadSafePrint("[JOB CTOR ERROR] Invalid target hex length: " + std::to_string(targetHex.length()), true);

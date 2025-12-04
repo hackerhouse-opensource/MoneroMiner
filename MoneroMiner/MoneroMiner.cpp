@@ -259,59 +259,54 @@ void miningThread(MiningThreadData* data) {
 
                 debugHashCounter++;
                 
-                // Enhanced debug output every 1000 hashes
-                if (config.debugMode && (debugHashCounter % 1000 == 0)) {
+                // Enhanced debug output every 10,000 hashes with detailed byte comparison
+                if (config.debugMode && (debugHashCounter % 10000 == 0)) {
                     std::stringstream ss;
                     ss << "[T" << data->getThreadId() << "] Hash #" << debugHashCounter 
                        << " | Nonce: 0x" << std::hex << std::setw(8) << std::setfill('0') << nonce32 << "\n";
                     
-                    // Show hash in both formats
-                    ss << "  Hash (LE): ";
-                    for (int i = 0; i < 32; i++) ss << std::hex << std::setw(2) << std::setfill('0') << (int)hashResult[i];
+                    ss << "  Hash (LE):   ";
+                    for (int i = 0; i < 32; i++) {
+                        ss << std::hex << std::setw(2) << std::setfill('0') << (int)hashResult[i];
+                        if (i == 7 || i == 15 || i == 23) ss << " ";
+                    }
                     
-                    ss << "\n  Target:    ";
-                    for (int i = 0; i < 32; i++) ss << std::hex << std::setw(2) << std::setfill('0') << (int)jobCopy.targetBytes[i];
+                    ss << "\n  Target (LE): ";
+                    for (int i = 0; i < 32; i++) {
+                        ss << std::hex << std::setw(2) << std::setfill('0') << (int)jobCopy.targetBytes[i];
+                        if (i == 7 || i == 15 || i == 23) ss << " ";
+                    }
                     
-                    // Show byte-by-byte comparison of first 8 bytes
-                    ss << "\n  Byte comparison (LE):";
-                    bool stillValid = true;
+                    // Detailed byte-by-byte comparison (first 8 bytes)
+                    ss << "\n  Byte-by-byte comparison (LE order):";
+                    bool hashStillValid = true;
                     for (int i = 0; i < 8; i++) {
-                        ss << "\n    [" << i << "] Hash: 0x" << std::hex << std::setw(2) << std::setfill('0') << (int)hashResult[i]
-                           << " vs Target: 0x" << std::hex << std::setw(2) << std::setfill('0') << (int)jobCopy.targetBytes[i];
+                        ss << "\n    Byte[" << i << "]: Hash=0x" 
+                           << std::hex << std::setw(2) << std::setfill('0') << (int)hashResult[i]
+                           << " vs Target=0x" 
+                           << std::hex << std::setw(2) << std::setfill('0') << (int)jobCopy.targetBytes[i];
                         
-                        if (stillValid) {
+                        if (hashStillValid) {
                             if (hashResult[i] < jobCopy.targetBytes[i]) {
-                                ss << " ✓ PASS (lower)";
-                                stillValid = false; // Would be valid if rest are zeros
+                                ss << " [PASS - hash byte is lower]";
+                                hashStillValid = false; // Rest doesn't matter
                             } else if (hashResult[i] > jobCopy.targetBytes[i]) {
-                                ss << " ✗ FAIL (higher)";
-                                stillValid = false;
+                                ss << " [FAIL - hash byte is higher]";
+                                hashStillValid = false;
                             } else {
-                                ss << " = (continue check)";
+                                ss << " [EQUAL - continue to next byte]";
                             }
                         }
                     }
                     
-                    ss << "\n  Hash LSW: 0x";
-                    uint64_t hashLSW = 0;
-                    for (int i = 0; i < 8; i++) {
-                        hashLSW |= static_cast<uint64_t>(hashResult[i]) << (i * 8);
-                    }
-                    ss << std::hex << std::setw(16) << std::setfill('0') << hashLSW;
-                    
-                    ss << " | Target LSW: 0x";
-                    uint64_t targetLSW = 0;
-                    for (int i = 0; i < 8; i++) {
-                        targetLSW |= static_cast<uint64_t>(jobCopy.targetBytes[i]) << (i * 8);
-                    }
-                    ss << std::hex << std::setw(16) << std::setfill('0') << targetLSW;
-                    
-                    ss << "\n  Valid: " << (hashOk ? "YES *** SHARE FOUND! ***" : "NO");
-                    ss << "\n  Expected shares so far: " << std::fixed << std::setprecision(2) 
+                    ss << "\n  Result: " << (hashOk ? "VALID SHARE" : "Does not meet target");
+                    ss << "\n  Expected shares so far: " << std::fixed << std::setprecision(3) 
                        << (static_cast<double>(hashesTotal) / static_cast<double>(jobCopy.difficulty));
                     
                     bool isAllZeros = std::all_of(hashResult.begin(), hashResult.end(), [](uint8_t b){ return b == 0; });
-                    if (isAllZeros) ss << " [WARNING: All zeros - VM error!]";
+                    if (isAllZeros) {
+                        ss << "\n  [WARNING: Hash is all zeros - VM calculation error!]";
+                    }
                     
                     Utils::threadSafePrint(ss.str(), true);
                 }

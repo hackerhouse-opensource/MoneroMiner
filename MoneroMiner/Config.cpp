@@ -92,13 +92,6 @@ void Config::printConfig() const {
     std::cout << "Number of threads: " << numThreads << std::endl;
     std::cout << "Debug mode: " << (debugMode ? "enabled" : "disabled") << std::endl;
     std::cout << "Log file: " << logFileName << std::endl;
-    
-    if (debugMode) {
-        std::cout << "\nNote: At pool difficulty ~480,000:" << std::endl;
-        std::cout << "  - 1 thread (~400 H/s):  expect share every ~20 minutes" << std::endl;
-        std::cout << "  - 24 threads (~9600 H/s): expect share every ~50 seconds" << std::endl;
-        std::cout << "  - 48 threads (~19200 H/s): expect share every ~25 seconds" << std::endl;
-    }
     std::cout << std::endl;
 }
 

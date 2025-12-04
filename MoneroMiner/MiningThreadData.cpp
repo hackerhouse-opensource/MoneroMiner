@@ -47,23 +47,31 @@ bool MiningThreadData::calculateHash(const std::vector<uint8_t>& input, uint64_t
 
 bool MiningThreadData::calculateHashAndCheckTarget(
     const std::vector<uint8_t>& blob,
-    const std::vector<uint8_t>& target,
+    const std::vector<uint8_t>& targetBytes,
     std::vector<uint8_t>& hashOut)
 {
-    if (!vm || blob.empty() || target.size() != 32) {
+    if (!vm || blob.empty()) {
         return false;
     }
 
-    hashOut.resize(RANDOMX_HASH_SIZE);
-    
-    // Calculate RandomX hash (outputs little-endian)
-    randomx_calculate_hash(vm, blob.data(), blob.size(), hashOut.data());
-    
-    // CRITICAL: Direct uint64_t comparison - NO byte swapping!
-    // Both hash and target are already in little-endian byte order
-    uint64_t hashLSW = *reinterpret_cast<const uint64_t*>(hashOut.data());
-    uint64_t targetLSW = *reinterpret_cast<const uint64_t*>(target.data());
-    
-    // Valid if hash < target
-    return hashLSW < targetLSW;
+    try {
+        randomx_calculate_hash(vm, blob.data(), blob.size(), hashOut.data());
+        
+        // CRITICAL: Compare as little-endian 256-bit integers
+        // Start from MOST significant bytes (index 31) and work down to LEAST significant (index 0)
+        for (int i = 31; i >= 0; i--) {
+            if (hashOut[i] < targetBytes[i]) {
+                return true;  // Hash is less than target - VALID
+            }
+            if (hashOut[i] > targetBytes[i]) {
+                return false; // Hash is greater than target - INVALID
+            }
+            // If equal, continue to next byte
+        }
+        
+        return true; // All bytes equal - hash == target (valid)
+    }
+    catch (...) {
+        return false;
+    }
 }
