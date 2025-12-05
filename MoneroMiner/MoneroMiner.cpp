@@ -263,6 +263,9 @@ void printDetailedSystemInfo() {
     
     // Algorithm
     std::cout << "Algorithm:    RandomX (rx/0)" << std::endl;
+    
+    // Privileges - NEW
+    std::cout << Utils::getPrivilegeStatus() << std::endl;
 }
 
 void printHelp() {
@@ -579,8 +582,9 @@ void miningThread(MiningThreadData* data) {
                     }
                     std::string hashHex = hashStream.str();
 
-                    // Ultra-condensed single line format
-                    Utils::threadSafePrint("J: " + currentJobId + " Nonce: " + nonceHex + " Hash: " + hashHex + " (" + std::to_string(hashesTotal) + " attempts)", true);
+                    // Ultra-condensed single line format - REPLACED WITH TWO LINES
+                    Utils::threadSafePrint("Share found! J: " + currentJobId + " Nonce: " + nonceHex + " Attempts: " + std::to_string(hashesTotal), true);
+                    Utils::threadSafePrint("Hash: " + hashHex, true);
                     
                     if (config.debugMode) {
                         Utils::threadSafePrint("  Blob with nonce (first 50 bytes): ", true);

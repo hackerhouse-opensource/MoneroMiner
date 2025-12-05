@@ -7,6 +7,7 @@
 #include <mutex>
 #include <ctime>
 #include <chrono>
+#include <windows.h>
 
 // External references to globals defined in Globals.cpp
 extern Config config;
@@ -132,5 +133,68 @@ std::string Utils::formatHex(const uint8_t* data, size_t len) {
     for (size_t i = 0; i < len; i++) {
         ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(data[i]);
     }
+    return ss.str();
+}
+
+bool Utils::enableLargePages() {
+    HANDLE hToken;
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken)) {
+        return false;
+    }
+
+    TOKEN_PRIVILEGES tp;
+    tp.PrivilegeCount = 1;
+    tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+
+    if (!LookupPrivilegeValue(NULL, SE_LOCK_MEMORY_NAME, &tp.Privileges[0].Luid)) {
+        CloseHandle(hToken);
+        return false;
+    }
+
+    BOOL result = AdjustTokenPrivileges(hToken, FALSE, &tp, 0, NULL, NULL);
+    DWORD error = GetLastError();
+    CloseHandle(hToken);
+    
+    return result && (error == ERROR_SUCCESS);
+}
+
+bool Utils::isRunningElevated() {
+    BOOL isElevated = FALSE;
+    HANDLE hToken = NULL;
+    
+    if (OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &hToken)) {
+        TOKEN_ELEVATION elevation;
+        DWORD size = sizeof(TOKEN_ELEVATION);
+        
+        if (GetTokenInformation(hToken, TokenElevation, &elevation, sizeof(elevation), &size)) {
+            isElevated = elevation.TokenIsElevated;
+        }
+        CloseHandle(hToken);
+    }
+    
+    return isElevated == TRUE;
+}
+
+std::string Utils::getPrivilegeStatus() {
+    std::stringstream ss;
+    
+    bool elevated = isRunningElevated();
+    bool largePages = false;
+    
+    if (elevated) {
+        largePages = enableLargePages();
+    }
+    
+    ss << "Privileges: ";
+    
+    if (elevated && largePages) {
+        ss << "Administrator (Large Pages ENABLED)";
+    } else if (elevated && !largePages) {
+        ss << "Administrator (Large Pages FAILED - check policy)";
+    } else {
+        ss << "Standard User (Large Pages DISABLED)\n";
+        ss << "             Run as administrator for +10-30% performance boost";
+    }
+    
     return ss.str();
 }

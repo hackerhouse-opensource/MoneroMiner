@@ -27,4 +27,9 @@ public:
     // Timestamp
     static std::string getCurrentTimestamp();
     static std::string getTimestamp();
+    
+    // Privilege and performance functions
+    static bool enableLargePages();
+    static bool isRunningElevated();
+    static std::string getPrivilegeStatus();
 };

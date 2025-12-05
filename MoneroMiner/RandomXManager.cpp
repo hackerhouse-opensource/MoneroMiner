@@ -151,14 +151,23 @@ bool RandomXManager::initialize(const std::string& seedHash) {
         return false;
     }
     
-    // Enable huge pages for better performance
-    randomx_flags flags = randomx_get_flags();
-    flags |= RANDOMX_FLAG_LARGE_PAGES; // Request huge pages (if available)
+    // Enable optimizations based on privileges
+    randomx_flags rxFlags = randomx_get_flags();
     
-    // For Ryzen, try JIT with optimizations
-    flags |= RANDOMX_FLAG_JIT;
-    flags |= RANDOMX_FLAG_HARD_AES;
-    flags |= RANDOMX_FLAG_FULL_MEM;
+    // Try to enable large pages if running with elevated privileges
+    if (Utils::isRunningElevated() && Utils::enableLargePages()) {
+        rxFlags |= RANDOMX_FLAG_LARGE_PAGES;
+        if (config.debugMode) {
+            Utils::threadSafePrint("Large pages enabled", true);
+        }
+    }
+    
+    // Enable other optimizations
+    rxFlags |= RANDOMX_FLAG_JIT;
+    rxFlags |= RANDOMX_FLAG_HARD_AES;
+    rxFlags |= RANDOMX_FLAG_FULL_MEM;
+    
+    flags = static_cast<int>(rxFlags);
     
     if (!useLightMode) {
         std::string datasetFileName = "randomx_dataset_" + seedHash.substr(0, 16) + ".bin";
