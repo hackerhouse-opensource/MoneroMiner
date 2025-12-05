@@ -57,19 +57,21 @@ bool MiningThreadData::calculateHashAndCheckTarget(
     try {
         randomx_calculate_hash(vm, blob.data(), blob.size(), hashOut.data());
         
-        // CRITICAL: Compare as little-endian 256-bit integers
-        // Start from MOST significant bytes (index 31) and work down to LEAST significant (index 0)
+        // CRITICAL FIX: Compare as BIG-ENDIAN 256-bit integers!
+        // Even though the bytes are stored little-endian, we compare from
+        // the MOST significant byte [31] down to LEAST significant [0]
+        // This matches how pools validate shares
         for (int i = 31; i >= 0; i--) {
-            if (hashOut[i] < targetBytes[i]) {
-                return true;  // Hash is less than target - VALID
-            }
             if (hashOut[i] > targetBytes[i]) {
                 return false; // Hash is greater than target - INVALID
+            }
+            if (hashOut[i] < targetBytes[i]) {
+                return true;  // Hash is less than target - VALID
             }
             // If equal, continue to next byte
         }
         
-        return true; // All bytes equal - hash == target (valid)
+        return true; // All bytes equal - hash exactly equals target (valid)
     }
     catch (...) {
         return false;

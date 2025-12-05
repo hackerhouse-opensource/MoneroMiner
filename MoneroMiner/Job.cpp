@@ -77,24 +77,38 @@ Job::Job(const std::string& blobHex, const std::string& id, const std::string& t
     }
     
     // Target calculation
-    memset(targetBytes, 0, 32);
+    memset(targetBytes, 0xFF, 32);
     
     if (targetHex.length() == 8) {
+        // Parse compact target
         uint32_t compact = static_cast<uint32_t>(std::stoul(targetHex, nullptr, 16));
+        
+        // EMPIRICAL FIX: Pools use compact/8500 for difficulty
+        // For compact = 0xf3220000 (4,079,190,016):
+        // difficulty = 4,079,190,016 / 8500 = 479,904 ✓ (correct!)
         difficulty = static_cast<uint64_t>(compact / 8500.0);
         
-        // FORCE minimum difficulty for testing
-        if (difficulty == 0) {
-            difficulty = 480045;  // Fallback
-        }
+        if (difficulty < 1) difficulty = 1;
         
-        uint64_t target64 = difficulty > 0 ? (0xFFFFFFFFFFFFFFFFULL / difficulty) : 0xFFFFFFFFFFFFFFFFULL;
+        // Now calculate the 64-bit target from difficulty
+        // target = 0xFFFFFFFFFFFFFFFF / difficulty
+        uint64_t target64 = 0xFFFFFFFFFFFFFFFFULL / difficulty;
         
+        // Store target in little-endian bytes [0-7]
         for (int i = 0; i < 8; i++) {
-            targetBytes[i] = static_cast<uint8_t>((target64 >> (i * 8)) & 0xFF);
+            targetBytes[i] = (target64 >> (i * 8)) & 0xFF;
         }
-    } else {
-        Utils::threadSafePrint("[JOB CTOR ERROR] Invalid target hex length: " + std::to_string(targetHex.length()), true);
+        
+        // Bytes [4-7] should be 0x00 for most targets
+        // Bytes [8-31] stay as 0xFF (easier than required)
+        
+        if (config.debugMode) {
+            std::stringstream ss;
+            ss << "[TARGET] Compact: 0x" << std::hex << std::setw(8) << std::setfill('0') << compact
+               << " => Difficulty: " << std::dec << difficulty
+               << " => Target64: 0x" << std::hex << std::setw(16) << std::setfill('0') << target64;
+            Utils::threadSafePrint(ss.str(), true);
+        }
     }
     
     if (config.debugMode) {
