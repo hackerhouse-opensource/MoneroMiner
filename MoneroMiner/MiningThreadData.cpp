@@ -3,6 +3,8 @@
 #include "Utils.h"
 #include "Config.h"
 #include "Globals.h"
+#include "Types.h"
+#include <array>  // ADD THIS - required for std::array
 #include <sstream>
 #include <iomanip>
 
@@ -55,67 +57,99 @@ bool MiningThreadData::calculateHashAndCheckTarget(
     }
 
     try {
+        // Calculate RandomX hash
         randomx_calculate_hash(vm, blob.data(), blob.size(), hashOut.data());
         
-        // Increment hash count FIRST
         totalHashes++;
         
-        // Debug output on first hash and every 10k hashes for thread 0
-        if (config.debugMode && threadId == 0 && (totalHashes == 1 || totalHashes % 10000 == 0)) {
-            // Build uint64 from first 8 bytes
-            uint64_t hash64 = 0, target64 = 0;
-            for (int i = 0; i < 8; i++) {
-                hash64 |= (static_cast<uint64_t>(hashOut[i]) << (i * 8));
-                target64 |= (static_cast<uint64_t>(targetBytes[i]) << (i * 8));
+        // Convert hash to 256-bit integer (little-endian)
+        std::array<uint64_t, 4> hashValue = {0, 0, 0, 0};
+        for (int wordIdx = 0; wordIdx < 4; wordIdx++) {
+            uint64_t word = 0;
+            int baseByteIdx = wordIdx * 8;
+            for (int byteInWord = 0; byteInWord < 8; byteInWord++) {
+                word |= static_cast<uint64_t>(hashOut[baseByteIdx + byteInWord]) << (byteInWord * 8);
             }
-            
-            // CRITICAL FIX: Display the ACTUAL difficulty from the job, not calculated from partial target
-            // The target64 here is only first 8 bytes, which doesn't represent the full difficulty
-            
+            hashValue[wordIdx] = word;
+        }
+        
+        // Convert target bytes to 256-bit integer (little-endian)
+        std::array<uint64_t, 4> targetValue = {0, 0, 0, 0};
+        for (int wordIdx = 0; wordIdx < 4; wordIdx++) {
+            uint64_t word = 0;
+            int baseByteIdx = wordIdx * 8;
+            for (int byteInWord = 0; byteInWord < 8; byteInWord++) {
+                word |= static_cast<uint64_t>(targetBytes[baseByteIdx + byteInWord]) << (byteInWord * 8);
+            }
+            targetValue[wordIdx] = word;
+        }
+        
+        // CORRECTED: Compare 256-bit values from MSW to LSW
+        // Valid share: hash < target (strictly less than)
+        bool isValid = false;
+        for (int i = 3; i >= 0; i--) {
+            if (hashValue[i] < targetValue[i]) {
+                // Hash word is less than target word - definitely valid
+                isValid = true;
+                break;
+            }
+            if (hashValue[i] > targetValue[i]) {
+                // Hash word is greater than target word - definitely invalid
+                isValid = false;
+                break;
+            }
+            // If equal, continue to next word (lower significance)
+        }
+        // If all words are equal, hash == target, which is NOT valid (we need hash < target)
+        
+        // Debug output for valid shares or periodic checks
+        if (config.debugMode && (isValid || (totalHashes % 10000 == 0))) {
             std::stringstream ss;
-            ss << "\n[T0 PoW CHECK @ " << std::dec << totalHashes << " hashes]\n";
-            ss << "  Hash (LE bytes 0-7): ";
-            for (int i = 0; i < 8; i++) {
-                ss << std::hex << std::setw(2) << std::setfill('0') << (int)hashOut[i] << " ";
+            ss << "\n[T" << threadId << " PoW CHECK @ " << totalHashes << " hashes]\n";
+            
+            // Show as little-endian 64-bit words
+            ss << "  Hash (LE):   0x";
+            for (int i = 0; i < 4; i++) {
+                ss << std::hex << std::setw(16) << std::setfill('0') << hashValue[i];
             }
-            ss << "\n  Hash as uint64 (LE): 0x" << std::hex << std::setw(16) << std::setfill('0') << hash64;
-            ss << "\n  Target (LE bytes 0-7): ";
-            for (int i = 0; i < 8; i++) {
-                ss << std::hex << std::setw(2) << std::setfill('0') << (int)targetBytes[i] << " ";
+            
+            ss << "\n  Target (LE): 0x";
+            for (int i = 0; i < 4; i++) {
+                ss << std::hex << std::setw(16) << std::setfill('0') << targetValue[i];
             }
-            ss << "\n  Target as uint64 (LE): 0x" << std::hex << std::setw(16) << std::setfill('0') << target64;
-            ss << "\n  Comparison: 0x" << std::hex << hash64 << (hash64 < target64 ? " < " : " >= ") 
-               << "0x" << target64;
-            ss << "\n  Result: " << (hash64 < target64 ? "VALID" : "INVALID") 
-               << " (target represents difficulty ~480k)\n";
+            
+            ss << "\n  Comparison (MSW to LSW):";
+            bool decided = false;
+            for (int i = 3; i >= 0; i--) {
+                ss << "\n    Word[" << i << "]: Hash=0x" << std::hex << std::setw(16) << std::setfill('0') << hashValue[i]
+                   << " vs Target=0x" << std::setw(16) << std::setfill('0') << targetValue[i];
+                
+                if (!decided) {
+                    if (hashValue[i] < targetValue[i]) {
+                        ss << " [VALID - hash < target]";
+                        decided = true;
+                    } else if (hashValue[i] > targetValue[i]) {
+                        ss << " [INVALID - hash > target]";
+                        decided = true;
+                    } else {
+                        ss << " [EQUAL - check next word]";
+                    }
+                } else {
+                    ss << " [not checked]";
+                }
+            }
+            
+            ss << "\n  Final result: " << (isValid ? "VALID SHARE!" : "Does not meet target");
+            
+            if (isValid) {
+                ss << "\n  Hash meets difficulty " << std::dec << (0xFFFFFFFFFFFFFFFFULL / (targetValue[0] > 0 ? targetValue[0] : 1));
+            }
+            
             Utils::threadSafePrint(ss.str(), true);
         }
         
-        // Compare as little-endian 64-bit integers (first 8 bytes matter most)
-        // Build uint64 from first 8 bytes and compare
-        uint64_t hash64 = 0, target64 = 0;
-        for (int i = 0; i < 8; i++) {
-            hash64 |= (static_cast<uint64_t>(hashOut[i]) << (i * 8));
-            target64 |= (static_cast<uint64_t>(targetBytes[i]) << (i * 8));
-        }
+        return isValid;
         
-        if (hash64 < target64) {
-            return true;  // Hash meets difficulty
-        } else if (hash64 > target64) {
-            return false;
-        }
-        
-        // First 8 bytes equal - check remaining bytes
-        for (int i = 8; i < 32; i++) {
-            if (hashOut[i] < targetBytes[i]) {
-                return true;
-            }
-            if (hashOut[i] > targetBytes[i]) {
-                return false;
-            }
-        }
-        
-        return true; // All bytes equal
     }
     catch (...) {
         return false;

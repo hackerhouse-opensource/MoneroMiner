@@ -27,6 +27,11 @@
 #include <fstream>
 #include <unordered_set>
 #include <array> // Add for 256-bit target
+#include <windows.h> // Add for headless mode
+#include <intrin.h>
+#include <sysinfoapi.h>
+#include <powerbase.h>
+#pragma comment(lib, "PowrProf.lib")
 
 // Global variable declarations (not definitions)
 extern std::atomic<uint32_t> activeJobId;
@@ -47,14 +52,6 @@ void printHelp();
 bool validateConfig();
 void signalHandler(int signum);
 void printConfig();
-std::string createSubmitPayload(const std::string& sessionId, const std::string& jobId,
-                              const std::string& nonceHex, const std::string& hashHex,
-                              const std::string& algo);
-void handleShareResponse(const std::string& response, bool& accepted);
-std::string sendAndReceive(SOCKET sock, const std::string& payload);
-bool submitShare(const std::string& jobId, const std::string& nonce, const std::string& hash, const std::string& algo);
-void handleLoginResponse(const std::string& response);
-void processNewJob(const picojson::object& jobObj);
 void miningThread(MiningThreadData* data);
 bool loadConfig();
 bool startMining();
@@ -104,6 +101,170 @@ bool meetsTarget256(const uint8_t* hash, const uint8_t* target) {
     return true; // hash == target
 }
 
+// New function: Get detailed CPU information
+std::string getCPUBrandString() {
+    int cpuInfo[4] = {0};
+    char cpuBrand[0x40] = {0};
+    
+    __cpuid(cpuInfo, 0x80000002);
+    memcpy(cpuBrand, cpuInfo, sizeof(cpuInfo));
+    __cpuid(cpuInfo, 0x80000003);
+    memcpy(cpuBrand + 16, cpuInfo, sizeof(cpuInfo));
+    __cpuid(cpuInfo, 0x80000004);
+    memcpy(cpuBrand + 32, cpuInfo, sizeof(cpuInfo));
+    
+    return std::string(cpuBrand);
+}
+
+// New function: Check CPU features
+std::string getCPUFeatures() {
+    int cpuInfo[4] = {0};
+    __cpuid(cpuInfo, 1);
+    
+    bool aes = (cpuInfo[2] & (1 << 25)) != 0;
+    bool avx = (cpuInfo[2] & (1 << 28)) != 0;
+    
+    __cpuid(cpuInfo, 7);
+    bool avx2 = (cpuInfo[1] & (1 << 5)) != 0;
+    
+    std::string features;
+    if (aes) features += " AES";
+    if (avx) features += " AVX";
+    if (avx2) features += " AVX2";
+    features += " VM"; // RandomX VM support
+    
+    return features;
+}
+
+// Fixed: Check huge pages support properly
+std::string getHugePagesInfo() {
+    HANDLE token;
+    if (OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token)) {
+        LUID luid;
+        if (LookupPrivilegeValue(NULL, SE_LOCK_MEMORY_NAME, &luid)) {
+            PRIVILEGE_SET ps;
+            ps.PrivilegeCount = 1;
+            ps.Control = PRIVILEGE_SET_ALL_NECESSARY;
+            ps.Privilege[0].Luid = luid;
+            ps.Privilege[0].Attributes = SE_PRIVILEGE_ENABLED;
+            
+            BOOL result = FALSE;
+            if (PrivilegeCheck(token, &ps, &result) && result) {
+                CloseHandle(token);
+                return "permission granted";
+            }
+        }
+        CloseHandle(token);
+    }
+    return "unavailable";
+}
+
+// New function: Get memory info including DIMM details
+void printMemoryInfo() {
+    MEMORYSTATUSEX memInfo;
+    memInfo.dwLength = sizeof(MEMORYSTATUSEX);
+    GlobalMemoryStatusEx(&memInfo);
+    
+    double usedGB = (memInfo.ullTotalPhys - memInfo.ullAvailPhys) / (1024.0 * 1024.0 * 1024.0);
+    double totalGB = memInfo.ullTotalPhys / (1024.0 * 1024.0 * 1024.0);
+    int usage = memInfo.dwMemoryLoad;
+    
+    std::cout << " * MEMORY       " 
+              << std::fixed << std::setprecision(1) << usedGB << "/"
+              << totalGB << " GB (" << usage << "%)" << std::endl;
+    
+    // Try to get DIMM information via WMI (basic implementation)
+    // Note: Full DIMM detection requires WMI COM calls which is complex
+    // For now, show simplified info
+    std::cout << "                (DIMM details require WMI - see Task Manager for full info)" << std::endl;
+}
+
+// New function: Get motherboard info
+void printMotherboardInfo() {
+    std::cout << " * MOTHERBOARD  ";
+    
+    // Try to read from registry (Windows stores some info here)
+    HKEY hKey;
+    if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, 
+                      "HARDWARE\\DESCRIPTION\\System\\BIOS", 
+                      0, KEY_READ, &hKey) == ERROR_SUCCESS) {
+        char manufacturer[256] = {0};
+        char product[256] = {0};
+        DWORD size = sizeof(manufacturer);
+        
+        RegQueryValueExA(hKey, "SystemManufacturer", NULL, NULL, (LPBYTE)manufacturer, &size);
+        size = sizeof(product);
+        RegQueryValueExA(hKey, "SystemProductName", NULL, NULL, (LPBYTE)product, &size);
+        
+        std::cout << manufacturer << " - " << product << std::endl;
+        RegCloseKey(hKey);
+    } else {
+        std::cout << "Unknown (registry access failed)" << std::endl;
+    }
+}
+
+// Simplified: Print detailed system information (clean format with lowercase labels)
+void printDetailedSystemInfo() {
+    SYSTEM_INFO sysInfo;
+    GetSystemInfo(&sysInfo);
+    
+    std::string cpuBrand = getCPUBrandString();
+    std::string cpuFeatures = getCPUFeatures();
+    
+    // Trim CPU brand string
+    size_t start = cpuBrand.find_first_not_of(" \t");
+    size_t end = cpuBrand.find_last_not_of(" \t");
+    if (start != std::string::npos && end != std::string::npos) {
+        cpuBrand = cpuBrand.substr(start, end - start + 1);
+    }
+    
+    bool is64bit = sizeof(void*) == 8;
+    
+    // CPU - dynamic detection
+    std::cout << "CPU:          " << cpuBrand << " (1) " 
+              << (is64bit ? "64-bit" : "32-bit") << cpuFeatures << std::endl;
+    std::cout << "              " << sysInfo.dwNumberOfProcessors << " threads" << std::endl;
+    
+    // Memory - dynamic calculation
+    MEMORYSTATUSEX memInfo;
+    memInfo.dwLength = sizeof(MEMORYSTATUSEX);
+    GlobalMemoryStatusEx(&memInfo);
+    
+    double usedGB = (memInfo.ullTotalPhys - memInfo.ullAvailPhys) / (1024.0 * 1024.0 * 1024.0);
+    double totalGB = memInfo.ullTotalPhys / (1024.0 * 1024.0 * 1024.0);
+    int usage = memInfo.dwMemoryLoad;
+    
+    std::cout << "Memory:       " 
+              << std::fixed << std::setprecision(1) << usedGB << "/"
+              << totalGB << " GB (" << usage << "%)" << std::endl;
+    
+    // Motherboard - dynamic registry read
+    std::cout << "Motherboard:  ";
+    HKEY hKey;
+    if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, 
+                      "HARDWARE\\DESCRIPTION\\System\\BIOS", 
+                      0, KEY_READ, &hKey) == ERROR_SUCCESS) {
+        char manufacturer[256] = {0};
+        char product[256] = {0};
+        DWORD size = sizeof(manufacturer);
+        
+        RegQueryValueExA(hKey, "SystemManufacturer", NULL, NULL, (LPBYTE)manufacturer, &size);
+        size = sizeof(product);
+        RegQueryValueExA(hKey, "SystemProductName", NULL, NULL, (LPBYTE)product, &size);
+        
+        std::cout << manufacturer << " - " << product << std::endl;
+        RegCloseKey(hKey);
+    } else {
+        std::cout << "Unknown" << std::endl;
+    }
+    
+    // Threads - from config
+    std::cout << "Threads:      " << config.numThreads << std::endl;
+    
+    // Algorithm
+    std::cout << "Algorithm:    RandomX (rx/0)" << std::endl;
+}
+
 void printHelp() {
     std::cout << "MoneroMiner - A Monero (XMR) mining program\n\n"
               << "Usage: MoneroMiner [options]\n\n"
@@ -144,13 +305,13 @@ void signalHandler(int signum) {
 
 void printConfig() {
     std::cout << "Current Configuration:" << std::endl;
-    std::cout << "  Pool Address: " << config.poolAddress << ":" << config.poolPort << std::endl;
-    std::cout << "  Wallet: " << config.walletAddress << std::endl;
-    std::cout << "  Worker Name: " << config.workerName << std::endl;
-    std::cout << "  User Agent: " << config.userAgent << std::endl;
-    std::cout << "  Threads: " << config.numThreads << std::endl;
-    std::cout << "  Debug Mode: " << (config.debugMode ? "Yes" : "No") << std::endl;
-    std::cout << "  Log File: " << (config.useLogFile ? config.logFileName : "Disabled") << std::endl;
+    std::cout << "Pool Address: " << config.poolAddress << ":" << config.poolPort << std::endl;
+    std::cout << "Wallet: " << config.walletAddress << std::endl;
+    std::cout << "Worker Name: " << config.workerName << std::endl;
+    std::cout << "User Agent: " << config.userAgent << std::endl;
+    std::cout << "Threads: " << config.numThreads << std::endl;
+    std::cout << "Debug Mode: " << (config.debugMode ? "Yes" : "No") << std::endl;
+    std::cout << "Logfile: " << (config.useLogFile ? config.logFileName : "Disabled") << std::endl;
     std::cout << std::endl;
 }
 
@@ -167,11 +328,11 @@ void miningThread(MiningThreadData* data) {
 
         // CRITICAL FIX: Calculate UNIQUE nonce range for this thread
         uint32_t totalThreads = static_cast<uint32_t>(config.numThreads);
-        uint64_t totalNonceSpace = 0x100000000ULL; // 2^32
+        uint64_t totalNonceSpace = 0x100000000ULL;
         uint64_t nonceRangePerThread = totalNonceSpace / totalThreads;
         
         uint32_t startNonce = static_cast<uint32_t>(data->getThreadId() * nonceRangePerThread);
-        uint32_t endNonce = (data->getThreadId() == totalThreads - 1) 
+        uint32_t endNonce = (data->getThreadId() == static_cast<int>(totalThreads) - 1) 
             ? 0xFFFFFFFF 
             : static_cast<uint32_t>((data->getThreadId() + 1) * nonceRangePerThread - 1);
         
@@ -224,24 +385,20 @@ void miningThread(MiningThreadData* data) {
                 if (currentJobId != lastJobId) {
                     if (config.debugMode) {
                         std::stringstream ss;
-                        ss << "\n[T" << data->getThreadId() << "] *** NEW JOB *** " << currentJobId
-                           << " | Height: " << jobCopy.height
-                           << " | Diff: " << jobCopy.difficulty
-                           << " | Previous job hashes: " << hashesTotal << "\n";
-                        ss << "Target (LE hex): ";
-                        for (int i = 0; i < 32; i++) ss << std::hex << std::setw(2) << std::setfill('0') << (int)jobCopy.targetBytes[i];
-                        
+                        ss << "[T" << data->getThreadId() << "] [JOB] " << currentJobId 
+                           << " | H:" << jobCopy.height << " | D:" << jobCopy.difficulty 
+                           << " | Hashes:" << hashesTotal << "\n"
+                           << "Target: " << jobCopy.getTarget();
                         Utils::threadSafePrint(ss.str(), true);
                     }
                     
                     lastJobId = currentJobId;
-                    localNonce = startNonce; // Reset to thread's start range
+                    localNonce = startNonce;
                     hashesInPeriod = 0;
                     hashesTotal = 0;
                     debugHashCounter = 0;
                     lastHashrateUpdate = std::chrono::steady_clock::now();
                     
-                    // Don't loop here - process immediately
                     continue;
                 }
 
@@ -269,6 +426,21 @@ void miningThread(MiningThreadData* data) {
                 }
 
                 // CRITICAL: Insert nonce as LITTLE-ENDIAN 32-bit value
+                /*
+                 * Nonce Insertion into Mining Blob
+                 * =================================
+                 * 
+                 * The nonce is a 4-byte (32-bit) little-endian value at byte 39-42:
+                 * 
+                 * Example nonce = 0x12345678:
+                 *   byte[39] = 0x78  (least significant byte)
+                 *   byte[40] = 0x56
+                 *   byte[41] = 0x34
+                 *   byte[42] = 0x12  (most significant byte)
+                 * 
+                 * This allows miners to search 2^32 (4.3 billion) nonce values
+                 * per job before wrapping around or getting a new job.
+                 */
                 uint32_t nonce32 = static_cast<uint32_t>(localNonce & 0xFFFFFFFFULL);
                 size_t offset = jobCopy.nonceOffset;
                 workingBlob[offset + 0] = static_cast<uint8_t>((nonce32 >>  0) & 0xFF);
@@ -276,11 +448,22 @@ void miningThread(MiningThreadData* data) {
                 workingBlob[offset + 2] = static_cast<uint8_t>((nonce32 >> 16) & 0xFF);
                 workingBlob[offset + 3] = static_cast<uint8_t>((nonce32 >> 24) & 0xFF);
 
-                // Calculate hash
+                // Hash calculation
                 bool hashOk = false;
                 {
+                    // Defensive: zero hashResult before calculation
                     std::fill(hashResult.begin(), hashResult.end(), 0);
-                    hashOk = data->calculateHashAndCheckTarget(workingBlob, std::vector<uint8_t>(jobCopy.targetBytes, jobCopy.targetBytes + 32), hashResult);
+                    
+                    // Convert targetHash (4x uint64_t) to bytes (32 bytes) for calculation
+                    std::vector<uint8_t> targetBytes(32, 0);
+                    for (int wordIdx = 0; wordIdx < 4; wordIdx++) {
+                        uint64_t word = jobCopy.targetHash[wordIdx];
+                        for (int byteIdx = 0; byteIdx < 8; byteIdx++) {
+                            targetBytes[wordIdx * 8 + byteIdx] = static_cast<uint8_t>((word >> (byteIdx * 8)) & 0xFF);
+                        }
+                    }
+                    
+                    hashOk = data->calculateHashAndCheckTarget(workingBlob, targetBytes, hashResult);
                 }
 
                 debugHashCounter++;
@@ -292,31 +475,37 @@ void miningThread(MiningThreadData* data) {
                        << " | Nonce: 0x" << std::hex << std::setw(8) << std::setfill('0') << nonce32 << "\n";
                     
                     ss << "  Hash (LE):   ";
-                    for (int i = 0; i < 32; i++) {
+                    for (size_t i = 0; i < 32; i++) {
                         ss << std::hex << std::setw(2) << std::setfill('0') << (int)hashResult[i];
                         if (i == 7 || i == 15 || i == 23) ss << " ";
                     }
                     
                     ss << "\n  Target (LE): ";
-                    for (int i = 0; i < 32; i++) {
-                        ss << std::hex << std::setw(2) << std::setfill('0') << (int)jobCopy.targetBytes[i];
-                        if (i == 7 || i == 15 || i == 23) ss << " ";
+                    // Convert targetHash to bytes for display
+                    for (int wordIdx = 0; wordIdx < 4; wordIdx++) {
+                        uint64_t word = jobCopy.targetHash[wordIdx];
+                        for (int byteIdx = 0; byteIdx < 8; byteIdx++) {
+                            uint8_t byte = static_cast<uint8_t>((word >> (byteIdx * 8)) & 0xFF);
+                            ss << std::hex << std::setw(2) << std::setfill('0') << (int)byte;
+                            if ((wordIdx * 8 + byteIdx == 7) || (wordIdx * 8 + byteIdx == 15) || (wordIdx * 8 + byteIdx == 23)) ss << " ";
+                        }
                     }
                     
                     // Detailed byte-by-byte comparison (first 8 bytes)
                     ss << "\n  Byte-by-byte comparison (LE order):";
                     bool hashStillValid = true;
-                    for (int i = 0; i < 8; i++) {
+                    for (size_t i = 0; i < 8; i++) {
+                        uint8_t targetByte = static_cast<uint8_t>((jobCopy.targetHash[0] >> (i * 8)) & 0xFF);
                         ss << "\n    Byte[" << i << "]: Hash=0x" 
                            << std::hex << std::setw(2) << std::setfill('0') << (int)hashResult[i]
                            << " vs Target=0x" 
-                           << std::hex << std::setw(2) << std::setfill('0') << (int)jobCopy.targetBytes[i];
+                           << std::hex << std::setw(2) << std::setfill('0') << (int)targetByte;
                         
                         if (hashStillValid) {
-                            if (hashResult[i] < jobCopy.targetBytes[i]) {
+                            if (hashResult[i] < targetByte) {
                                 ss << " [PASS - hash byte is lower]";
-                                hashStillValid = false; // Rest doesn't matter
-                            } else if (hashResult[i] > jobCopy.targetBytes[i]) {
+                                hashStillValid = false;
+                            } else if (hashResult[i] > targetByte) {
                                 ss << " [FAIL - hash byte is higher]";
                                 hashStillValid = false;
                             } else {
@@ -390,11 +579,8 @@ void miningThread(MiningThreadData* data) {
                     }
                     std::string hashHex = hashStream.str();
 
-                    Utils::threadSafePrint("\n*** VALID SHARE FOUND! ***", true);
-                    Utils::threadSafePrint("  Job: " + currentJobId, true);
-                    Utils::threadSafePrint("  Nonce: " + nonceHex, true);
-                    Utils::threadSafePrint("  Hash: " + hashHex, true);
-                    Utils::threadSafePrint("  After " + std::to_string(hashesTotal) + " hashes", true);
+                    // Ultra-condensed single line format
+                    Utils::threadSafePrint("J: " + currentJobId + " Nonce: " + nonceHex + " Hash: " + hashHex + " (" + std::to_string(hashesTotal) + " attempts)", true);
                     
                     if (config.debugMode) {
                         Utils::threadSafePrint("  Blob with nonce (first 50 bytes): ", true);
@@ -404,14 +590,9 @@ void miningThread(MiningThreadData* data) {
                         std::cout << std::dec << std::endl;
                     }
 
-                    // Submit share - let PoolClient handle the actual submission format
-                    if (PoolClient::submitShare(currentJobId, nonceHex, hashHex, "rx/0")) {
-                        data->incrementAccepted();
-                        Utils::threadSafePrint("*** SHARE ACCEPTED BY POOL! *** Total: " + std::to_string(acceptedShares.load()), true);
-                    } else {
-                        data->incrementRejected();
-                        Utils::threadSafePrint("Share rejected by pool. Total: " + std::to_string(rejectedShares.load()), true);
-                    }
+                    // Submit share - PoolClient handles everything including response parsing
+                    PoolClient::submitShare(currentJobId, nonceHex, hashHex, "rx/0");
+                    // NOTE: Accept/reject counters are incremented by PoolClient::processShareResponse
                 }
 
                 hashesInPeriod++;
@@ -459,14 +640,11 @@ void processNewJob(const picojson::object& jobObj) {
 
         Job job(blob, jobId, target, height, seedHash);
 
-        // Set target in RandomXManager (for legacy compatibility)
+        // Set target in RandomXManager
         if (!RandomXManager::setTargetAndDifficulty(target)) {
             Utils::threadSafePrint("Failed to set target", true);
             return;
         }
-
-        // DON'T overwrite job.difficulty - it's already calculated correctly in Job constructor!
-        // job.difficulty is already set from the target in Job::Job()
 
         // FIX C4244 WARNING - Explicit intermediate variable
         uint32_t jobIdNum = 0;
@@ -514,213 +692,6 @@ void processNewJob(const picojson::object& jobObj) {
     }
     catch (...) {
         Utils::threadSafePrint("Unknown error processing job", true);
-    }
-}
-
-bool submitShare(const std::string& jobId, const std::string& nonce, const std::string& hash, const std::string& algo) {
-    if (PoolClient::sessionId.empty()) {
-        Utils::threadSafePrint("Cannot submit share: Not logged in", true);
-        return false;
-    }
-
-    std::string payload = createSubmitPayload(PoolClient::sessionId, jobId, nonce, hash, algo);
-    std::string response = PoolClient::sendAndReceive(payload);
-
-    bool accepted = false;
-    handleShareResponse(response, accepted);
-    return accepted;
-}
-
-void handleShareResponse(const std::string& response, bool& accepted) {
-    picojson::value v;
-    std::string err = picojson::parse(v, response);
-    if (!err.empty()) {
-        Utils::threadSafePrint("Failed to parse share response: " + err, true);
-        accepted = false;
-        return;
-    }
-
-    if (!v.is<picojson::object>()) {
-        Utils::threadSafePrint("Invalid share response format", true);
-        accepted = false;
-        return;
-    }
-
-    const picojson::object& obj = v.get<picojson::object>();
-    if (obj.find("result") != obj.end()) {
-        const picojson::value& result = obj.at("result");
-        if (result.is<picojson::object>()) {
-            const picojson::object& resultObj = result.get<picojson::object>();
-            if (resultObj.find("status") != resultObj.end()) {
-                const std::string& status = resultObj.at("status").get<std::string>();
-                accepted = (status == "OK");
-                if (accepted) {
-                    acceptedShares++;
-                    Utils::threadSafePrint("Share accepted!", true);
-                } else {
-                    rejectedShares++;
-                    Utils::threadSafePrint("Share rejected: " + status, true);
-                }
-            }
-        }
-    } else if (obj.find("error") != obj.end()) {
-        const picojson::value& error = obj.at("error");
-        if (error.is<picojson::object>()) {
-            const picojson::object& errorObj = error.get<picojson::object>();
-            if (errorObj.find("message") != errorObj.end()) {
-                Utils::threadSafePrint("Share submission error: " + errorObj.at("message").get<std::string>(), true);
-            }
-        }
-        accepted = false;
-        rejectedShares++;
-    }
-}
-
-std::string sendAndReceive(SOCKET sock, const std::string& payload) {
-    // Add newline to payload
-    std::string fullPayload = payload + "\n";
-
-    // Send the payload
-    int bytesSent = send(sock, fullPayload.c_str(), static_cast<int>(fullPayload.length()), 0);
-    if (bytesSent == SOCKET_ERROR) {
-        int error = WSAGetLastError();
-        Utils::threadSafePrint("Failed to send data: " + std::to_string(error), true);
-        return "";
-    }
-
-    if (config.debugMode) {
-        Utils::threadSafePrint("[POOL] Sent: " + payload, true);
-    }
-
-    // Set up select for timeout
-    fd_set readSet;
-    FD_ZERO(&readSet);
-    FD_SET(sock, &readSet);
-
-    struct timeval timeout;
-    timeout.tv_sec = 10;  // 10 second timeout
-    timeout.tv_usec = 0;
-
-    // Wait for data with timeout
-    int result = select(0, &readSet, nullptr, nullptr, &timeout);
-    if (result == 0) {
-        Utils::threadSafePrint("Timeout waiting for response", true);
-        return "";
-    }
-    if (result == SOCKET_ERROR) {
-        Utils::threadSafePrint("Select error: " + std::to_string(WSAGetLastError()), true);
-        return "";
-    }
-
-    // Receive response
-    std::string response;
-    char buffer[4096];
-    int totalBytes = 0;
-    
-    while (true) {
-        int bytesReceived = recv(sock, buffer, sizeof(buffer) - 1, 0);
-        if (bytesReceived == SOCKET_ERROR) {
-            int error = WSAGetLastError();
-            Utils::threadSafePrint("Failed to receive data: " + std::to_string(error), true);
-            return "";
-        }
-        if (bytesReceived == 0) {
-            break;  // Connection closed
-        }
-        
-        buffer[bytesReceived] = '\0';
-        response += buffer;
-        totalBytes += bytesReceived;
-
-        // Check if we have a complete JSON response
-        try {
-            picojson::value v;
-            std::string err = picojson::parse(v, response);
-            if (err.empty()) {
-                break;  // Valid JSON received
-            }
-        } catch (...) {
-            // Continue receiving if JSON is incomplete
-        }
-    }
-
-    // Clean up response
-    while (!response.empty() && (response.back() == '\n' || response.back() == '\r')) {
-        response.pop_back();
-    }
-
-    if (response.empty()) {
-        Utils::threadSafePrint("Received empty response", true);
-    }
-
-    if (config.debugMode) {
-        Utils::threadSafePrint("[POOL] Received: " + response, true);
-    }
-
-    return response;
-}
-
-std::string createSubmitPayload(const std::string& sessionId, const std::string& jobId,
-                              const std::string& nonceHex, const std::string& hashHex,
-                              const std::string& algo) {
-    picojson::object submitObj;
-    uint32_t id = jsonRpcId.fetch_add(1);
-    submitObj["id"] = picojson::value(static_cast<double>(id));
-    submitObj["method"] = picojson::value("submit");
-    
-    picojson::array params;
-    params.push_back(picojson::value(sessionId));
-    params.push_back(picojson::value(jobId));
-    params.push_back(picojson::value(nonceHex));
-    params.push_back(picojson::value(hashHex));
-    params.push_back(picojson::value(algo));
-    
-    submitObj["params"] = picojson::value(params);
-    
-    return picojson::value(submitObj).serialize();
-}
-
-void handleLoginResponse(const std::string& response) {
-    try {
-        picojson::value v;
-        std::string err = picojson::parse(v, response);
-        if (!err.empty()) {
-            Utils::threadSafePrint("JSON parse error: " + err, true);
-            return;
-        }
-
-        if (!v.is<picojson::object>()) {
-            Utils::threadSafePrint("Invalid JSON response format", true);
-            return;
-        }
-
-        const picojson::object& obj = v.get<picojson::object>();
-        if (obj.find("result") == obj.end()) {
-            Utils::threadSafePrint("No result in response", true);
-            return;
-        }
-
-        const picojson::object& result = obj.at("result").get<picojson::object>();
-        if (result.find("id") == result.end()) {
-            Utils::threadSafePrint("No session ID in response", true);
-            return;
-        }
-
-        sessionId = result.at("id").get<std::string>();
-        Utils::threadSafePrint("Session ID: " + sessionId, true);
-
-        if (result.find("job") != result.end()) {
-            const picojson::object& jobObj = result.at("job").get<picojson::object>();
-            processNewJob(jobObj);
-        } else {
-            Utils::threadSafePrint("No job in login response", true);
-        }
-    }
-    catch (const std::exception& e) {
-        Utils::threadSafePrint("Error processing login response: " + std::string(e.what()), true);
-    }
-    catch (...) {
-        Utils::threadSafePrint("Unknown error processing login response", true);
     }
 }
 
@@ -792,6 +763,20 @@ bool startMining() {
         return false;
     }
     
+    // Start job listener thread IMMEDIATELY after login (uses same socket)
+    jobListenerThread = std::thread(PoolClient::jobListener);
+    
+    // Wait for first job
+    {
+        std::unique_lock<std::mutex> lock(PoolClient::jobMutex);
+        PoolClient::jobAvailable.wait_for(lock, std::chrono::seconds(10), 
+            [] { return !PoolClient::jobQueue.empty() || shouldStop; });
+    }
+
+    if (shouldStop) {
+        return false;
+    }
+    
     // Initialize RandomX before creating threads
     Job* currentJob = nullptr;
     {
@@ -811,10 +796,10 @@ bool startMining() {
         return false;
     }
 
-    // Initialize thread data - FIX: use explicit cast to avoid warning
+    // Initialize thread data
     threadData.resize(static_cast<size_t>(config.numThreads));
-    for (int i = 0; i < config.numThreads; i++) {
-        threadData[i] = new MiningThreadData(i);
+    for (size_t i = 0; i < static_cast<size_t>(config.numThreads); i++) {  // Fix: use size_t
+        threadData[i] = new MiningThreadData(static_cast<int>(i));
         if (!threadData[i]->initializeVM()) {
             Utils::threadSafePrint("Failed to initialize VM for thread " + std::to_string(i), true);
             return false;
@@ -827,21 +812,8 @@ bool startMining() {
         Utils::threadSafePrint("Initialized " + std::to_string(config.numThreads) + " mining threads", true);
     }
     
-    // Start job listener thread
-    jobListenerThread = std::thread(PoolClient::jobListener);
-    
-    // Wait for first job
-    {
-        std::unique_lock<std::mutex> lock(PoolClient::jobMutex);
-        PoolClient::jobAvailable.wait(lock, [] { return !PoolClient::jobQueue.empty() || shouldStop; });
-    }
-
-    if (shouldStop) {
-        return false;
-    }
-
-    // Start mining threads - FIX: use int instead of size_t
-    for (int i = 0; i < config.numThreads; i++) {
+    // Start mining threads
+    for (size_t i = 0; i < static_cast<size_t>(config.numThreads); i++) {  // Fix: use size_t
         miningThreads.emplace_back(miningThread, threadData[i]);
         if (config.debugMode) {
             Utils::threadSafePrint("Started mining thread " + std::to_string(i), true);
@@ -867,10 +839,6 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    // Get system info early
-    SYSTEM_INFO sysInfo;
-    GetSystemInfo(&sysInfo);
-
     // Initialize Winsock
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
@@ -890,135 +858,172 @@ int main(int argc, char* argv[]) {
         WSACleanup();
         return 0;  // --help was shown
     }
-
-    // Print current configuration
-    config.printConfig();
     
-    // Show system info with XMRig-style output
-    if (config.debugMode) {
-        Utils::threadSafePrint("=== MoneroMiner v1.0.0 ===", true);
-        
-        // CPU detection
-        char cpuBrand[0x40];
-        int cpuInfo[4] = {0};
-        __cpuid(cpuInfo, 0x80000002);
-        memcpy(cpuBrand, cpuInfo, sizeof(cpuInfo));
-        __cpuid(cpuInfo, 0x80000003);
-        memcpy(cpuBrand + 16, cpuInfo, sizeof(cpuInfo));
-        __cpuid(cpuInfo, 0x80000004);
-        memcpy(cpuBrand + 32, cpuInfo, sizeof(cpuInfo));
-        
-        Utils::threadSafePrint(std::string("CPU: ") + cpuBrand, true);
-        Utils::threadSafePrint("Logical cores: " + std::to_string(sysInfo.dwNumberOfProcessors), true);
-        
-        // Memory info
-        MEMORYSTATUSEX memInfo;
-        memInfo.dwLength = sizeof(MEMORYSTATUSEX);
-        GlobalMemoryStatusEx(&memInfo);
-        Utils::threadSafePrint("Memory: " + std::to_string(memInfo.ullAvailPhys / (1024*1024*1024)) + "/" + 
-                              std::to_string(memInfo.ullTotalPhys / (1024*1024*1024)) + " GB", true);
-        
-        Utils::threadSafePrint("Pool: " + config.poolAddress + ":" + std::to_string(config.poolPort), true);
-        Utils::threadSafePrint("Threads: " + std::to_string(config.numThreads), true);
-        Utils::threadSafePrint("Worker: " + config.workerName, true);
-        Utils::threadSafePrint("Algorithm: RandomX (rx/0)", true);
-    } else {
-        Utils::threadSafePrint("MoneroMiner v1.0.0 | CPU:" + std::to_string(sysInfo.dwNumberOfProcessors) + 
-            " cores | Pool:" + config.poolAddress + " | Threads:" + std::to_string(config.numThreads), true);
+    // HEADLESS MODE: Hide console window
+    if (config.headlessMode) {
+        FreeConsole();
+        Utils::threadSafePrint("=== HEADLESS MODE ACTIVATED ===", true);
+        Utils::threadSafePrint("Miner running in background. Check " + config.logFileName + " for status.", true);
     }
     
-    // Start mining
-    if (!startMining()) {
-        std::cerr << "Failed to start mining" << std::endl;
-        WSACleanup();
-        return 1;
-    }
-
-    // Start statistics monitoring thread
-    std::thread statsThread(MiningStatsUtil::globalStatsMonitor);
+    // Show the main header with timestamp
+    Utils::threadSafePrint("=== MoneroMiner v1.0.0 ===", true);
     
-    // Keep the miner running
-    Utils::threadSafePrint("=== MINER IS NOW RUNNING ===", !config.debugMode);
-    Utils::threadSafePrint("Press Ctrl+C to stop mining", !config.debugMode);
+    // Show detailed system info (always)
+    printDetailedSystemInfo();
     
-    // Main loop - keep program alive while mining threads work
-    auto lastStatsTime = std::chrono::steady_clock::now();
-    int secondsCounter = 0;
+    // Show configuration AFTER system info
+    printConfig();
     
-    while (!shouldStop) {
-        std::this_thread::sleep_for(std::chrono::seconds(1));
-        secondsCounter++;
-        
-        // Display stats every 10 seconds in non-debug mode
-        if (!config.debugMode && secondsCounter >= 10) {
-            auto now = std::chrono::steady_clock::now();
-            auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - lastStatsTime).count();
+    // Main mining loop with auto-restart
+    bool firstRun = true;
+    int reconnectAttempts = 0;
+    const int MAX_RECONNECT_ATTEMPTS = 5;
+    std::thread statsThread;
+    
+    while (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+        if (!firstRun) {
+            Utils::threadSafePrint("=== RESTARTING MINER (Attempt " + 
+                std::to_string(reconnectAttempts + 1) + "/" + 
+                std::to_string(MAX_RECONNECT_ATTEMPTS) + ") ===", true);
             
-            if (elapsed >= 10) {
-                // Calculate total hashrate
-                double totalHashrate = 0.0;
-                for (size_t i = 0; i < threadData.size(); i++) {
-                    if (threadData[i] != nullptr) {
-                        totalHashrate += threadData[i]->getHashrate();
-                    }
+            // Cleanup previous session
+            shouldStop = true;
+            
+            // Wait for threads to stop
+            for (auto& thread : miningThreads) {
+                if (thread.joinable()) thread.join();
+            }
+            if (jobListenerThread.joinable()) jobListenerThread.join();
+            if (statsThread.joinable()) statsThread.join();
+            
+            // Clean up resources
+            for (auto* data : threadData) {
+                delete data;
+            }
+            threadData.clear();
+            miningThreads.clear();
+            
+            RandomXManager::cleanup();
+            PoolClient::cleanup();
+            
+            // Reset stop flag
+            shouldStop = false;
+            
+            // Wait before reconnecting
+            std::this_thread::sleep_for(std::chrono::seconds(10));
+        }
+        
+        firstRun = false;
+        
+        // Start mining (this is the ONLY place it's called)
+        if (!startMining()) {
+            Utils::threadSafePrint("Failed to start mining", true);
+            reconnectAttempts++;
+            continue;
+        }
+        
+        statsThread = std::thread(MiningStatsUtil::globalStatsMonitor);
+        
+        Utils::threadSafePrint("=== MINER IS NOW RUNNING ===", true);
+        Utils::threadSafePrint("Press Ctrl+C to stop mining", true);
+        
+        // Main loop - monitor for connection issues
+        auto lastStatsTime = std::chrono::steady_clock::now();
+        int secondsCounter = 0;
+        auto lastJobTime = std::chrono::steady_clock::now();
+        
+        while (!shouldStop) {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+            secondsCounter++;
+            
+            // Check if we've received any jobs recently
+            {
+                std::lock_guard<std::mutex> lock(PoolClient::jobMutex);
+                if (!PoolClient::jobQueue.empty()) {
+                    lastJobTime = std::chrono::steady_clock::now();
                 }
+            }
+            
+            auto now = std::chrono::steady_clock::now();
+            auto jobTimeout = std::chrono::duration_cast<std::chrono::seconds>(now - lastJobTime).count();
+            
+            // If no job for 5 minutes, connection is dead
+            if (jobTimeout > 300) {
+                Utils::threadSafePrint("ERROR: No job received for 5 minutes - connection dead", true);
+                shouldStop = true;
+                reconnectAttempts++;
+                break;
+            }
+            
+            // Display stats every 10 seconds (both debug and non-debug modes)
+            if (secondsCounter >= 10) {
+                auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - lastStatsTime).count();
                 
-                // Get current difficulty
-                uint64_t currentDiff = 0;
-                {
-                    std::lock_guard<std::mutex> lock(PoolClient::jobMutex);
-                    if (!PoolClient::jobQueue.empty()) {
-                        currentDiff = PoolClient::jobQueue.front().difficulty;
+                if (elapsed >= 10) {
+                    double totalHashrate = 0.0;
+                    for (size_t i = 0; i < threadData.size(); i++) {
+                        if (threadData[i] != nullptr) {
+                            totalHashrate += threadData[i]->getHashrate();
+                        }
                     }
+                    
+                    uint64_t currentDiff = 0;
+                    {
+                        std::lock_guard<std::mutex> lock(PoolClient::jobMutex);
+                        if (!PoolClient::jobQueue.empty()) {
+                            currentDiff = PoolClient::jobQueue.front().difficulty;
+                        }
+                    }
+                    
+                    std::stringstream ss;
+                    ss << "Hashrate: " << std::fixed << std::setprecision(1) << totalHashrate << " H/s";
+                    ss << " | Difficulty: " << currentDiff;
+                    ss << " | Accepted: " << MiningStatsUtil::acceptedShares.load();
+                    ss << " | Rejected: " << MiningStatsUtil::rejectedShares.load();
+                    
+                    Utils::threadSafePrint(ss.str(), false);
+                    lastStatsTime = now;
+                    secondsCounter = 0;
                 }
-                
-                std::stringstream ss;
-                ss << "[" << secondsCounter << "s] ";
-                ss << "Hashrate: " << std::fixed << std::setprecision(1) << totalHashrate << " H/s";
-                ss << " | Difficulty: " << currentDiff;
-                ss << " | Accepted: " << MiningStatsUtil::acceptedShares.load();
-                ss << " | Rejected: " << MiningStatsUtil::rejectedShares.load();
-                
-                Utils::threadSafePrint(ss.str(), false);
-                lastStatsTime = now;
-                secondsCounter = 0;
             }
         }
-    }
-
-    // Cleanup when stopped
-    Utils::threadSafePrint("Shutting down miner...", true);
-    
-    // Wait for mining threads
-    for (auto& thread : miningThreads) {
-        if (thread.joinable()) {
-            thread.join();
+        
+        // If user stopped (not error), break
+        if (shouldStop && reconnectAttempts == 0) {
+            Utils::threadSafePrint("Miner stopped by user", true);
+            break;
         }
     }
     
-    // Wait for job listener thread
-    if (jobListenerThread.joinable()) {
-        jobListenerThread.join();
-    }
-    
-    // Wait for stats thread
-    if (statsThread.joinable()) {
-        statsThread.join();
+    if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+        Utils::threadSafePrint("ERROR: Maximum reconnection attempts reached - giving up", true);
     }
 
-    // Cleanup thread data
+    // Final cleanup
+    Utils::threadSafePrint("Shutting down miner...", true);
+    
+    shouldStop = true;
+    
+    for (auto& thread : miningThreads) {
+        if (thread.joinable()) thread.join();
+    }
+    if (jobListenerThread.joinable()) jobListenerThread.join();
+    if (statsThread.joinable()) statsThread.join();
+    
+    // Clean up resources
     for (auto* data : threadData) {
         delete data;
     }
     threadData.clear();
+    miningThreads.clear();
     
-    // Cleanup RandomX and pool
     RandomXManager::cleanup();
     PoolClient::cleanup();
     
-    // Cleanup Winsock
     WSACleanup();
     
-    Utils::threadSafePrint("Miner stopped cleanly", true);
+    Utils::threadSafePrint("Miner shut down successfully", true);
+    
     return 0;
 }

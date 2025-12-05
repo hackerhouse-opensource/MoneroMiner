@@ -72,6 +72,7 @@ namespace PoolClient {
     
     std::string getPoolId();
     bool reconnect();
+    void sendKeepalive();  // Add this declaration
 
     class PoolClient {
     public:

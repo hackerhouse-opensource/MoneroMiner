@@ -16,34 +16,24 @@ namespace Difficulty {
     }
     
     void difficultyToTarget(uint64_t difficulty, uint8_t* target) {
-        // Use uint256_t from Types.h
-        uint256_t targetValue = uint256_t::fromDifficulty(difficulty);
+        // Calculate target = 0xFFFFFFFFFFFFFFFF / difficulty (in first 64 bits)
+        std::memset(target, 0, 32);
         
-        // Convert to little-endian bytes
-        for (int i = 0; i < 4; i++) {
-            for (int j = 0; j < 8; j++) {
-                target[i * 8 + j] = (targetValue.data[i] >> (j * 8)) & 0xFF;
-            }
+        if (difficulty == 0) difficulty = 1;
+        uint64_t targetValue = 0xFFFFFFFFFFFFFFFFULL / difficulty;
+        
+        // Store as little-endian in first 8 bytes
+        for (int j = 0; j < 8; j++) {
+            target[j] = static_cast<uint8_t>((targetValue >> (j * 8)) & 0xFF);
         }
+        // Bytes 8-31 remain zero
     }
     
     bool meetsTarget(const uint8_t* hash, const uint8_t* target) {
-        // CRITICAL FIX: Compare as little-endian 256-bit integers
-        // Start from the MOST significant word (bytes 24-31) and work down
-        for (int i = 3; i >= 0; i--) {
-            uint64_t hashWord = 0;
-            uint64_t targetWord = 0;
-            
-            // Extract 64-bit words in little-endian
-            for (int j = 0; j < 8; j++) {
-                hashWord |= static_cast<uint64_t>(hash[i * 8 + j]) << (j * 8);
-                targetWord |= static_cast<uint64_t>(target[i * 8 + j]) << (j * 8);
-            }
-            
-            if (hashWord < targetWord) return true;
-            if (hashWord > targetWord) return false;
-        }
-        return true; // hash == target (valid)
+        // Use uint256_t for proper comparison
+        uint256_t hashValue(hash);
+        uint256_t targetValue(target);
+        return hashValue < targetValue;
     }
     
     void expandTarget(const std::string& compactTarget, uint8_t* expandedTarget) {

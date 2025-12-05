@@ -345,32 +345,37 @@ bool RandomXManager::setTargetAndDifficulty(const std::string& targetHex) {
     }
     
     try {
-        // Parse pool's target value
-        uint32_t poolTarget = static_cast<uint32_t>(std::stoul(targetHex, nullptr, 16));
+        std::lock_guard<std::mutex> lock(targetMutex);
         
-        // Monero difficulty calculation:
-        // difficulty = max_target / current_target
-        // where max_target = 0xFFFFFFFFFFFFFFFF for the 64-bit comparison
+        // Parse 4-byte compact target
+        std::vector<uint8_t> targetBytes = Utils::hexToBytes(targetHex);
+        uint32_t compactTarget = 0;
+        for (size_t i = 0; i < 4; i++) {
+            compactTarget |= static_cast<uint32_t>(targetBytes[i]) << (i * 8);
+        }
         
-        // For Nanopool's 0xf3220000:
-        // difficulty = 0xFFFFFFFFFFFFFFFF / 0xf3220000 = ~4.4 million (not 4 billion!)
+        if (compactTarget == 0) compactTarget = 1;
         
-        // The pool sends the HIGH 32 bits of a 64-bit difficulty representation
-        // So we need: difficulty = 0xFFFFFFFF / (poolTarget >> 24)
+        // Calculate difficulty
+        currentDifficulty = static_cast<double>(0xFFFFFFFFULL) / static_cast<double>(compactTarget);
         
-        // Actually, the pool target IS the difficulty encoded
-        // Nanopool sends: 0xf3220000 which means difficulty = 0xFFFFFFFFFFFFFFFF / 0x00000000f3220000
+        // Calculate 256-bit target: (2^256 - 1) / difficulty
+        // Approximation for difficulty < 2^64:
+        uint64_t diff64 = static_cast<uint64_t>(currentDifficulty);
         
-        uint64_t targetDiff = static_cast<uint64_t>(poolTarget);
-        currentDifficulty = 0xFFFFFFFFFFFFFFFFULL / targetDiff;
+        expandedTarget.data[0] = 0xFFFFFFFFFFFFFFFFULL / diff64;  // LSW
+        expandedTarget.data[1] = 0xFFFFFFFFFFFFFFFFULL;           // All high bits set
+        expandedTarget.data[2] = 0xFFFFFFFFFFFFFFFFULL;           // All high bits set  
+        expandedTarget.data[3] = 0xFFFFFFFFFFFFFFFFULL;           // MSW - all high bits set
         
         if (config.debugMode) {
             std::stringstream ss;
-            ss << "=== TARGET SET ===" << std::endl;
-            ss << "Raw target: 0x" << std::hex << poolTarget << std::endl;
-            ss << "Difficulty: " << std::dec << currentDifficulty << std::endl;
-            ss << "Target threshold: 0x" << std::hex << std::setw(16) << std::setfill('0') 
-               << (0xFFFFFFFFFFFFFFFFULL / currentDifficulty);
+            ss << "[TARGET] Compact: 0x" << std::hex << compactTarget 
+               << " -> Difficulty: " << std::dec << diff64 << "\n";
+            ss << "  Target words (LE): [0]=" << std::hex << expandedTarget.data[0]
+               << " [1]=" << expandedTarget.data[1]
+               << " [2]=" << expandedTarget.data[2]
+               << " [3]=" << expandedTarget.data[3];
             Utils::threadSafePrint(ss.str(), true);
         }
         
@@ -385,40 +390,47 @@ bool RandomXManager::setTargetAndDifficulty(const std::string& targetHex) {
 bool RandomXManager::checkTarget(const uint8_t* hash) {
     if (!hash) return false;
     
+    // Convert hash bytes to uint256_t (little-endian)
     uint256_t hashValue;
-    hashValue = uint256_t();
-    
-    // Read hash as little-endian 256-bit integer
     for (int wordIdx = 0; wordIdx < 4; wordIdx++) {
         uint64_t word = 0;
         int baseByteIdx = wordIdx * 8;
-        
         for (int byteInWord = 0; byteInWord < 8; byteInWord++) {
             word |= static_cast<uint64_t>(hash[baseByteIdx + byteInWord]) << (byteInWord * 8);
         }
-        
         hashValue.data[wordIdx] = word;
     }
     
-    // First check higher order words - they must all be zero for a valid share
-    if (hashValue.data[3] > 0 || hashValue.data[2] > 0 || hashValue.data[1] > 0) {
-        return false;
+    // Compare 256-bit values (MSW to LSW)
+    for (int i = 3; i >= 0; i--) {
+        if (hashValue.data[i] < expandedTarget.data[i]) {
+            // Valid share found!
+            std::lock_guard<std::mutex> lock(hashMutex);
+            lastHash.assign(hash, hash + RANDOMX_HASH_SIZE);
+            
+            std::stringstream ss;
+            ss << "\n*** VALID SHARE FOUND ***\n";
+            ss << "Hash (LE):   ";
+            for (int w = 0; w < 4; w++) {
+                ss << std::hex << std::setw(16) << std::setfill('0') << hashValue.data[w];
+            }
+            ss << "\nTarget (LE): ";
+            for (int w = 0; w < 4; w++) {
+                ss << std::hex << std::setw(16) << std::setfill('0') << expandedTarget.data[w];
+            }
+            ss << "\nFull hash: " << Utils::bytesToHex(hash, 32);
+            Utils::threadSafePrint(ss.str(), true);
+            
+            return true;
+        }
+        if (hashValue.data[i] > expandedTarget.data[i]) {
+            return false;
+        }
+        // Equal, continue to next word
     }
     
-    // Now compare the least significant word
-    bool valid = hashValue.data[0] < expandedTarget.data[0];
-    
-    if (valid) {
-        std::lock_guard<std::mutex> lock(hashMutex);
-        lastHash.assign(hash, hash + RANDOMX_HASH_SIZE);
-        
-        Utils::threadSafePrint("\n*** VALID SHARE FOUND ***", true);
-        Utils::threadSafePrint("Hash LSW:   0x" + Utils::formatHex(hashValue.data[0], 16), true);
-        Utils::threadSafePrint("Target LSW: 0x" + Utils::formatHex(expandedTarget.data[0], 16), true);
-        Utils::threadSafePrint("Full hash:  " + Utils::bytesToHex(hash, 32), true);
-    }
-    
-    return valid;
+    // All words equal - valid (hash == target)
+    return true;
 }
 
 std::vector<uint8_t> RandomXManager::getLastHash() {
@@ -509,17 +521,9 @@ std::string RandomXManager::getTargetHex() {
     return ss.str();
 }
 
-double RandomXManager::getDifficulty() {  // KEEP AS double
+double RandomXManager::getDifficulty() {
     std::lock_guard<std::mutex> lock(targetMutex);
-    
-    // FIX: Use .data[] instead of .words[]
-    if (expandedTarget.data[3] == 0 && expandedTarget.data[2] == 0 && expandedTarget.data[1] == 0) {
-        if (expandedTarget.data[0] == 0) return 1.0;
-        return static_cast<double>(0xFFFFFFFFFFFFFFFFULL) / static_cast<double>(expandedTarget.data[0]);
-    }
-    
-    // Approximate for higher difficulties
-    return static_cast<double>(0xFFFFFFFFFFFFFFFFULL) / (static_cast<double>(expandedTarget.data[0]) + 1.0);
+    return currentDifficulty;
 }
 
 double RandomXManager::getTargetThreshold() {

@@ -1,12 +1,16 @@
 #include "Utils.h"
+#include "Config.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include <iomanip>
+#include <mutex>
+#include <ctime>
 #include <chrono>
 
-std::mutex Utils::printMutex;
-std::string Utils::logFileName = "monerominer.log";
+// External references to globals defined in Globals.cpp
+extern Config config;
+static std::mutex printMutex;
 
 std::string Utils::bytesToHex(const std::vector<uint8_t>& bytes) {
     std::stringstream ss;
@@ -38,9 +42,9 @@ std::string Utils::bytesToHex(const uint8_t* data, size_t len) {
     return ss.str();
 }
 
-std::string Utils::formatHex(uint64_t value, int width) {
+std::string Utils::formatHex(uint32_t value, int width) {
     std::stringstream ss;
-    ss << std::hex << std::setfill('0') << std::setw(width) << value;
+    ss << std::hex << std::setw(width) << std::setfill('0') << value;
     return ss.str();
 }
 
@@ -57,29 +61,76 @@ std::string Utils::nonceToHex(uint32_t nonce) {
 std::string Utils::getCurrentTimestamp() {
     auto now = std::chrono::system_clock::now();
     auto time = std::chrono::system_clock::to_time_t(now);
-    std::tm tm_buf;
-#ifdef _WIN32
-    localtime_s(&tm_buf, &time);
-#else
-    localtime_r(&time, &tm_buf);
-#endif
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        now.time_since_epoch()) % 1000;
+    
+    std::tm tm;
+    localtime_s(&tm, &time);
+    
     std::stringstream ss;
-    ss << std::put_time(&tm_buf, "%Y-%m-%d %H:%M:%S");
+    ss << std::put_time(&tm, "%d/%m/%Y (%H:%M:%S.")
+       << std::setfill('0') << std::setw(3) << ms.count() << ") "
+       << static_cast<uint32_t>(time) << ": ";  // Added colon and space
+    
     return ss.str();
 }
 
-void Utils::threadSafePrint(const std::string& message, bool toLog) {
+std::string Utils::getTimestamp() {
+    return getCurrentTimestamp();
+}
+
+void Utils::threadSafePrint(const std::string& message, bool toLog, bool addTimestamp) {
     std::lock_guard<std::mutex> lock(printMutex);
-    std::cout << message << std::endl;
-    if (toLog) logToFile(message);
+    
+    std::string output = addTimestamp ? (getTimestamp() + message) : message;
+    
+    // Print to console unless in headless mode
+    if (!config.headlessMode) {
+        std::cout << output;
+        if (output.back() != '\n') {
+            std::cout << std::endl;
+        }
+    }
+    
+    // Log to file if enabled
+    if (toLog && config.useLogFile) {
+        std::ofstream logFile(config.logFileName, std::ios::app);
+        if (logFile.is_open()) {
+            logFile << output;
+            if (output.back() != '\n') {
+                logFile << std::endl;
+            }
+            logFile.close();
+        }
+    }
 }
 
 void Utils::logToFile(const std::string& message) {
-    if (logFileName.empty()) return;
-    std::ofstream file(logFileName, std::ios::app);
-    if (file.is_open()) file << getCurrentTimestamp() << " " << message << std::endl;
+    if (config.useLogFile && !config.logFileName.empty()) {
+        std::ofstream logFile(config.logFileName, std::ios::app);
+        if (logFile.is_open()) {
+            logFile << getTimestamp() << message << std::endl;
+            logFile.close();
+        }
+    }
 }
 
-void threadSafePrint(const std::string& message, bool toLog) {
-    Utils::threadSafePrint(message, toLog);
+void Utils::setLogFile(const std::string& filename) {
+    // This function now just updates the config
+    config.logFileName = filename;
+    config.useLogFile = true;
+}
+
+std::string Utils::formatHex(uint64_t value, int width) {
+    std::stringstream ss;
+    ss << std::hex << std::setw(width) << std::setfill('0') << value;
+    return ss.str();
+}
+
+std::string Utils::formatHex(const uint8_t* data, size_t len) {
+    std::stringstream ss;
+    for (size_t i = 0; i < len; i++) {
+        ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(data[i]);
+    }
+    return ss.str();
 }

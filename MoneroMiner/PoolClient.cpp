@@ -40,7 +40,28 @@ namespace PoolClient {
 
     bool processShareResponse(const std::string& response) {
         if (response.empty()) {
-            Utils::threadSafePrint("ERROR: Empty response from pool", true);
+            // Empty response indicates connection issue
+            Utils::threadSafePrint("WARNING: Empty response from pool - connection may be dead", true);
+            
+            // Check if socket is still connected
+            if (poolSocket == INVALID_SOCKET) {
+                Utils::threadSafePrint("ERROR: Pool socket is invalid - attempting reconnection", true);
+                shouldStop = true; // Trigger restart
+                return false;
+            }
+            
+            // Try to detect if connection is actually dead
+            char testBuf[1];
+            int result = recv(poolSocket, testBuf, 1, MSG_PEEK);
+            
+            if (result == 0 || (result == SOCKET_ERROR && WSAGetLastError() != WSAEWOULDBLOCK)) {
+                Utils::threadSafePrint("ERROR: Pool connection is dead - triggering restart", true);
+                shouldStop = true; // Signal main to restart
+                return false;
+            }
+            
+            // Socket seems OK but no response - count as timeout/potential issue
+            Utils::threadSafePrint("Empty response but socket alive - may indicate pool timeout", true);
             MiningStatsUtil::rejectedShares++;
             return false;
         }
@@ -64,12 +85,25 @@ namespace PoolClient {
                     // Process the new job
                     if (obj.find("params") != obj.end() && obj.at("params").is<picojson::object>()) {
                         const picojson::object& params = obj.at("params").get<picojson::object>();
-                        processNewJob(params);
+                        
+                        std::string blobStr = params.at("blob").get<std::string>();
+                        std::string jobId = params.at("job_id").get<std::string>();
+                        std::string target = params.at("target").get<std::string>();
+                        uint64_t height = static_cast<uint64_t>(params.at("height").get<double>());
+                        std::string seedHash = params.at("seed_hash").get<std::string>();
+
+                        if (!RandomXManager::setTargetAndDifficulty(target)) {
+                            Utils::threadSafePrint("Failed to set target for new job", true);
+                            return true;
+                        }
+
+                        Job job(blobStr, jobId, target, height, seedHash);
+                        distributeJob(job);
                     }
-                    return true; // Share was accepted!
+                    return true;
                 }
 
-                // Check for explicit error response
+                // Check for error response
                 if (obj.find("error") != obj.end() && !obj.at("error").is<picojson::null>()) {
                     std::string errorMsg = "Unknown error";
                     const picojson::value& errorVal = obj.at("error");
@@ -97,12 +131,21 @@ namespace PoolClient {
                     if (resultVal.is<picojson::object>()) {
                         const picojson::object& resultObj = resultVal.get<picojson::object>();
                         if (resultObj.find("status") != resultObj.end()) {
-                            accepted = (resultObj.at("status").get<std::string>() == "OK");
+                            std::string status = resultObj.at("status").get<std::string>();
+                            
+                            // CRITICAL FIX: Ignore KEEPALIVED responses - they're not share responses!
+                            if (status == "KEEPALIVED") {
+                                if (config.debugMode) {
+                                    Utils::threadSafePrint("Received keepalive acknowledgment (ignored)", true);
+                                }
+                                return false; // Not a share response, don't count as rejection
+                            }
+                            
+                            accepted = (status == "OK");
                         }
                     } else if (resultVal.is<bool>()) {
                         accepted = resultVal.get<bool>();
                     } else if (resultVal.is<picojson::null>()) {
-                        // null result typically means accepted
                         accepted = true;
                     }
                     
@@ -126,7 +169,6 @@ namespace PoolClient {
             return false;
         }
         
-        // Unknown response format
         MiningStatsUtil::rejectedShares++;
         Utils::threadSafePrint("Share response unknown format: " + response + 
                              " (Total rejected: " + std::to_string(MiningStatsUtil::rejectedShares.load()) + ")", true);
@@ -459,7 +501,7 @@ namespace PoolClient {
                     chunk[bytesReceived] = '\0';
                     buffer += chunk;
                     
-                    // Debug raw data
+                    // Debug TX/RX in debug mode
                     if (config.debugMode) {
                         Utils::threadSafePrint("[POOL RX] " + std::string(chunk), true);
                     }
@@ -513,35 +555,7 @@ namespace PoolClient {
             auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - lastKeepalive).count();
             
             if (elapsed >= 30) {
-                keepaliveCount++;
-                
-                // Calculate current hashrate
-                double totalHashrate = 0.0;
-                for (size_t i = 0; i < threadData.size(); i++) {
-                    if (threadData[i] != nullptr) {
-                        totalHashrate += threadData[i]->getHashrate();
-                    }
-                }
-                
-                // Nanopool keepalive format
-                picojson::object keepalive;
-                keepalive["id"] = picojson::value(static_cast<double>(jsonRpcId.fetch_add(1)));
-                keepalive["jsonrpc"] = picojson::value("2.0");
-                keepalive["method"] = picojson::value("keepalived");
-                
-                picojson::object params;
-                params["id"] = picojson::value(sessionId);
-                keepalive["params"] = picojson::value(params);
-                
-                std::string payload = picojson::value(keepalive).serialize() + "\n";
-                
-                int bytesSent = send(poolSocket, payload.c_str(), static_cast<int>(payload.length()), 0);
-                
-                if (bytesSent > 0 && config.debugMode) {
-                    Utils::threadSafePrint("[KEEPALIVE #" + std::to_string(keepaliveCount) + 
-                        "] Sent | Hashrate: " + std::to_string(static_cast<int>(totalHashrate)) + " H/s", true);
-                }
-                
+                sendKeepalive();
                 lastKeepalive = now;
             }
             
@@ -621,6 +635,10 @@ namespace PoolClient {
         fd_set readSet;
         struct timeval timeout;
         
+        if (config.debugMode) {
+            Utils::threadSafePrint("[POOL TX] " + payload, true);
+        }
+        
         while (true) {
             FD_ZERO(&readSet);
             FD_SET(poolSocket, &readSet);
@@ -643,6 +661,10 @@ namespace PoolClient {
             response.pop_back();
         }
 
+        if (config.debugMode && !response.empty()) {
+            Utils::threadSafePrint("[POOL RX] " + response, true);
+        }
+        
         return response;
     }
 
@@ -659,12 +681,12 @@ namespace PoolClient {
     void distributeJob(const Job& job) {
         std::lock_guard<std::mutex> lock(jobMutex);
         
-        // CRITICAL: Clear old jobs immediately
+        // CRITICAL: Clear ALL old jobs immediately - this prevents stale shares
         while (!jobQueue.empty()) {
             jobQueue.pop();
         }
         
-        // Push new job
+        // Push new job (now the ONLY job in queue)
         jobQueue.push(job);
         
         handleSeedHashChange(job.seedHash);
@@ -677,8 +699,49 @@ namespace PoolClient {
     }
 
     bool reconnect() {
+        Utils::threadSafePrint("=== ATTEMPTING POOL RECONNECTION ===", true);
+        
         cleanup();
-        if (!connect()) return false;
-        return login(config.walletAddress, config.password, config.workerName, config.userAgent);
+        
+        std::this_thread::sleep_for(std::chrono::seconds(5)); // Wait before reconnect
+        
+        if (!connect()) {
+            Utils::threadSafePrint("Reconnection failed: Could not connect to pool", true);
+            return false;
+        }
+        
+        if (!login(config.walletAddress, config.password, config.workerName, config.userAgent)) {
+            Utils::threadSafePrint("Reconnection failed: Could not login to pool", true);
+            return false;
+        }
+        
+        Utils::threadSafePrint("=== POOL RECONNECTION SUCCESSFUL ===", true);
+        return true;
+    }
+
+    void sendKeepalive() {
+        static int keepaliveCount = 0;
+        keepaliveCount++;
+        
+        picojson::object request;
+        request["id"] = picojson::value(static_cast<double>(keepaliveCount - 1));
+        request["jsonrpc"] = picojson::value("2.0");
+        request["method"] = picojson::value("keepalived");
+        
+        picojson::object params;
+        params["id"] = picojson::value(sessionId);
+        request["params"] = picojson::value(params);
+        
+        std::string message = picojson::value(request).serialize();
+        
+        if (send(poolSocket, message.c_str(), static_cast<int>(message.length()), 0) == SOCKET_ERROR) {
+            Utils::threadSafePrint("Failed to send keepalive", true);
+            return;
+        }
+        
+        if (config.debugMode) {
+            Utils::threadSafePrint("[KEEPALIVE #" + std::to_string(keepaliveCount) + "] Sent", true);
+            Utils::threadSafePrint("[POOL TX] " + message, true);
+        }
     }
 }

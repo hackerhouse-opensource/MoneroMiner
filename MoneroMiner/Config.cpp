@@ -29,6 +29,7 @@ void Config::setDefaults() {
     debugMode = false;  // This should be overridden by --debug flag
     useLogFile = false;
     logFileName = "monerominer.log";
+    headlessMode = false; // Initialize headless mode flag
 }
 
 bool Config::parseCommandLine(int argc, char* argv[]) {
@@ -69,6 +70,10 @@ bool Config::parseCommandLine(int argc, char* argv[]) {
         }
         else if (arg == "--password" && i + 1 < argc) {
             password = argv[++i];
+        }
+        else if (arg == "--headless") {
+            headlessMode = true;
+            useLogFile = true; // Force log file in headless mode
         }
     }
     
@@ -143,6 +148,7 @@ void Config::printUsage() const {
     std::cout << "  --wallet ADDRESS       Your Monero wallet address" << std::endl;
     std::cout << "  --worker NAME          Worker name" << std::endl;
     std::cout << "  --password PASS        Pool password (default: x)" << std::endl;
+    std::cout << "  --headless             Enable headless mode (no GUI)" << std::endl;
     std::cout << "\nExample:" << std::endl;
     std::cout << "  MoneroMiner.exe --wallet YOUR_WALLET --threads 4" << std::endl;
 }
