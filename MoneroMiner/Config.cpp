@@ -6,6 +6,7 @@
 #include <sstream>
 #include <fstream>
 #include "Utils.h"
+#include <windows.h> // Add this at top if missing
 
 Config::Config() {
     setDefaults();
@@ -31,6 +32,9 @@ void Config::setDefaults() {
 }
 
 bool Config::parseCommandLine(int argc, char* argv[]) {
+    bool threadCountSpecified = false; // Track if user specified threads
+
+    // Parse all arguments first
     for (int i = 1; i < argc; i++) {
         std::string arg = argv[i];
         if (arg == "--help" || arg == "-h") {
@@ -45,6 +49,7 @@ bool Config::parseCommandLine(int argc, char* argv[]) {
         }
         else if (arg == "--threads" && i + 1 < argc) {
             numThreads = std::stoi(argv[++i]);
+            threadCountSpecified = true; // Track if user specified threads
         }
         else if (arg == "--pool" && i + 1 < argc) {
             std::string poolStr = argv[++i];
@@ -65,6 +70,31 @@ bool Config::parseCommandLine(int argc, char* argv[]) {
         else if (arg == "--password" && i + 1 < argc) {
             password = argv[++i];
         }
+    }
+    
+    // ONLY auto-detect if user did NOT specify --threads
+    if (!threadCountSpecified && numThreads <= 1) {
+        // Auto-detect optimal thread count
+        SYSTEM_INFO sysInfo;
+        GetSystemInfo(&sysInfo);
+        
+        uint32_t logicalProcessors = sysInfo.dwNumberOfProcessors;
+        
+        // For RandomX, optimal is typically 85-95% of logical processors
+        numThreads = logicalProcessors;
+        
+        // Leave 2-4 threads for system based on total count
+        if (logicalProcessors >= 24) {
+            numThreads = logicalProcessors - 4; // e.g., 24 -> 20 threads
+        } else if (logicalProcessors >= 16) {
+            numThreads = logicalProcessors - 2; // e.g., 16 -> 14 threads
+        } else if (logicalProcessors >= 8) {
+            numThreads = logicalProcessors - 1; // e.g., 8 -> 7 threads
+        }
+        // else use all threads for < 8 cores
+        
+        std::cout << "Auto-detected " << logicalProcessors 
+                  << " logical processors, using " << numThreads << " mining threads" << std::endl;
     }
     
     return true;

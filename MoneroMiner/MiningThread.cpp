@@ -20,6 +20,12 @@
 #include <iostream>
 #include <cstring>
 #include <picojson.h>
+#include <unordered_set>
+
+// Add static variables at file scope
+static std::mutex foundNonceMutex;
+static std::unordered_set<uint32_t> submittedNonces;
+static std::string currentJobId;
 
 bool submitShare(MiningThreadData* data, uint64_t nonce, const std::string& jobId, const std::vector<uint8_t>& hash) {
     std::stringstream ss;
@@ -162,4 +168,145 @@ void miningThread(MiningThreadData* data) {
     }
     
     data->setIsRunning(false);
-} 
+}
+
+void miningThread(int threadId, std::shared_ptr<MiningThreadData> data) {
+    Utils::threadSafePrint("Mining thread " + std::to_string(threadId) + " started", true);
+    
+    // Initialize VM
+    if (!RandomXManager::initializeVM(threadId)) {
+        Utils::threadSafePrint("Failed to initialize VM for thread " + std::to_string(threadId), true);
+        return;
+    }
+
+    randomx_vm* vm = RandomXManager::getVM(threadId);
+    if (!vm) {
+        Utils::threadSafePrint("Failed to get VM for thread " + std::to_string(threadId), true);
+        return;
+    }
+    
+    data->setVM(vm);
+    data->setIsRunning(true);
+    MiningStats::updateThreadStats(data);
+    
+    while (!PoolClient::shouldStop) {
+        Job currentJob;
+        {
+            std::unique_lock<std::mutex> lock(PoolClient::jobMutex);
+            PoolClient::jobAvailable.wait(lock, [] { 
+                return !PoolClient::jobQueue.empty() || PoolClient::shouldStop; 
+            });
+            
+            if (PoolClient::shouldStop) break;
+            if (PoolClient::jobQueue.empty()) continue;
+            
+            currentJob = PoolClient::jobQueue.front();
+            
+            // Clear submitted nonces when job changes
+            {
+                std::lock_guard<std::mutex> nonceLock(foundNonceMutex);
+                if (currentJobId != currentJob.jobId) {
+                    submittedNonces.clear();
+                    currentJobId = currentJob.jobId;
+                }
+            }
+        }
+        
+        // CRITICAL FIX: Calculate UNIQUE nonce range for this thread
+        // Divide 32-bit nonce space (0x00000000 to 0xFFFFFFFF) among all threads
+        uint32_t totalThreads = static_cast<uint32_t>(PoolClient::threadData.size());
+        uint64_t totalNonceSpace = 0x100000000ULL; // 2^32
+        uint64_t nonceRangePerThread = totalNonceSpace / totalThreads;
+        
+        uint32_t startNonce = static_cast<uint32_t>(threadId * nonceRangePerThread);
+        uint32_t endNonce = (threadId == totalThreads - 1) 
+            ? 0xFFFFFFFF 
+            : static_cast<uint32_t>((threadId + 1) * nonceRangePerThread - 1);
+        uint32_t nonceRange = endNonce - startNonce + 1;
+        
+        if (config.debugMode && data->getTotalHashes() == 0) {
+            std::stringstream ss;
+            ss << "[T" << threadId << "] Unique nonce range: 0x" 
+               << std::hex << std::setw(8) << std::setfill('0') << startNonce 
+               << " - 0x" << endNonce << " (" << std::dec << nonceRange << " nonces)";
+            Utils::threadSafePrint(ss.str(), true);
+        }
+        
+        // Create a copy of the blob for this nonce
+        std::vector<uint8_t> blobCopy = currentJob.getBlobBytes();
+        std::vector<uint8_t> hashResult(32);
+        
+        // Mining loop with UNIQUE nonces
+        for (uint32_t i = 0; i < nonceRange && !PoolClient::shouldStop; i++) {
+            uint32_t currentNonce = startNonce + i;
+            
+            // Check if job is still current
+            {
+                std::lock_guard<std::mutex> lock(PoolClient::jobMutex);
+                if (PoolClient::jobQueue.empty() || 
+                    PoolClient::jobQueue.front().jobId != currentJob.jobId) {
+                    break; // Job changed - stop mining old job
+                }
+            }
+            
+            // Write nonce to blob (little-endian)
+            size_t nonceOffset = currentJob.nonceOffset;
+            blobCopy[nonceOffset + 0] = (currentNonce >> 0) & 0xFF;
+            blobCopy[nonceOffset + 1] = (currentNonce >> 8) & 0xFF;
+            blobCopy[nonceOffset + 2] = (currentNonce >> 16) & 0xFF;
+            blobCopy[nonceOffset + 3] = (currentNonce >> 24) & 0xFF;
+            
+            // Calculate hash and check target
+            if (data->calculateHashAndCheckTarget(blobCopy, currentJob.targetBytes, hashResult)) {
+                // CRITICAL: Check if already submitted BEFORE doing anything
+                bool shouldSubmit = false;
+                {
+                    std::lock_guard<std::mutex> lock(foundNonceMutex);
+                    if (submittedNonces.find(currentNonce) == submittedNonces.end()) {
+                        submittedNonces.insert(currentNonce);
+                        shouldSubmit = true;
+                        
+                        // Limit memory usage
+                        if (submittedNonces.size() > 10000) {
+                            submittedNonces.clear();
+                            submittedNonces.insert(currentNonce);
+                        }
+                    }
+                }
+                
+                if (!shouldSubmit) {
+                    continue; // Skip - already submitted by another thread
+                }
+                
+                // Double-check job is still current before submitting
+                {
+                    std::lock_guard<std::mutex> lock(PoolClient::jobMutex);
+                    if (PoolClient::jobQueue.empty() || 
+                        PoolClient::jobQueue.front().jobId != currentJob.jobId) {
+                        if (config.debugMode) {
+                            Utils::threadSafePrint("[T" + std::to_string(threadId) + 
+                                                 "] Discarding stale share", true);
+                        }
+                        continue;
+                    }
+                }
+                
+                // Print share found message
+                std::stringstream ss;
+                ss << "\n*** VALID SHARE FOUND! ***\n";
+                ss << "  Job: " << currentJob.jobId << "\n";
+                ss << "  Nonce: " << std::hex << std::setw(8) << std::setfill('0') << currentNonce << "\n";
+                ss << "  Hash: " << Utils::bytesToHex(hashResult) << "\n";
+                ss << "  After " << std::dec << data->getTotalHashes() << " hashes";
+                Utils::threadSafePrint(ss.str(), true);
+                
+                // Submit share
+                std::string nonceHex = Utils::formatHex(currentNonce, 8);
+                std::string hashHex = Utils::bytesToHex(hashResult);
+                PoolClient::submitShare(currentJob.jobId, nonceHex, hashHex, "rx/0");
+            }
+        }
+    }
+    
+    data->setIsRunning(false);
+}

@@ -16,6 +16,7 @@ public:
     bool debugMode;
     bool useLogFile;
     std::string logFileName;
+    bool threadCountSpecified = false; // Track if user set --threads
 
     // Constructor
     Config();

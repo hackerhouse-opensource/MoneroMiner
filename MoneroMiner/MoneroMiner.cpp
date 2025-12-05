@@ -154,6 +154,10 @@ void printConfig() {
     std::cout << std::endl;
 }
 
+static std::mutex foundNonceMutex;
+static std::unordered_set<uint32_t> submittedNonces;
+static std::string currentMiningJobId;
+
 void miningThread(MiningThreadData* data) {
     try {
         if (!data || !data->initializeVM()) {
@@ -161,8 +165,17 @@ void miningThread(MiningThreadData* data) {
             return;
         }
 
-        uint64_t localNonce = static_cast<uint64_t>(data->getThreadId()) * 0x10000000ULL;
-        uint64_t maxNonce = localNonce + 0x10000000ULL;
+        // CRITICAL FIX: Calculate UNIQUE nonce range for this thread
+        uint32_t totalThreads = static_cast<uint32_t>(config.numThreads);
+        uint64_t totalNonceSpace = 0x100000000ULL; // 2^32
+        uint64_t nonceRangePerThread = totalNonceSpace / totalThreads;
+        
+        uint32_t startNonce = static_cast<uint32_t>(data->getThreadId() * nonceRangePerThread);
+        uint32_t endNonce = (data->getThreadId() == totalThreads - 1) 
+            ? 0xFFFFFFFF 
+            : static_cast<uint32_t>((data->getThreadId() + 1) * nonceRangePerThread - 1);
+        
+        uint32_t localNonce = startNonce;
         std::string lastJobId;
         auto lastHashrateUpdate = std::chrono::steady_clock::now();
         uint64_t hashesInPeriod = 0;
@@ -173,8 +186,16 @@ void miningThread(MiningThreadData* data) {
         uint64_t debugHashCounter = 0;
 
         if (config.debugMode) {
-            std::string msg = "[T" + std::to_string(data->getThreadId()) + "] Started | Nonce range: 0x" + Utils::formatHex(localNonce, 8) + " - 0x" + Utils::formatHex(maxNonce, 8) + "\n";
+            std::string msg = "[T" + std::to_string(data->getThreadId()) + "] Started | Nonce range: 0x" + Utils::formatHex(localNonce, 8) + " - 0x" + Utils::formatHex(endNonce, 8) + "\n";
             Utils::threadSafePrint(msg, true);
+        }
+
+        if (config.debugMode) {
+            std::stringstream ss;
+            ss << "[T" << data->getThreadId() << "] Unique nonce range: 0x" 
+               << std::hex << std::setw(8) << std::setfill('0') << startNonce 
+               << " - 0x" << endNonce;
+            Utils::threadSafePrint(ss.str(), true);
         }
 
         while (!shouldStop) {
@@ -189,12 +210,17 @@ void miningThread(MiningThreadData* data) {
                         continue;
                     }
                     
-                    // CRITICAL: Use copy constructor, NOT assignment!
-                    jobCopy = PoolClient::jobQueue.front();  // This calls operator=
+                    jobCopy = PoolClient::jobQueue.front();
                     currentJobId = jobCopy.getJobId();
+                    
+                    // Clear submitted nonces when job changes
+                    if (currentMiningJobId != currentJobId) {
+                        std::lock_guard<std::mutex> nonceLock(foundNonceMutex);
+                        submittedNonces.clear();
+                        currentMiningJobId = currentJobId;
+                    }
                 }
                 
-                // Remove the debug spam - only log once per job change
                 if (currentJobId != lastJobId) {
                     if (config.debugMode) {
                         std::stringstream ss;
@@ -209,8 +235,7 @@ void miningThread(MiningThreadData* data) {
                     }
                     
                     lastJobId = currentJobId;
-                    localNonce = static_cast<uint64_t>(data->getThreadId()) * 0x10000000ULL;
-                    maxNonce = localNonce + 0x10000000ULL;
+                    localNonce = startNonce; // Reset to thread's start range
                     hashesInPeriod = 0;
                     hashesTotal = 0;
                     debugHashCounter = 0;
@@ -220,7 +245,8 @@ void miningThread(MiningThreadData* data) {
                     continue;
                 }
 
-                if (localNonce >= maxNonce) {
+                if (localNonce > endNonce) {
+                    // This thread exhausted its range, wait for new job
                     std::this_thread::sleep_for(std::chrono::milliseconds(100));
                     continue;
                 }
@@ -314,6 +340,41 @@ void miningThread(MiningThreadData* data) {
                 // Check for valid share
                 bool isAllZeros = std::all_of(hashResult.begin(), hashResult.end(), [](uint8_t b){ return b == 0; });
                 if (hashOk && !isAllZeros) {
+                    // CRITICAL: Check for duplicate submission BEFORE doing anything
+                    bool shouldSubmit = false;
+                    {
+                        std::lock_guard<std::mutex> lock(foundNonceMutex);
+                        if (submittedNonces.find(nonce32) == submittedNonces.end()) {
+                            submittedNonces.insert(nonce32);
+                            shouldSubmit = true;
+                            
+                            // Limit memory
+                            if (submittedNonces.size() > 10000) {
+                                submittedNonces.clear();
+                                submittedNonces.insert(nonce32);
+                            }
+                        }
+                    }
+                    
+                    if (!shouldSubmit) {
+                        localNonce++;
+                        continue; // Skip - already submitted
+                    }
+                    
+                    // Double-check job still current
+                    {
+                        std::lock_guard<std::mutex> lock(PoolClient::jobMutex);
+                        if (PoolClient::jobQueue.empty() || 
+                            PoolClient::jobQueue.front().getJobId() != currentJobId) {
+                            if (config.debugMode) {
+                                Utils::threadSafePrint("[T" + std::to_string(data->getThreadId()) + 
+                                                     "] Discarding stale share", true);
+                            }
+                            localNonce++;
+                            continue;
+                        }
+                    }
+                    
                     // CRITICAL FIX: Format nonce as 8-character hex (little-endian bytes)
                     std::stringstream nonceStream;
                     nonceStream << std::hex << std::setw(2) << std::setfill('0') << (int)workingBlob[offset + 0];
@@ -355,8 +416,8 @@ void miningThread(MiningThreadData* data) {
 
                 hashesInPeriod++;
                 hashesTotal++;
-
-                localNonce++;
+                localNonce++; // Move to next nonce in this thread's range
+                
                 auto now = std::chrono::steady_clock::now();
                 auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - lastHashrateUpdate).count();
                 if (elapsed >= 5 && hashesInPeriod > 0) {
@@ -751,9 +812,9 @@ bool startMining() {
     }
 
     // Initialize thread data - FIX: use explicit cast to avoid warning
-    threadData.resize(config.numThreads);
-    for (size_t i = 0; i < static_cast<size_t>(config.numThreads); i++) {
-        threadData[i] = new MiningThreadData(static_cast<int>(i));
+    threadData.resize(static_cast<size_t>(config.numThreads));
+    for (int i = 0; i < config.numThreads; i++) {
+        threadData[i] = new MiningThreadData(i);
         if (!threadData[i]->initializeVM()) {
             Utils::threadSafePrint("Failed to initialize VM for thread " + std::to_string(i), true);
             return false;
@@ -780,7 +841,7 @@ bool startMining() {
     }
 
     // Start mining threads - FIX: use int instead of size_t
-    for (size_t i = 0; i < static_cast<size_t>(config.numThreads); i++) {
+    for (int i = 0; i < config.numThreads; i++) {
         miningThreads.emplace_back(miningThread, threadData[i]);
         if (config.debugMode) {
             Utils::threadSafePrint("Started mining thread " + std::to_string(i), true);
@@ -915,8 +976,8 @@ int main(int argc, char* argv[]) {
                 ss << "[" << secondsCounter << "s] ";
                 ss << "Hashrate: " << std::fixed << std::setprecision(1) << totalHashrate << " H/s";
                 ss << " | Difficulty: " << currentDiff;
-                ss << " | Accepted: " << acceptedShares.load();
-                ss << " | Rejected: " << rejectedShares.load();
+                ss << " | Accepted: " << MiningStatsUtil::acceptedShares.load();
+                ss << " | Rejected: " << MiningStatsUtil::rejectedShares.load();
                 
                 Utils::threadSafePrint(ss.str(), false);
                 lastStatsTime = now;

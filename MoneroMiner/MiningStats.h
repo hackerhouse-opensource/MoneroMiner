@@ -60,9 +60,9 @@ public:
     // ...existing methods...
 };
 
-namespace MiningStatsUtil {  // CHANGE FROM MiningStats to MiningStatsUtil
-    extern uint64_t acceptedShares;  // NOT std::atomic<uint64_t>
-    extern uint64_t rejectedShares;  // NOT std::atomic<uint64_t>
+namespace MiningStatsUtil {
+    extern std::atomic<uint64_t> acceptedShares;
+    extern std::atomic<uint64_t> rejectedShares;
     
     void globalStatsMonitor();
 }

@@ -151,6 +151,15 @@ bool RandomXManager::initialize(const std::string& seedHash) {
         return false;
     }
     
+    // Enable huge pages for better performance
+    randomx_flags flags = randomx_get_flags();
+    flags |= RANDOMX_FLAG_LARGE_PAGES; // Request huge pages (if available)
+    
+    // For Ryzen, try JIT with optimizations
+    flags |= RANDOMX_FLAG_JIT;
+    flags |= RANDOMX_FLAG_HARD_AES;
+    flags |= RANDOMX_FLAG_FULL_MEM;
+    
     if (!useLightMode) {
         std::string datasetFileName = "randomx_dataset_" + seedHash.substr(0, 16) + ".bin";
         bool loadedDataset = false;

@@ -22,8 +22,9 @@ static std::unordered_map<int, uint64_t> hashCounts;
 static double globalHashRate = 0.0;
 
 namespace MiningStatsUtil {
-    uint64_t acceptedShares = 0;  // This is OK - different from global
-    uint64_t rejectedShares = 0;  // This is OK - different from global
+    // FIX: These must match the atomic type in the header
+    std::atomic<uint64_t> acceptedShares{0};
+    std::atomic<uint64_t> rejectedShares{0};
     
     void globalStatsMonitor() {
         while (!shouldStop) {

@@ -41,7 +41,6 @@ namespace PoolClient {
     bool processShareResponse(const std::string& response) {
         if (response.empty()) {
             Utils::threadSafePrint("ERROR: Empty response from pool", true);
-            MiningStatsUtil::rejectedShares++;
             return false;
         }
 
@@ -55,42 +54,12 @@ namespace PoolClient {
                     Utils::threadSafePrint("Parsed pool response: " + v.serialize(), true);
                 }
 
-                // CRITICAL FIX: Check if response is a new job (means share was accepted!)
-                if (obj.find("method") != obj.end() && obj.at("method").get<std::string>() == "job") {
-                    MiningStatsUtil::acceptedShares++;
-                    Utils::threadSafePrint("Share ACCEPTED by pool! (new job received) (Total: " + 
-                                         std::to_string(MiningStatsUtil::acceptedShares.load()) + ")", true);
-                    
-                    // Process the new job
-                    if (obj.find("params") != obj.end() && obj.at("params").is<picojson::object>()) {
-                        const picojson::object& params = obj.at("params").get<picojson::object>();
-                        processNewJob(params);
-                    }
-                    return true; // Share was accepted!
-                }
-
-                // Check for explicit error response
                 if (obj.find("error") != obj.end() && !obj.at("error").is<picojson::null>()) {
-                    std::string errorMsg = "Unknown error";
-                    const picojson::value& errorVal = obj.at("error");
-                    
-                    if (errorVal.is<picojson::object>()) {
-                        const picojson::object& errorObj = errorVal.get<picojson::object>();
-                        if (errorObj.find("message") != errorObj.end()) {
-                            errorMsg = errorObj.at("message").get<std::string>();
-                        }
-                    } else if (errorVal.is<std::string>()) {
-                        errorMsg = errorVal.get<std::string>();
-                    }
-                    
-                    MiningStatsUtil::rejectedShares++;
-                    Utils::threadSafePrint("Share REJECTED: " + errorMsg + " (Total: " + 
-                                         std::to_string(MiningStatsUtil::rejectedShares.load()) + ")", true);
+                    Utils::threadSafePrint("Share rejected - Error: " + obj.at("error").serialize(), true);
+                    MiningStatsUtil::rejectedShares++; // Simple increment
                     return false;
                 }
-                
-                // Check for explicit result
-                if (obj.find("result") != obj.end()) {
+                else if (obj.find("result") != obj.end()) {
                     const picojson::value& resultVal = obj.at("result");
                     bool accepted = false;
                     
@@ -101,35 +70,23 @@ namespace PoolClient {
                         }
                     } else if (resultVal.is<bool>()) {
                         accepted = resultVal.get<bool>();
-                    } else if (resultVal.is<picojson::null>()) {
-                        // null result typically means accepted
-                        accepted = true;
                     }
                     
                     if (accepted) {
-                        MiningStatsUtil::acceptedShares++;
-                        Utils::threadSafePrint("Share ACCEPTED! (Total: " + 
-                                             std::to_string(MiningStatsUtil::acceptedShares.load()) + ")", true);
-                        return true;
+                        MiningStatsUtil::acceptedShares++; // Simple increment
+                        Utils::threadSafePrint("SHARE ACCEPTED BY POOL!", true);
                     } else {
-                        MiningStatsUtil::rejectedShares++;
-                        Utils::threadSafePrint("Share rejected - Full response: " + response + 
-                                             " (Total: " + std::to_string(MiningStatsUtil::rejectedShares.load()) + ")", true);
-                        return false;
+                        MiningStatsUtil::rejectedShares++; // Simple increment
+                        Utils::threadSafePrint("Share rejected by pool", true);
                     }
+                    return accepted;
                 }
             }
         }
         catch (const std::exception& e) {
-            Utils::threadSafePrint("Error parsing pool response: " + std::string(e.what()), true);
-            MiningStatsUtil::rejectedShares++;
+            Utils::threadSafePrint("Error processing pool response: " + std::string(e.what()), true);
             return false;
         }
-        
-        // Unknown response format
-        MiningStatsUtil::rejectedShares++;
-        Utils::threadSafePrint("Share response unknown format: " + response + 
-                             " (Total rejected: " + std::to_string(MiningStatsUtil::rejectedShares.load()) + ")", true);
         return false;
     }
 
@@ -680,5 +637,37 @@ namespace PoolClient {
         cleanup();
         if (!connect()) return false;
         return login(config.walletAddress, config.password, config.workerName, config.userAgent);
+    }
+}
+
+// In the stats reporting loop (around line 200+)
+void statsThread() {
+    while (!PoolClient::shouldStop) {
+        std::this_thread::sleep_for(std::chrono::seconds(10));
+        
+        if (PoolClient::shouldStop) break;
+        
+        // Calculate total hashrate
+        double totalHashrate = 0.0;
+        for (const auto& data : PoolClient::threadData) {
+            if (data) {
+                totalHashrate += data->getHashrate();
+            }
+        }
+        
+        // Get current difficulty
+        uint64_t currentDiff = static_cast<uint64_t>(RandomXManager::getDifficulty());
+        
+        // FIX: Use .load() to read atomic counters
+        uint64_t accepted = MiningStatsUtil::acceptedShares.load();
+        uint64_t rejected = MiningStatsUtil::rejectedShares.load();
+        
+        std::stringstream ss;
+        ss << "[10s] Hashrate: " << std::fixed << std::setprecision(1) << totalHashrate 
+           << " H/s | Difficulty: " << currentDiff 
+           << " | Accepted: " << accepted 
+           << " | Rejected: " << rejected;
+        
+        Utils::threadSafePrint(ss.str(), true);
     }
 }

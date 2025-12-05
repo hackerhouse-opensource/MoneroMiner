@@ -57,44 +57,51 @@ Job::Job(const std::string& blobHex, const std::string& id, const std::string& t
     memset(targetBytes, 0x00, 32); // Initialize to ZERO (most restrictive)
     
     if (targetHex.length() == 8) {
-        // CORRECT IMPLEMENTATION based on XMRig:
-        // The hex string "f3220000" represents bytes that go in the FIRST 4 bytes
-        // of the 32-byte target array in little-endian order
+        // XMRIG CORRECT IMPLEMENTATION (from src/base/net/stratum/Job.cpp):
+        // The hex string "f3220000" represents 4 bytes: [f3, 22, 00, 00]
+        // These are stored and interpreted as LITTLE-ENDIAN uint32
         
         std::vector<uint8_t> targetVec = Utils::hexToBytes(targetHex);
         
         if (targetVec.size() == 4) {
-            // Store in bytes 0-3 (little-endian)
-            targetBytes[0] = targetVec[0];  // 0xf3
-            targetBytes[1] = targetVec[1];  // 0x22
-            targetBytes[2] = targetVec[2];  // 0x00
-            targetBytes[3] = targetVec[3];  // 0x00
-            // Bytes 4-31 stay as 0x00
+            // Parse as LITTLE-ENDIAN uint32
+            uint32_t target32_le = (static_cast<uint32_t>(targetVec[0]) << 0) |
+                                   (static_cast<uint32_t>(targetVec[1]) << 8) |
+                                   (static_cast<uint32_t>(targetVec[2]) << 16) |
+                                   (static_cast<uint32_t>(targetVec[3]) << 24);
+            // target32_le = 0x000022f3 = 8,947
             
-            // Calculate difficulty from the 32-bit target value
-            uint32_t target32 = (static_cast<uint32_t>(targetVec[0]) << 0) |
-                               (static_cast<uint32_t>(targetVec[1]) << 8) |
-                               (static_cast<uint32_t>(targetVec[2]) << 16) |
-                               (static_cast<uint32_t>(targetVec[3]) << 24);
-            
-            // difficulty = 0xFFFFFFFF / target32
-            if (target32 > 0) {
-                difficulty = static_cast<uint64_t>(0xFFFFFFFFULL / target32);
+            // Calculate difficulty: diff = 0xFFFFFFFF / target32
+            if (target32_le > 0) {
+                difficulty = static_cast<uint64_t>(0xFFFFFFFFULL / target32_le);
             } else {
                 difficulty = 0xFFFFFFFFULL;
             }
+            // difficulty = 4294967295 / 8947 = 480,045 ✓
+            
+            // Calculate full 64-bit target for hash comparison
+            // target64 = 0xFFFFFFFFFFFFFFFF / difficulty
+            uint64_t target64 = 0xFFFFFFFFFFFFFFFFULL / difficulty;
+            // target64 = 18446744073709551615 / 480045 = 0x000022F5EA96B666
+            
+            // Store as little-endian in bytes 0-7
+            for (int i = 0; i < 8; i++) {
+                targetBytes[i] = (target64 >> (i * 8)) & 0xFF;
+            }
+            // targetBytes[0-7] = [66, b6, 96, ea, f5, 22, 00, 00]
+            // Bytes 8-31 stay as 0x00
         }
         
         if (config.debugMode) {
             std::stringstream ss;
+            uint64_t target64 = 0;
+            for (int i = 0; i < 8; i++) {
+                target64 |= (static_cast<uint64_t>(targetBytes[i]) << (i * 8));
+            }
             ss << "[TARGET] Raw hex: " << targetHex
-               << " => Target32 LE: 0x" << std::hex << std::setw(8) << std::setfill('0')
-               << ((static_cast<uint32_t>(targetBytes[0]) << 0) |
-                   (static_cast<uint32_t>(targetBytes[1]) << 8) |
-                   (static_cast<uint32_t>(targetBytes[2]) << 16) |
-                   (static_cast<uint32_t>(targetBytes[3]) << 24))
-               << " => Difficulty: " << std::dec << difficulty << "\n";
-            ss << "  Target bytes (first 8): ";
+               << " => Difficulty: " << std::dec << difficulty
+               << " => Target64: 0x" << std::hex << std::setw(16) << std::setfill('0') << target64 << "\n";
+            ss << "  Target bytes (LE, first 8): ";
             for (int i = 0; i < 8; i++) {
                 ss << std::hex << std::setw(2) << std::setfill('0') << (int)targetBytes[i] << " ";
             }
