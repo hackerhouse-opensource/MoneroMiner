@@ -386,26 +386,16 @@ namespace PoolClient {
             
             picojson::object params;
             
-            // CRITICAL FIX: Format login with worker name appended
-            // Most pools expect: wallet.workername OR wallet+workerId
+            // FIX: Format login with worker name appended
             std::string loginString = wallet;
             if (!workerName.empty() && workerName != "x") {
-                // Try both common formats - pools will accept one
-                loginString = wallet + "." + workerName;  // wallet.worker1
+                loginString = wallet + "." + workerName;
             }
-            
             params["login"] = picojson::value(loginString);
             
-            // OPTIONAL: Some pools also check the password field
-            std::string passString = password;
-            if (passString == "x" && !workerName.empty()) {
-                passString = workerName;  // Use worker name as password
-            }
-            params["pass"] = picojson::value(passString);
-            
+            params["pass"] = picojson::value(password);
             params["agent"] = picojson::value(userAgent);
             
-            // Keep rigid for compatibility, but it's usually ignored
             if (!workerName.empty()) {
                 params["rigid"] = picojson::value(workerName);
             }
@@ -415,25 +405,15 @@ namespace PoolClient {
             std::string loginJson = picojson::value(loginObj).serialize();
             
             Utils::threadSafePrint("Sending login request", true);
-            if (config.debugMode) {
-                Utils::threadSafePrint("[POOL TX] " + loginJson, true);
-            }
             
-            if (!sendMessage(loginJson)) {
-                Utils::threadSafePrint("Failed to send login request", true);
-                return false;
-            }
-            
-            std::string response = receiveMessage();
+            // Use sendAndReceive which handles both send and receive
+            std::string response = sendAndReceive(loginJson);
             if (response.empty()) {
                 Utils::threadSafePrint("No login response received", true);
                 return false;
             }
             
             Utils::threadSafePrint("Received login response", true);
-            if (config.debugMode) {
-                Utils::threadSafePrint("[POOL RX] " + response, true);
-            }
             
             picojson::value v;
             std::string err = picojson::parse(v, response);
@@ -454,14 +434,12 @@ namespace PoolClient {
                 
                 if (result.find("job") != result.end() && result.at("job").is<picojson::object>()) {
                     const picojson::object& jobObj = result.at("job").get<picojson::object>();
-                    processJob(jobObj);
+                    processNewJob(jobObj);
                 }
                 
                 if (!config.debugMode) {
                     Utils::threadSafePrint("Successfully logged in to pool", true);
-                    if (!workerName.empty()) {
-                        Utils::threadSafePrint("Worker: " + loginString, true);
-                    }
+                    Utils::threadSafePrint("Worker: " + loginString, true);
                 }
                 
                 return true;
