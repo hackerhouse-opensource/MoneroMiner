@@ -102,6 +102,22 @@ bool Config::parseCommandLine(int argc, char* argv[]) {
                   << " logical processors, using " << numThreads << " mining threads" << std::endl;
     }
     
+    // Set default worker name based on machine name if not specified
+    if (workerName.empty() || workerName == "worker1") {
+        char computerName[MAX_COMPUTERNAME_LENGTH + 1];
+        DWORD size = sizeof(computerName);
+        if (GetComputerNameA(computerName, &size)) {
+            workerName = std::string(computerName);
+            // Sanitize: lowercase and remove invalid chars
+            for (char& c : workerName) {
+                if (!std::isalnum(c)) c = '_';
+                else c = std::tolower(c);
+            }
+        } else {
+            workerName = "worker1";
+        }
+    }
+    
     return true;
 }
 

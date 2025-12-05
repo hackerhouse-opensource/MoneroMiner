@@ -375,132 +375,113 @@ namespace PoolClient {
     }
 
     bool login(const std::string& wallet, const std::string& password, 
-               const std::string& worker, const std::string& userAgent) {
-        picojson::object loginObj;
-        loginObj["id"] = picojson::value(static_cast<double>(1));
-        loginObj["jsonrpc"] = picojson::value("2.0");
-        loginObj["method"] = picojson::value("login");
-        
-        picojson::object params;
-        params["login"] = picojson::value(wallet);
-        params["pass"] = picojson::value(password);
-        params["agent"] = picojson::value(userAgent);
-        params["rigid"] = picojson::value(worker);
-        
-        loginObj["params"] = picojson::value(params);
-        
-        std::string payload = picojson::value(loginObj).serialize() + "\n";
-        
-        Utils::threadSafePrint("Sending login request", true);
-        if (config.debugMode) {
-            Utils::threadSafePrint("[POOL TX] " + payload, true);
-        }
-        
-        int bytesSent = send(poolSocket, payload.c_str(), static_cast<int>(payload.length()), 0);
-        if (bytesSent == SOCKET_ERROR) {
-            Utils::threadSafePrint("Failed to send login: " + std::to_string(WSAGetLastError()), true);
-            return false;
-        }
-        
-        // Wait for login response with timeout
-        fd_set readSet;
-        FD_ZERO(&readSet);
-        FD_SET(poolSocket, &readSet);
-        
-        struct timeval timeout;
-        timeout.tv_sec = 10;
-        timeout.tv_usec = 0;
-        
-        int result = select(0, &readSet, nullptr, nullptr, &timeout);
-        if (result <= 0) {
-            Utils::threadSafePrint("Timeout waiting for login response", true);
-            return false;
-        }
-        
-        // Receive response
-        char buffer[8192];
-        int bytesReceived = recv(poolSocket, buffer, sizeof(buffer) - 1, 0);
-        if (bytesReceived <= 0) {
-            Utils::threadSafePrint("Failed to receive login response: " + std::to_string(WSAGetLastError()), true);
-            return false;
-        }
-        
-        buffer[bytesReceived] = '\0';
-        std::string response(buffer);
-        
-        // Remove trailing newline/carriage return
-        while (!response.empty() && (response.back() == '\n' || response.back() == '\r')) {
-            response.pop_back();
-        }
-        
-        Utils::threadSafePrint("Received login response", true);
-        if (config.debugMode) {
-            Utils::threadSafePrint("[POOL RX] " + response, true);
-        }
-        
-        // Parse response
+               const std::string& workerName, const std::string& userAgent) {
         try {
-            picojson::value v;
-            std::string err = picojson::parse(v, response);
-            if (!err.empty()) {
-                Utils::threadSafePrint("JSON parse error: " + err, true);
-                Utils::threadSafePrint("Raw response: " + response, true);
+            jsonRpcId++;
+            
+            picojson::object loginObj;
+            loginObj["id"] = picojson::value(static_cast<double>(jsonRpcId.load()));
+            loginObj["jsonrpc"] = picojson::value("2.0");
+            loginObj["method"] = picojson::value("login");
+            
+            picojson::object params;
+            
+            // CRITICAL FIX: Format login with worker name appended
+            // Most pools expect: wallet.workername OR wallet+workerId
+            std::string loginString = wallet;
+            if (!workerName.empty() && workerName != "x") {
+                // Try both common formats - pools will accept one
+                loginString = wallet + "." + workerName;  // wallet.worker1
+            }
+            
+            params["login"] = picojson::value(loginString);
+            
+            // OPTIONAL: Some pools also check the password field
+            std::string passString = password;
+            if (passString == "x" && !workerName.empty()) {
+                passString = workerName;  // Use worker name as password
+            }
+            params["pass"] = picojson::value(passString);
+            
+            params["agent"] = picojson::value(userAgent);
+            
+            // Keep rigid for compatibility, but it's usually ignored
+            if (!workerName.empty()) {
+                params["rigid"] = picojson::value(workerName);
+            }
+            
+            loginObj["params"] = picojson::value(params);
+            
+            std::string loginJson = picojson::value(loginObj).serialize();
+            
+            Utils::threadSafePrint("Sending login request", true);
+            if (config.debugMode) {
+                Utils::threadSafePrint("[POOL TX] " + loginJson, true);
+            }
+            
+            if (!sendMessage(loginJson)) {
+                Utils::threadSafePrint("Failed to send login request", true);
                 return false;
             }
             
-            if (!v.is<picojson::object>()) {
-                Utils::threadSafePrint("Invalid JSON response format", true);
+            std::string response = receiveMessage();
+            if (response.empty()) {
+                Utils::threadSafePrint("No login response received", true);
+                return false;
+            }
+            
+            Utils::threadSafePrint("Received login response", true);
+            if (config.debugMode) {
+                Utils::threadSafePrint("[POOL RX] " + response, true);
+            }
+            
+            picojson::value v;
+            std::string err = picojson::parse(v, response);
+            if (!err.empty() || !v.is<picojson::object>()) {
+                Utils::threadSafePrint("Failed to parse login response", true);
                 return false;
             }
             
             const picojson::object& obj = v.get<picojson::object>();
             
-            // Check for error first
-            if (obj.find("error") != obj.end() && !obj.at("error").is<picojson::null>()) {
-                Utils::threadSafePrint("Pool login error: " + obj.at("error").serialize(), true);
-                return false;
-            }
-            
-            // Get result
-            if (obj.find("result") == obj.end()) {
-                Utils::threadSafePrint("No result in login response", true);
-                Utils::threadSafePrint("Full response: " + response, true);
-                return false;
-            }
-            
-            const picojson::value& resultVal = obj.at("result");
-            if (!resultVal.is<picojson::object>()) {
-                Utils::threadSafePrint("Result is not an object", true);
-                return false;
-            }
-            
-            const picojson::object& result = resultVal.get<picojson::object>();
-            
-            // Extract session ID
-            if (result.find("id") == result.end()) {
-                Utils::threadSafePrint("No session ID in result", true);
-                Utils::threadSafePrint("Result keys: ", true);
-                for (const auto& kv : result) {
-                    Utils::threadSafePrint("  - " + kv.first, true);
+            if (obj.find("result") != obj.end() && obj.at("result").is<picojson::object>()) {
+                const picojson::object& result = obj.at("result").get<picojson::object>();
+                
+                if (result.find("id") != result.end()) {
+                    sessionId = result.at("id").get<std::string>();
+                    Utils::threadSafePrint("Session ID: " + sessionId, true);
                 }
+                
+                if (result.find("job") != result.end() && result.at("job").is<picojson::object>()) {
+                    const picojson::object& jobObj = result.at("job").get<picojson::object>();
+                    processJob(jobObj);
+                }
+                
+                if (!config.debugMode) {
+                    Utils::threadSafePrint("Successfully logged in to pool", true);
+                    if (!workerName.empty()) {
+                        Utils::threadSafePrint("Worker: " + loginString, true);
+                    }
+                }
+                
+                return true;
+            }
+            
+            if (obj.find("error") != obj.end() && !obj.at("error").is<picojson::null>()) {
+                const picojson::object& error = obj.at("error").get<picojson::object>();
+                std::string errorMsg = "Unknown error";
+                if (error.find("message") != error.end()) {
+                    errorMsg = error.at("message").get<std::string>();
+                }
+                Utils::threadSafePrint("Login error: " + errorMsg, true);
                 return false;
             }
             
-            sessionId = result.at("id").get<std::string>();
-            Utils::threadSafePrint("Session ID: " + sessionId, true);
-            
-            // Extract job
-            if (result.find("job") != result.end() && result.at("job").is<picojson::object>()) {
-                const picojson::object& jobObj = result.at("job").get<picojson::object>();
-                processNewJob(jobObj);
-            } else {
-                Utils::threadSafePrint("No job in login response (will wait for job notification)", true);
-            }
-            
-            return true;
+            Utils::threadSafePrint("Unexpected login response format", true);
+            return false;
         }
         catch (const std::exception& e) {
-            Utils::threadSafePrint("Exception parsing login response: " + std::string(e.what()), true);
+            Utils::threadSafePrint("Login exception: " + std::string(e.what()), true);
             return false;
         }
     }
