@@ -57,21 +57,40 @@ bool MiningThreadData::calculateHashAndCheckTarget(
     try {
         randomx_calculate_hash(vm, blob.data(), blob.size(), hashOut.data());
         
-        // CRITICAL FIX: Compare as BIG-ENDIAN 256-bit integers!
-        // Even though the bytes are stored little-endian, we compare from
-        // the MOST significant byte [31] down to LEAST significant [0]
-        // This matches how pools validate shares
-        for (int i = 31; i >= 0; i--) {
-            if (hashOut[i] > targetBytes[i]) {
-                return false; // Hash is greater than target - INVALID
-            }
-            if (hashOut[i] < targetBytes[i]) {
-                return true;  // Hash is less than target - VALID
-            }
-            // If equal, continue to next byte
+        // CORRECT METHOD: Both hash and target are stored as little-endian 256-bit integers
+        // But we need to compare them as if reading the hex string left-to-right
+        // 
+        // The hash "69cc5d11daad457e..." as bytes is: 69 cc 5d 11 da ad 45 7e ...
+        // The target "a657f6d7f5220000..." as bytes is: a6 57 f6 d7 f5 22 00 00 ...
+        //
+        // We compare byte-by-byte from START (index 0) to END (index 31)
+        // This is comparing from MOST significant to LEAST significant
+        
+        // Compare as little-endian 64-bit integers (first 8 bytes matter most)
+        // Build uint64 from first 8 bytes and compare
+        uint64_t hash64 = 0, target64 = 0;
+        for (int i = 0; i < 8; i++) {
+            hash64 |= (static_cast<uint64_t>(hashOut[i]) << (i * 8));
+            target64 |= (static_cast<uint64_t>(targetBytes[i]) << (i * 8));
         }
         
-        return true; // All bytes equal - hash exactly equals target (valid)
+        if (hash64 < target64) {
+            return true;  // Hash meets difficulty
+        } else if (hash64 > target64) {
+            return false;
+        }
+        
+        // First 8 bytes equal - check remaining bytes
+        for (int i = 8; i < 32; i++) {
+            if (hashOut[i] < targetBytes[i]) {
+                return true;
+            }
+            if (hashOut[i] > targetBytes[i]) {
+                return false;
+            }
+        }
+        
+        return true; // All bytes equal
     }
     catch (...) {
         return false;

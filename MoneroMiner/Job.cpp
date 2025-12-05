@@ -47,66 +47,48 @@ Job::Job(const std::string& blobHex, const std::string& id, const std::string& t
     : jobId(id), height(h), seedHash(seed), difficulty(0), nonceOffset(0) {
     
     // Parse blob
-    if (blobHex.length() % 2 != 0) {
-        throw std::runtime_error("Invalid blob hex string");
+    blob = Utils::hexToBytes(blobHex);
+    if (blob.size() < 43) {
+        Utils::threadSafePrint("ERROR: Blob too small", true);
+        return;
     }
     
-    blob.resize(blobHex.length() / 2);
-    for (size_t i = 0; i < blob.size(); ++i) {
-        std::string byteStr = blobHex.substr(i * 2, 2);
-        blob[i] = static_cast<uint8_t>(std::strtoul(byteStr.c_str(), nullptr, 16));
-    }
-    
-    // Calculate nonce offset
-    if (blob.size() >= 43) {
-        size_t offset = 0;
-        uint8_t varintSize = blob[0] >= 0x02 ? 2 : 1;
-        offset += varintSize;
-        offset += 1;
-        while (offset < blob.size() && (blob[offset] & 0x80)) {
-            offset++;
-        }
-        offset++;
-        nonceOffset = offset;
-        
-        if (nonceOffset < 34 || nonceOffset > 50 || nonceOffset + 4 > blob.size()) {
-            nonceOffset = 39;
-        }
-    } else {
-        nonceOffset = 39;
-    }
-    
-    // Target calculation
-    memset(targetBytes, 0xFF, 32);
+    nonceOffset = 39;
+    memset(targetBytes, 0xFF, 32); // Initialize to maximum (easiest)
     
     if (targetHex.length() == 8) {
-        // Parse compact target
+        // Parse compact target from pool (e.g., "f3220000")
         uint32_t compact = static_cast<uint32_t>(std::stoul(targetHex, nullptr, 16));
         
-        // EMPIRICAL FIX: Pools use compact/8500 for difficulty
+        // MONERO POOL FORMULA: difficulty ≈ compact / 8500
+        // This is the empirical formula all Monero pools use
         // For compact = 0xf3220000 (4,079,190,016):
-        // difficulty = 4,079,190,016 / 8500 = 479,904 ✓ (correct!)
-        difficulty = static_cast<uint64_t>(compact / 8500.0);
+        //   difficulty = 4,079,190,016 / 8500 ≈ 479,904
+        difficulty = static_cast<uint64_t>(static_cast<double>(compact) / 8500.0);
         
-        if (difficulty < 1) difficulty = 1;
+        if (difficulty == 0) {
+            difficulty = 1;
+        }
         
-        // Now calculate the 64-bit target from difficulty
+        // Calculate 256-bit target from difficulty
         // target = 0xFFFFFFFFFFFFFFFF / difficulty
         uint64_t target64 = 0xFFFFFFFFFFFFFFFFULL / difficulty;
         
-        // Store target in little-endian bytes [0-7]
+        // Store target in little-endian (bytes 0-7)
         for (int i = 0; i < 8; i++) {
             targetBytes[i] = (target64 >> (i * 8)) & 0xFF;
         }
-        
-        // Bytes [4-7] should be 0x00 for most targets
-        // Bytes [8-31] stay as 0xFF (easier than required)
+        // Bytes 8-31 remain 0xFF (from memset)
         
         if (config.debugMode) {
             std::stringstream ss;
             ss << "[TARGET] Compact: 0x" << std::hex << std::setw(8) << std::setfill('0') << compact
                << " => Difficulty: " << std::dec << difficulty
-               << " => Target64: 0x" << std::hex << std::setw(16) << std::setfill('0') << target64;
+               << " => Target64: 0x" << std::hex << std::setw(16) << std::setfill('0') << target64 << "\n";
+            ss << "  Target bytes (LE, first 16): ";
+            for (int i = 0; i < 16; i++) {
+                ss << std::hex << std::setw(2) << std::setfill('0') << (int)targetBytes[i] << " ";
+            }
             Utils::threadSafePrint(ss.str(), true);
         }
     }

@@ -29,7 +29,8 @@ namespace PoolClient {
     std::string currentTargetHex;
     std::vector<std::shared_ptr<MiningThreadData>> threadData;
     std::mutex socketMutex;
-    std::mutex submitMutex;
+    static std::chrono::steady_clock::time_point lastSubmitTime;
+    static std::mutex submitMutex;
     std::string poolId;
 
     // Forward declarations
@@ -96,6 +97,9 @@ namespace PoolClient {
             return false;
         }
         
+        // REMOVE RATE LIMITING - we need to submit all valid shares immediately!
+        // The old code had a 1-second rate limit which blocked valid shares
+        
         picojson::object submitObj;
         submitObj["id"] = picojson::value(static_cast<double>(jsonRpcId.fetch_add(1)));
         submitObj["jsonrpc"] = picojson::value("2.0");
@@ -116,6 +120,12 @@ namespace PoolClient {
         }
         
         std::string response = sendAndReceive(payload);
+        
+        if (response.empty()) {
+            Utils::threadSafePrint("ERROR: Empty response from pool", true);
+            return false;
+        }
+        
         return processShareResponse(response);
     }
 
@@ -441,11 +451,6 @@ namespace PoolClient {
                                             processNewJob(params);
                                         }
                                     }
-                                }
-                                
-                                // Log keepalive responses
-                                if (config.debugMode && obj.find("result") != obj.end()) {
-                                    Utils::threadSafePrint("[POOL] Received result response", true);
                                 }
                             }
                         } catch (const std::exception& e) {
