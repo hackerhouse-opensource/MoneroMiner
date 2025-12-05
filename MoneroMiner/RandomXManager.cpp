@@ -359,23 +359,20 @@ bool RandomXManager::setTargetAndDifficulty(const std::string& targetHex) {
         // Calculate difficulty
         currentDifficulty = static_cast<double>(0xFFFFFFFFULL) / static_cast<double>(compactTarget);
         
-        // Calculate 256-bit target: (2^256 - 1) / difficulty
-        // Approximation for difficulty < 2^64:
+        // Calculate 256-bit target
         uint64_t diff64 = static_cast<uint64_t>(currentDifficulty);
         
-        expandedTarget.data[0] = 0xFFFFFFFFFFFFFFFFULL / diff64;  // LSW
-        expandedTarget.data[1] = 0xFFFFFFFFFFFFFFFFULL;           // All high bits set
-        expandedTarget.data[2] = 0xFFFFFFFFFFFFFFFFULL;           // All high bits set  
-        expandedTarget.data[3] = 0xFFFFFFFFFFFFFFFFULL;           // MSW - all high bits set
+        expandedTarget.data[0] = 0xFFFFFFFFFFFFFFFFULL / diff64;
+        expandedTarget.data[1] = 0;
+        expandedTarget.data[2] = 0;
+        expandedTarget.data[3] = 0;
         
         if (config.debugMode) {
             std::stringstream ss;
-            ss << "[TARGET] Compact: 0x" << std::hex << compactTarget 
-               << " -> Difficulty: " << std::dec << diff64 << "\n";
-            ss << "  Target words (LE): [0]=" << std::hex << expandedTarget.data[0]
-               << " [1]=" << expandedTarget.data[1]
-               << " [2]=" << expandedTarget.data[2]
-               << " [3]=" << expandedTarget.data[3];
+            ss << "[TARGET] 0x" << std::hex << compactTarget 
+               << " -> Diff:" << std::dec << diff64
+               << " -> Target[0]=0x" << std::hex << std::setw(16) << std::setfill('0') 
+               << expandedTarget.data[0];
             Utils::threadSafePrint(ss.str(), true);
         }
         

@@ -48,25 +48,6 @@ Job::Job(const std::string& blobHex, const std::string& id, const std::string& t
     blob = Utils::hexToBytes(blobHex);
     nonceOffset = findNonceOffset();
     
-    /*
-     * MONERO TARGET CALCULATION - CORRECTED
-     * ======================================
-     * 
-     * Pool sends compact target, we need to calculate the FULL 256-bit comparison target.
-     * 
-     * The formula is: target = MAX_256BIT / difficulty
-     * Where MAX_256BIT = 2^256 - 1
-     * 
-     * For typical pool mining, difficulty is < 2^64, so we can use simplified calculation:
-     * target = (2^256 - 1) / difficulty ≈ (2^256) / difficulty
-     * 
-     * Since we can't do native 256-bit math, we use:
-     * target_high = 0xFFFFFFFFFFFFFFFF (all high bits set)
-     * target_low = 0xFFFFFFFFFFFFFFFF / difficulty
-     * 
-     * This gives us approximately the right threshold.
-     */
-    
     std::vector<uint8_t> targetData = Utils::hexToBytes(targetHex);
     
     if (targetData.size() == 4) {
@@ -81,45 +62,26 @@ Job::Job(const std::string& blobHex, const std::string& id, const std::string& t
         // Calculate pool difficulty
         difficulty = static_cast<uint64_t>(0xFFFFFFFFULL) / static_cast<uint64_t>(compactTarget);
         
-        // Calculate 256-bit target using integer division approximation
-        // For difficulty D, target ≈ 2^256 / D
-        // We calculate this as: for each 64-bit word, value = (2^64 - 1) / (D / 2^(64*wordIndex))
+        // Calculate 256-bit target using TRUE division: (2^256 - 1) / difficulty
+        uint256_t maxValue = uint256_t::maximum();
+        uint256_t target256 = maxValue / difficulty;
         
-        // Simplified for typical mining: 
-        // Since difficulty < 2^32 typically, the high words will be all 0xFF...
-        // and only the low word will have the actual threshold
-        
-        if (difficulty <= 0xFFFFFFFFFFFFFFFFULL) {
-            // For difficulty that fits in 64 bits, use this approximation:
-            // Word 0 (LSW): 0xFFFFFFFFFFFFFFFF / difficulty
-            // Word 1-3:     0xFFFFFFFFFFFFFFFF (all bits set)
-            
-            targetHash[0] = 0xFFFFFFFFFFFFFFFFULL / difficulty;
-            targetHash[1] = 0xFFFFFFFFFFFFFFFFULL;
-            targetHash[2] = 0xFFFFFFFFFFFFFFFFULL;
-            targetHash[3] = 0xFFFFFFFFFFFFFFFFULL;
-        } else {
-            // For very high difficulty (rare), set to minimum
-            targetHash[0] = 1;
-            targetHash[1] = 0;
-            targetHash[2] = 0;
-            targetHash[3] = 0;
-        }
+        // Store result
+        targetHash[0] = target256.data[0];
+        targetHash[1] = target256.data[1];
+        targetHash[2] = target256.data[2];
+        targetHash[3] = target256.data[3];
         
         if (config.debugMode) {
             std::stringstream ss;
-            ss << "\n=== TARGET CALCULATION (CORRECTED) ===\n";
-            ss << "Pool compact target: " << targetHex << "\n";
-            ss << "Compact (uint32): 0x" << std::hex << std::setw(8) << std::setfill('0') << compactTarget << "\n";
+            ss << "\n=== TARGET (TRUE 256-BIT DIVISION) ===\n";
+            ss << "Compact: 0x" << std::hex << std::setw(8) << std::setfill('0') << compactTarget << "\n";
             ss << "Difficulty: " << std::dec << difficulty << "\n";
-            ss << "Target as 4x uint64 (LE):\n";
-            ss << "  Word[0] (LSW): 0x" << std::hex << std::setw(16) << std::setfill('0') << targetHash[0] << "\n";
-            ss << "  Word[1]:       0x" << std::hex << std::setw(16) << std::setfill('0') << targetHash[1] << "\n";
-            ss << "  Word[2]:       0x" << std::hex << std::setw(16) << std::setfill('0') << targetHash[2] << "\n";
-            ss << "  Word[3] (MSW): 0x" << std::hex << std::setw(16) << std::setfill('0') << targetHash[3] << "\n";
-            ss << "Interpretation: Any hash where word[3] < 0xFFFF... is valid,\n";
-            ss << "                OR if word[3]==0xFFFF... then word[2] < 0xFFFF..., etc.\n";
-            ss << "Expected shares per " << difficulty << " hashes: ~1.0";
+            ss << "Target = (2^256-1) / " << difficulty << "\n";
+            ss << "  [0] LSW: 0x" << std::hex << std::setw(16) << std::setfill('0') << targetHash[0] << "\n";
+            ss << "  [1]:     0x" << std::hex << std::setw(16) << std::setfill('0') << targetHash[1] << "\n";
+            ss << "  [2]:     0x" << std::hex << std::setw(16) << std::setfill('0') << targetHash[2] << "\n";
+            ss << "  [3] MSW: 0x" << std::hex << std::setw(16) << std::setfill('0') << targetHash[3] << "\n";
             Utils::threadSafePrint(ss.str(), true);
         }
         
