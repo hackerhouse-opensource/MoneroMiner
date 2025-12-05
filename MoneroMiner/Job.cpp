@@ -74,14 +74,10 @@ Job::Job(const std::string& blobHex, const std::string& id, const std::string& t
         
         if (config.debugMode) {
             std::stringstream ss;
-            ss << "\n=== TARGET (TRUE 256-BIT DIVISION) ===\n";
+            ss << "\n=== TARGET CALCULATION ===\n";
             ss << "Compact: 0x" << std::hex << std::setw(8) << std::setfill('0') << compactTarget << "\n";
             ss << "Difficulty: " << std::dec << difficulty << "\n";
-            ss << "Target = (2^256-1) / " << difficulty << "\n";
-            ss << "  [0] LSW: 0x" << std::hex << std::setw(16) << std::setfill('0') << targetHash[0] << "\n";
-            ss << "  [1]:     0x" << std::hex << std::setw(16) << std::setfill('0') << targetHash[1] << "\n";
-            ss << "  [2]:     0x" << std::hex << std::setw(16) << std::setfill('0') << targetHash[2] << "\n";
-            ss << "  [3] MSW: 0x" << std::hex << std::setw(16) << std::setfill('0') << targetHash[3] << "\n";
+            ss << "Target (256-bit): " << target256.toHex();
             Utils::threadSafePrint(ss.str(), true);
         }
         

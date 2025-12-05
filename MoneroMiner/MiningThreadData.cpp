@@ -4,7 +4,7 @@
 #include "Config.h"
 #include "Globals.h"
 #include "Types.h"
-#include <array>  // ADD THIS - required for std::array
+#include <array>
 #include <sstream>
 #include <iomanip>
 
@@ -62,79 +62,25 @@ bool MiningThreadData::calculateHashAndCheckTarget(
         
         totalHashes++;
         
-        // Convert hash to 256-bit integer (little-endian)
-        // CRITICAL: Each word is constructed from 8 consecutive bytes in LE order
-        std::array<uint64_t, 4> hashValue = {0, 0, 0, 0};
-        for (int wordIdx = 0; wordIdx < 4; wordIdx++) {
-            uint64_t word = 0;
-            int baseByteIdx = wordIdx * 8;
-            // Build word from bytes in little-endian order
-            for (int byteInWord = 0; byteInWord < 8; byteInWord++) {
-                word |= static_cast<uint64_t>(hashOut[baseByteIdx + byteInWord]) << (byteInWord * 8);
-            }
-            hashValue[wordIdx] = word;
-        }
+        // Convert hash and target to uint256_t using the constructor
+        uint256_t hashValue(hashOut.data());
+        uint256_t targetValue(targetBytes.data());
         
-        // Convert target bytes to 256-bit integer (little-endian)
-        std::array<uint64_t, 4> targetValue = {0, 0, 0, 0};
-        for (int wordIdx = 0; wordIdx < 4; wordIdx++) {
-            uint64_t word = 0;
-            int baseByteIdx = wordIdx * 8;
-            for (int byteInWord = 0; byteInWord < 8; byteInWord++) {
-                word |= static_cast<uint64_t>(targetBytes[baseByteIdx + byteInWord]) << (byteInWord * 8);
-            }
-            targetValue[wordIdx] = word;
-        }
-        
-        // Compare 256-bit values from MSW to LSW
-        bool isValid = false;
-        for (int i = 3; i >= 0; i--) {
-            if (hashValue[i] < targetValue[i]) {
-                isValid = true;
-                break;
-            }
-            if (hashValue[i] > targetValue[i]) {
-                isValid = false;
-                break;
-            }
-        }
+        // Use the built-in comparison operator
+        bool isValid = hashValue < targetValue;
         
         // Debug output
         if (config.debugMode && (isValid || (totalHashes % 10000 == 0))) {
             std::stringstream ss;
-            ss << "\n[T" << threadId << " PoW CHECK @ " << totalHashes << " hashes]\n";
+            ss << "\n[T" << threadId << " PoW @ " << totalHashes << " hashes]\n";
+            ss << "  Hash:   " << hashValue.toHex() << "\n";
+            ss << "  Target: " << targetValue.toHex() << "\n";
+            ss << "  Result: " << (isValid ? "VALID SHARE FOUND!" : "does not meet target");
             
-            // Display full hash (MSW to LSW for readability)
-            ss << "  Hash (BE display): 0x";
-            for (int i = 3; i >= 0; i--) {
-                ss << std::hex << std::setw(16) << std::setfill('0') << hashValue[i];
+            if (isValid) {
+                ss << "\n  >>> SUBMITTING SHARE <<<";
             }
             
-            ss << "\n  Target (BE):       0x";
-            for (int i = 3; i >= 0; i--) {
-                ss << std::hex << std::setw(16) << std::setfill('0') << targetValue[i];
-            }
-            
-            ss << "\n  Word-by-word (MSW→LSW):";
-            bool decided = false;
-            for (int i = 3; i >= 0; i--) {
-                ss << "\n    [" << i << "] Hash=0x" << std::hex << std::setw(16) << std::setfill('0') << hashValue[i]
-                   << " vs Target=0x" << std::setw(16) << std::setfill('0') << targetValue[i];
-                
-                if (!decided) {
-                    if (hashValue[i] < targetValue[i]) {
-                        ss << " ✓ VALID";
-                        decided = true;
-                    } else if (hashValue[i] > targetValue[i]) {
-                        ss << " ✗ FAIL";
-                        decided = true;
-                    } else {
-                        ss << " = (continue)";
-                    }
-                }
-            }
-            
-            ss << "\n  Result: " << (isValid ? "**VALID SHARE**" : "Does not meet target");
             Utils::threadSafePrint(ss.str(), true);
         }
         
