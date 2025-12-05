@@ -33,6 +33,11 @@ namespace PoolClient {
     static std::mutex submitMutex;
     std::string poolId;
 
+    // Add tracking for pending share submissions
+    static std::atomic<bool> sharePending{false};
+    static std::chrono::steady_clock::time_point lastShareTime;
+    static std::mutex shareMutex;
+
     // Forward declarations
     bool sendRequest(const std::string& request);
     void processNewJob(const picojson::object& jobObj);
@@ -76,11 +81,11 @@ namespace PoolClient {
                     Utils::threadSafePrint("Parsed pool response: " + v.serialize(), true);
                 }
 
-                // CRITICAL FIX: Check if response is a new job (means share was accepted!)
+                // Check if response is a new job (means share was accepted)
                 if (obj.find("method") != obj.end() && obj.at("method").get<std::string>() == "job") {
                     MiningStatsUtil::acceptedShares++;
-                    Utils::threadSafePrint("Share ACCEPTED by pool! (new job received) (Total: " + 
-                                         std::to_string(MiningStatsUtil::acceptedShares.load()) + ")", true);
+                    Utils::threadSafePrint("Share ACCEPTED! (new job received) Total: " + 
+                                         std::to_string(MiningStatsUtil::acceptedShares.load()), true);
                     
                     // Process the new job
                     if (obj.find("params") != obj.end() && obj.at("params").is<picojson::object>()) {
@@ -118,47 +123,43 @@ namespace PoolClient {
                     }
                     
                     MiningStatsUtil::rejectedShares++;
-                    Utils::threadSafePrint("Share REJECTED: " + errorMsg + " (Total: " + 
-                                         std::to_string(MiningStatsUtil::rejectedShares.load()) + ")", true);
+                    Utils::threadSafePrint("Share REJECTED: " + errorMsg + " Total: " + 
+                                         std::to_string(MiningStatsUtil::rejectedShares.load()), true);
                     return false;
                 }
                 
                 // Check for explicit result
                 if (obj.find("result") != obj.end()) {
                     const picojson::value& resultVal = obj.at("result");
-                    bool accepted = false;
+                    
+                    // If result is null and no error, it's accepted
+                    if (resultVal.is<picojson::null>()) {
+                        MiningStatsUtil::acceptedShares++;
+                        Utils::threadSafePrint("Share ACCEPTED! Total: " + 
+                                             std::to_string(MiningStatsUtil::acceptedShares.load()), true);
+                        return true;
+                    }
                     
                     if (resultVal.is<picojson::object>()) {
                         const picojson::object& resultObj = resultVal.get<picojson::object>();
                         if (resultObj.find("status") != resultObj.end()) {
                             std::string status = resultObj.at("status").get<std::string>();
                             
-                            // CRITICAL FIX: Ignore KEEPALIVED responses - they're not share responses!
+                            // Ignore KEEPALIVED responses
                             if (status == "KEEPALIVED") {
                                 if (config.debugMode) {
-                                    Utils::threadSafePrint("Received keepalive acknowledgment (ignored)", true);
+                                    Utils::threadSafePrint("Received keepalive acknowledgment", true);
                                 }
-                                return false; // Not a share response, don't count as rejection
+                                return false;
                             }
                             
-                            accepted = (status == "OK");
+                            if (status == "OK") {
+                                MiningStatsUtil::acceptedShares++;
+                                Utils::threadSafePrint("Share ACCEPTED! Total: " + 
+                                                     std::to_string(MiningStatsUtil::acceptedShares.load()), true);
+                                return true;
+                            }
                         }
-                    } else if (resultVal.is<bool>()) {
-                        accepted = resultVal.get<bool>();
-                    } else if (resultVal.is<picojson::null>()) {
-                        accepted = true;
-                    }
-                    
-                    if (accepted) {
-                        MiningStatsUtil::acceptedShares++;
-                        Utils::threadSafePrint("Share ACCEPTED! (Total: " + 
-                                             std::to_string(MiningStatsUtil::acceptedShares.load()) + ")", true);
-                        return true;
-                    } else {
-                        MiningStatsUtil::rejectedShares++;
-                        Utils::threadSafePrint("Share rejected - Full response: " + response + 
-                                             " (Total: " + std::to_string(MiningStatsUtil::rejectedShares.load()) + ")", true);
-                        return false;
                     }
                 }
             }
@@ -171,7 +172,7 @@ namespace PoolClient {
         
         MiningStatsUtil::rejectedShares++;
         Utils::threadSafePrint("Share response unknown format: " + response + 
-                             " (Total rejected: " + std::to_string(MiningStatsUtil::rejectedShares.load()) + ")", true);
+                             " Total rejected: " + std::to_string(MiningStatsUtil::rejectedShares.load()), true);
         return false;
     }
 
@@ -182,8 +183,12 @@ namespace PoolClient {
             return false;
         }
         
-        // REMOVE RATE LIMITING - we need to submit all valid shares immediately!
-        // The old code had a 1-second rate limit which blocked valid shares
+        // Mark that we're expecting a share response
+        {
+            std::lock_guard<std::mutex> lock(shareMutex);
+            sharePending = true;
+            lastShareTime = std::chrono::steady_clock::now();
+        }
         
         picojson::object submitObj;
         submitObj["id"] = picojson::value(static_cast<double>(jsonRpcId.fetch_add(1)));
@@ -206,12 +211,59 @@ namespace PoolClient {
         
         std::string response = sendAndReceive(payload);
         
+        bool wasRejected = false;
+        
         if (response.empty()) {
             Utils::threadSafePrint("ERROR: Empty response from pool", true);
+            MiningStatsUtil::rejectedShares++;
+            sharePending = false;
             return false;
         }
         
-        return processShareResponse(response);
+        // Check if response contains an error (explicit rejection)
+        try {
+            picojson::value v;
+            std::string err = picojson::parse(v, response);
+            if (err.empty() && v.is<picojson::object>()) {
+                const picojson::object& obj = v.get<picojson::object>();
+                
+                if (obj.find("error") != obj.end() && !obj.at("error").is<picojson::null>()) {
+                    std::string errorMsg = "Unknown error";
+                    const picojson::value& errorVal = obj.at("error");
+                    
+                    if (errorVal.is<picojson::object>()) {
+                        const picojson::object& errorObj = errorVal.get<picojson::object>();
+                        if (errorObj.find("message") != errorObj.end()) {
+                            errorMsg = errorObj.at("message").get<std::string>();
+                        }
+                    } else if (errorVal.is<std::string>()) {
+                        errorMsg = errorVal.get<std::string>();
+                    }
+                    
+                    MiningStatsUtil::rejectedShares++;
+                    Utils::threadSafePrint("Share REJECTED: " + errorMsg + " (Total rejected: " + 
+                                         std::to_string(MiningStatsUtil::rejectedShares.load()) + ")", true);
+                    wasRejected = true;
+                }
+            }
+        } catch (...) {
+            // Parsing error, will be handled by processShareResponse
+        }
+        
+        bool result = processShareResponse(response);
+        
+        // Clear pending flag after processing
+        {
+            std::lock_guard<std::mutex> lock(shareMutex);
+            sharePending = false;
+        }
+        
+        // Don't double-count rejections
+        if (wasRejected) {
+            return false;
+        }
+        
+        return result;
     }
 
     std::string receiveData(SOCKET socket) {
@@ -501,7 +553,6 @@ namespace PoolClient {
                     chunk[bytesReceived] = '\0';
                     buffer += chunk;
                     
-                    // Debug TX/RX in debug mode
                     if (config.debugMode) {
                         Utils::threadSafePrint("[POOL RX] " + std::string(chunk), true);
                     }
@@ -526,11 +577,31 @@ namespace PoolClient {
                             if (err.empty() && v.is<picojson::object>()) {
                                 const picojson::object& obj = v.get<picojson::object>();
                                 
-                                // Handle job notification
+                                // Check if this is a new job
                                 if (obj.find("method") != obj.end()) {
                                     std::string method = obj.at("method").get<std::string>();
                                     
                                     if (method == "job") {
+                                        // Check if we just submitted a share
+                                        bool wasSharePending = false;
+                                        {
+                                            std::lock_guard<std::mutex> lock(shareMutex);
+                                            if (sharePending) {
+                                                auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
+                                                    std::chrono::steady_clock::now() - lastShareTime).count();
+                                                
+                                                // If share was submitted within last 1 second, this job is the acceptance
+                                                if (elapsed < 1) {
+                                                    MiningStatsUtil::acceptedShares++;
+                                                    Utils::threadSafePrint("Share ACCEPTED! (new job) Total accepted: " + 
+                                                        std::to_string(MiningStatsUtil::acceptedShares.load()), true);
+                                                    wasSharePending = true;
+                                                    sharePending = false;
+                                                }
+                                            }
+                                        }
+                                        
+                                        // Process the new job
                                         if (obj.find("params") != obj.end() && obj.at("params").is<picojson::object>()) {
                                             const picojson::object& params = obj.at("params").get<picojson::object>();
                                             processNewJob(params);

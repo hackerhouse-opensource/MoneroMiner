@@ -69,10 +69,10 @@ bool MiningThreadData::calculateHashAndCheckTarget(
         // Use the built-in comparison operator
         bool isValid = hashValue < targetValue;
         
-        // Debug output
+        // Debug output - ONLY show every 10k hashes OR when valid share found
         if (config.debugMode && (isValid || (totalHashes % 10000 == 0))) {
             std::stringstream ss;
-            ss << "\n[T" << threadId << " PoW @ " << totalHashes << " hashes]\n";
+            ss << "[T" << threadId << " PoW @ " << totalHashes << " hashes]\n";
             ss << "  Hash:   " << hashValue.toHex() << "\n";
             ss << "  Target: " << targetValue.toHex() << "\n";
             ss << "  Result: " << (isValid ? "VALID SHARE FOUND!" : "does not meet target");
