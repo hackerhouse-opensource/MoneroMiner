@@ -63,10 +63,12 @@ bool MiningThreadData::calculateHashAndCheckTarget(
         totalHashes++;
         
         // Convert hash to 256-bit integer (little-endian)
+        // CRITICAL: Each word is constructed from 8 consecutive bytes in LE order
         std::array<uint64_t, 4> hashValue = {0, 0, 0, 0};
         for (int wordIdx = 0; wordIdx < 4; wordIdx++) {
             uint64_t word = 0;
             int baseByteIdx = wordIdx * 8;
+            // Build word from bytes in little-endian order
             for (int byteInWord = 0; byteInWord < 8; byteInWord++) {
                 word |= static_cast<uint64_t>(hashOut[baseByteIdx + byteInWord]) << (byteInWord * 8);
             }
@@ -84,67 +86,55 @@ bool MiningThreadData::calculateHashAndCheckTarget(
             targetValue[wordIdx] = word;
         }
         
-        // CORRECTED: Compare 256-bit values from MSW to LSW
-        // Valid share: hash < target (strictly less than)
+        // Compare 256-bit values from MSW to LSW
         bool isValid = false;
         for (int i = 3; i >= 0; i--) {
             if (hashValue[i] < targetValue[i]) {
-                // Hash word is less than target word - definitely valid
                 isValid = true;
                 break;
             }
             if (hashValue[i] > targetValue[i]) {
-                // Hash word is greater than target word - definitely invalid
                 isValid = false;
                 break;
             }
-            // If equal, continue to next word (lower significance)
         }
-        // If all words are equal, hash == target, which is NOT valid (we need hash < target)
         
-        // Debug output for valid shares or periodic checks
+        // Debug output
         if (config.debugMode && (isValid || (totalHashes % 10000 == 0))) {
             std::stringstream ss;
             ss << "\n[T" << threadId << " PoW CHECK @ " << totalHashes << " hashes]\n";
             
-            // Show as little-endian 64-bit words
-            ss << "  Hash (LE):   0x";
-            for (int i = 0; i < 4; i++) {
+            // Display full hash (MSW to LSW for readability)
+            ss << "  Hash (BE display): 0x";
+            for (int i = 3; i >= 0; i--) {
                 ss << std::hex << std::setw(16) << std::setfill('0') << hashValue[i];
             }
             
-            ss << "\n  Target (LE): 0x";
-            for (int i = 0; i < 4; i++) {
+            ss << "\n  Target (BE):       0x";
+            for (int i = 3; i >= 0; i--) {
                 ss << std::hex << std::setw(16) << std::setfill('0') << targetValue[i];
             }
             
-            ss << "\n  Comparison (MSW to LSW):";
+            ss << "\n  Word-by-word (MSW→LSW):";
             bool decided = false;
             for (int i = 3; i >= 0; i--) {
-                ss << "\n    Word[" << i << "]: Hash=0x" << std::hex << std::setw(16) << std::setfill('0') << hashValue[i]
+                ss << "\n    [" << i << "] Hash=0x" << std::hex << std::setw(16) << std::setfill('0') << hashValue[i]
                    << " vs Target=0x" << std::setw(16) << std::setfill('0') << targetValue[i];
                 
                 if (!decided) {
                     if (hashValue[i] < targetValue[i]) {
-                        ss << " [VALID - hash < target]";
+                        ss << " ✓ VALID";
                         decided = true;
                     } else if (hashValue[i] > targetValue[i]) {
-                        ss << " [INVALID - hash > target]";
+                        ss << " ✗ FAIL";
                         decided = true;
                     } else {
-                        ss << " [EQUAL - check next word]";
+                        ss << " = (continue)";
                     }
-                } else {
-                    ss << " [not checked]";
                 }
             }
             
-            ss << "\n  Final result: " << (isValid ? "VALID SHARE!" : "Does not meet target");
-            
-            if (isValid) {
-                ss << "\n  Hash meets difficulty " << std::dec << (0xFFFFFFFFFFFFFFFFULL / (targetValue[0] > 0 ? targetValue[0] : 1));
-            }
-            
+            ss << "\n  Result: " << (isValid ? "**VALID SHARE**" : "Does not meet target");
             Utils::threadSafePrint(ss.str(), true);
         }
         

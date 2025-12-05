@@ -112,8 +112,9 @@ struct uint256_t {
 
     std::string toHex() const {
         std::stringstream ss;
-        for (int i = 0; i < 4; i++) {
-            for (int j = 0; j < 8; j++) {
+        // Display in big-endian order (MSW first) for human readability
+        for (int i = 3; i >= 0; i--) {
+            for (int j = 7; j >= 0; j--) {
                 uint8_t byte = static_cast<uint8_t>((data[i] >> (j * 8)) & 0xFF);
                 ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(byte);
             }

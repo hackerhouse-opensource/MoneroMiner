@@ -163,10 +163,11 @@ bool Job::isValidShare(const std::array<uint64_t, 4>& hashResult) const {
 
 std::string Job::getTargetHex() const {
     std::stringstream ss;
-    // Display as little-endian bytes (how it's stored)
-    for (int wordIdx = 0; wordIdx < 4; wordIdx++) {
+    // Display in big-endian order (MSW first) to match comparison display
+    for (int wordIdx = 3; wordIdx >= 0; wordIdx--) {
         uint64_t word = targetHash[wordIdx];
-        for (int byteIdx = 0; byteIdx < 8; byteIdx++) {
+        // Display each word's bytes in big-endian order
+        for (int byteIdx = 7; byteIdx >= 0; byteIdx--) {
             uint8_t byte = (word >> (byteIdx * 8)) & 0xFF;
             ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(byte);
         }
