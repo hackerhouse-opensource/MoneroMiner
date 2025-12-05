@@ -57,14 +57,37 @@ bool MiningThreadData::calculateHashAndCheckTarget(
     try {
         randomx_calculate_hash(vm, blob.data(), blob.size(), hashOut.data());
         
-        // CORRECT METHOD: Both hash and target are stored as little-endian 256-bit integers
-        // But we need to compare them as if reading the hex string left-to-right
-        // 
-        // The hash "69cc5d11daad457e..." as bytes is: 69 cc 5d 11 da ad 45 7e ...
-        // The target "a657f6d7f5220000..." as bytes is: a6 57 f6 d7 f5 22 00 00 ...
-        //
-        // We compare byte-by-byte from START (index 0) to END (index 31)
-        // This is comparing from MOST significant to LEAST significant
+        // Increment hash count FIRST
+        totalHashes++;
+        
+        // Debug output on first hash and every 10k hashes for thread 0
+        if (config.debugMode && threadId == 0 && (totalHashes == 1 || totalHashes % 10000 == 0)) {
+            // Build uint64 from first 8 bytes
+            uint64_t hash64 = 0, target64 = 0;
+            for (int i = 0; i < 8; i++) {
+                hash64 |= (static_cast<uint64_t>(hashOut[i]) << (i * 8));
+                target64 |= (static_cast<uint64_t>(targetBytes[i]) << (i * 8));
+            }
+            
+            std::stringstream ss;
+            ss << "\n[T0 PoW CHECK @ " << std::dec << totalHashes << " hashes]\n";
+            ss << "  Hash (LE bytes 0-7): ";
+            for (int i = 0; i < 8; i++) {
+                ss << std::hex << std::setw(2) << std::setfill('0') << (int)hashOut[i] << " ";
+            }
+            ss << "\n  Hash as uint64 (LE): 0x" << std::hex << std::setw(16) << std::setfill('0') << hash64;
+            ss << "\n  Target (LE bytes 0-7): ";
+            for (int i = 0; i < 8; i++) {
+                ss << std::hex << std::setw(2) << std::setfill('0') << (int)targetBytes[i] << " ";
+            }
+            ss << "\n  Target as uint64 (LE): 0x" << std::hex << std::setw(16) << std::setfill('0') << target64;
+            ss << "\n  Comparison: 0x" << std::hex << hash64 << (hash64 < target64 ? " < " : " >= ") 
+               << "0x" << target64;
+            ss << "\n  Result: " << (hash64 < target64 ? "VALID" : "INVALID") 
+               << " (hash " << (hash64 < target64 ? "meets" : "does not meet") << " difficulty " 
+               << std::dec << (0xFFFFFFFFFFFFFFFFULL / target64) << ")\n";
+            Utils::threadSafePrint(ss.str(), true);
+        }
         
         // Compare as little-endian 64-bit integers (first 8 bytes matter most)
         // Build uint64 from first 8 bytes and compare

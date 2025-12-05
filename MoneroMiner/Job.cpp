@@ -54,7 +54,7 @@ Job::Job(const std::string& blobHex, const std::string& id, const std::string& t
     }
     
     nonceOffset = 39;
-    memset(targetBytes, 0xFF, 32); // Initialize to maximum (easiest)
+    memset(targetBytes, 0x00, 32); // CRITICAL FIX: Initialize to ZERO, not 0xFF!
     
     if (targetHex.length() == 8) {
         // Parse compact target from pool (e.g., "f3220000")
@@ -78,7 +78,7 @@ Job::Job(const std::string& blobHex, const std::string& id, const std::string& t
         for (int i = 0; i < 8; i++) {
             targetBytes[i] = (target64 >> (i * 8)) & 0xFF;
         }
-        // Bytes 8-31 remain 0xFF (from memset)
+        // Bytes 8-31 remain 0x00 (from memset) - NOT 0xFF!
         
         if (config.debugMode) {
             std::stringstream ss;
