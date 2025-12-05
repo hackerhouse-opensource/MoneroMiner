@@ -12,8 +12,14 @@ Config::Config() {
 }
 
 void Config::setDefaults() {
+    // Current pool (high difficulty):
     poolAddress = "xmr-us-east1.nanopool.org";
     poolPort = 10300;
+
+    // Alternative pool (lower difficulty for testing):
+    // poolAddress = "pool.supportxmr.com";
+    // poolPort = 3333;
+
     walletAddress = "48edfHu7V9Z84YzzMa6fUueoELZ9ZRXq9VetWzYGzKt52XU5xvqgzYnDK9URnRoJMk1j8nLwEVsaSWJ4fhdUyZijBGUicoD"; // Default test wallet
     workerName = "worker1";
     password = "x";  // FIX: SupportXMR requires non-empty password

@@ -54,39 +54,48 @@ Job::Job(const std::string& blobHex, const std::string& id, const std::string& t
     }
     
     nonceOffset = 39;
-    memset(targetBytes, 0x00, 32); // CRITICAL FIX: Initialize to ZERO, not 0xFF!
+    memset(targetBytes, 0x00, 32); // Initialize to ZERO (most restrictive)
     
     if (targetHex.length() == 8) {
-        // Parse compact target from pool (e.g., "f3220000")
-        uint32_t compact = static_cast<uint32_t>(std::stoul(targetHex, nullptr, 16));
+        // CORRECT IMPLEMENTATION based on XMRig:
+        // The hex string "f3220000" represents bytes that go in the FIRST 4 bytes
+        // of the 32-byte target array in little-endian order
         
-        // MONERO POOL FORMULA: difficulty ≈ compact / 8500
-        // This is the empirical formula all Monero pools use
-        // For compact = 0xf3220000 (4,079,190,016):
-        //   difficulty = 4,079,190,016 / 8500 ≈ 479,904
-        difficulty = static_cast<uint64_t>(static_cast<double>(compact) / 8500.0);
+        std::vector<uint8_t> targetVec = Utils::hexToBytes(targetHex);
         
-        if (difficulty == 0) {
-            difficulty = 1;
+        if (targetVec.size() == 4) {
+            // Store in bytes 0-3 (little-endian)
+            targetBytes[0] = targetVec[0];  // 0xf3
+            targetBytes[1] = targetVec[1];  // 0x22
+            targetBytes[2] = targetVec[2];  // 0x00
+            targetBytes[3] = targetVec[3];  // 0x00
+            // Bytes 4-31 stay as 0x00
+            
+            // Calculate difficulty from the 32-bit target value
+            uint32_t target32 = (static_cast<uint32_t>(targetVec[0]) << 0) |
+                               (static_cast<uint32_t>(targetVec[1]) << 8) |
+                               (static_cast<uint32_t>(targetVec[2]) << 16) |
+                               (static_cast<uint32_t>(targetVec[3]) << 24);
+            
+            // difficulty = 0xFFFFFFFF / target32
+            if (target32 > 0) {
+                difficulty = static_cast<uint64_t>(0xFFFFFFFFULL / target32);
+            } else {
+                difficulty = 0xFFFFFFFFULL;
+            }
         }
-        
-        // Calculate 256-bit target from difficulty
-        // target = 0xFFFFFFFFFFFFFFFF / difficulty
-        uint64_t target64 = 0xFFFFFFFFFFFFFFFFULL / difficulty;
-        
-        // Store target in little-endian (bytes 0-7)
-        for (int i = 0; i < 8; i++) {
-            targetBytes[i] = (target64 >> (i * 8)) & 0xFF;
-        }
-        // Bytes 8-31 remain 0x00 (from memset) - NOT 0xFF!
         
         if (config.debugMode) {
             std::stringstream ss;
-            ss << "[TARGET] Compact: 0x" << std::hex << std::setw(8) << std::setfill('0') << compact
-               << " => Difficulty: " << std::dec << difficulty
-               << " => Target64: 0x" << std::hex << std::setw(16) << std::setfill('0') << target64 << "\n";
-            ss << "  Target bytes (LE, first 16): ";
-            for (int i = 0; i < 16; i++) {
+            ss << "[TARGET] Raw hex: " << targetHex
+               << " => Target32 LE: 0x" << std::hex << std::setw(8) << std::setfill('0')
+               << ((static_cast<uint32_t>(targetBytes[0]) << 0) |
+                   (static_cast<uint32_t>(targetBytes[1]) << 8) |
+                   (static_cast<uint32_t>(targetBytes[2]) << 16) |
+                   (static_cast<uint32_t>(targetBytes[3]) << 24))
+               << " => Difficulty: " << std::dec << difficulty << "\n";
+            ss << "  Target bytes (first 8): ";
+            for (int i = 0; i < 8; i++) {
                 ss << std::hex << std::setw(2) << std::setfill('0') << (int)targetBytes[i] << " ";
             }
             Utils::threadSafePrint(ss.str(), true);

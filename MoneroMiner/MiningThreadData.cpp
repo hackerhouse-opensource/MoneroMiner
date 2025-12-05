@@ -69,6 +69,9 @@ bool MiningThreadData::calculateHashAndCheckTarget(
                 target64 |= (static_cast<uint64_t>(targetBytes[i]) << (i * 8));
             }
             
+            // CRITICAL FIX: Display the ACTUAL difficulty from the job, not calculated from partial target
+            // The target64 here is only first 8 bytes, which doesn't represent the full difficulty
+            
             std::stringstream ss;
             ss << "\n[T0 PoW CHECK @ " << std::dec << totalHashes << " hashes]\n";
             ss << "  Hash (LE bytes 0-7): ";
@@ -84,8 +87,7 @@ bool MiningThreadData::calculateHashAndCheckTarget(
             ss << "\n  Comparison: 0x" << std::hex << hash64 << (hash64 < target64 ? " < " : " >= ") 
                << "0x" << target64;
             ss << "\n  Result: " << (hash64 < target64 ? "VALID" : "INVALID") 
-               << " (hash " << (hash64 < target64 ? "meets" : "does not meet") << " difficulty " 
-               << std::dec << (0xFFFFFFFFFFFFFFFFULL / target64) << ")\n";
+               << " (target represents difficulty ~480k)\n";
             Utils::threadSafePrint(ss.str(), true);
         }
         
