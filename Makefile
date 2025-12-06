@@ -13,7 +13,8 @@ LDFLAGS = -pthread -ldl
 SRC_DIR = MoneroMiner
 BUILD_DIR = build
 BIN_DIR = bin
-RANDOMX_DIR = randomx
+# RandomX directory: prefer lowercase 'randomx', fall back to 'RandomX', otherwise error later
+RANDOMX_DIR := $(shell if [ -d randomx ]; then echo randomx; elif [ -d RandomX ]; then echo RandomX; else echo randomx; fi)
 RANDOMX_BUILD = $(RANDOMX_DIR)/build
 
 # Include paths
@@ -44,7 +45,12 @@ directories:
 # Build RandomX library
 randomx: directories
 	@echo "Building RandomX library..."
-	@cd $(RANDOMX_DIR) && mkdir -p build && cd build && \
+	@if [ ! -d "$(RANDOMX_DIR)" ]; then \
+		echo "Error: RandomX source directory '$(RANDOMX_DIR)' not found."; \
+		echo "Looked for 'randomx' and 'RandomX' in $(PWD)."; \
+		exit 1; \
+	fi
+	@cd "$(RANDOMX_DIR)" && mkdir -p build && cd build && \
 	cmake -DCMAKE_BUILD_TYPE=Release \
 	      -DBUILD_SHARED_LIBS=OFF \
 	      -DARCH=native \
