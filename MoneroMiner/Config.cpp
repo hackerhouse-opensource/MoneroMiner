@@ -76,20 +76,13 @@ bool Config::parseCommandLine(int argc, char* argv[]) {
     if (!threadCountSpecified && numThreads <= 1) {
         unsigned int logicalProcessors = Platform::getLogicalProcessors();
         
-        numThreads = logicalProcessors;
-        
-        // Leave 2-4 threads for system based on total count
-        if (logicalProcessors >= 24) {
-            numThreads = logicalProcessors - 4; // e.g., 24 -> 20 threads
-        } else if (logicalProcessors >= 16) {
-            numThreads = logicalProcessors - 2; // e.g., 16 -> 14 threads
-        } else if (logicalProcessors >= 8) {
-            numThreads = logicalProcessors - 1; // e.g., 8 -> 7 threads
-        }
-        // else use all threads for < 8 cores
-        
-        std::cout << "Auto-detected " << logicalProcessors 
-                  << " logical processors, using " << numThreads << " mining threads" << std::endl;
+        // Use the majority of logical processors but leave one core for the system.
+        // This yields: 3 threads on 4-core, 7 on 8-core, 15 on 16-core, 23 on 24-core, etc.
+        unsigned int recommended = (logicalProcessors > 1) ? (logicalProcessors - 1) : 1;
+        numThreads = static_cast<int>(recommended);
+        std::cout << "Auto-detected " << logicalProcessors
+                  << " logical processors, using " << numThreads
+                  << " mining threads (leaving 1 thread for system)" << std::endl;
     }
     
     // Set default worker name based on machine name if not specified

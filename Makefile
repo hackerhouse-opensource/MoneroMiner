@@ -5,9 +5,9 @@ CXX = g++
 CC = gcc
 
 # Compiler flags
-CXXFLAGS = -std=c++17 -O3 -march=native -Wall -Wextra -pthread
-CFLAGS = -O3 -march=native -Wall -Wextra
-LDFLAGS = -pthread -ldl
+CXXFLAGS = -std=c++17 -O3 -march=native -Wall -Wextra -pthread -flto
+CFLAGS = -O3 -march=native -Wall -Wextra -flto
+LDFLAGS = -pthread -ldl -flto
 
 # Directories
 SRC_DIR = MoneroMiner

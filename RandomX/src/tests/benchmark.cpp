@@ -407,7 +407,7 @@ int main(int argc, char** argv) {
 		std::cout << "ERROR: " << e.what() << std::endl;
 		if (largePages) {
 #ifdef _WIN32
-			std::cout << "To use large pages, please enable the \"Lock Pages in Memory\" policy and reboot." << std::endl;
+			std::cout << "To use large pages, please enable the "Lock Pages in Memory" policy and reboot." << std::endl;
 			if (!IsWindows8OrGreater()) {
 				std::cout << "Additionally, you have to run the benchmark from elevated command prompt." << std::endl;
 			}
