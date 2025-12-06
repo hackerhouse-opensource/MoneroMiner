@@ -35,6 +35,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "configuration.h"
 #include "randomx.h"
 
+#ifdef _MSC_VER
+#include <intrin.h>
+#else
+#include <cpuid.h>
+#endif
+
 namespace randomx {
 
 	static_assert(RANDOMX_ARGON_MEMORY >= 8, "RANDOMX_ARGON_MEMORY must be at least 8.");

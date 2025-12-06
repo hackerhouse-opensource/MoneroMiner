@@ -119,7 +119,7 @@ install: all
 clean:
 	@echo "Cleaning build artifacts..."
 	rm -rf build/*.o
-	rm -f MoneroMiner
+	rm -f bin/MoneroMiner
 
 # Deep clean - remove everything including RandomX
 distclean: clean
@@ -127,6 +127,7 @@ distclean: clean
 	rm -rf randomx/build
 	rm -rf RandomX/build
 	rm -f randomx_dataset_*.bin
+	rm -rf bin
 
 # Clean RandomX only
 clean-randomx:
