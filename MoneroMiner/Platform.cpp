@@ -344,11 +344,23 @@ namespace Platform {
     }
     
     bool hasHugePagesSupport() {
+#if defined(__aarch64__) || defined(__arm__)
+        // ARM64: Check for THP (Transparent Huge Pages) support
+        std::ifstream thp("/sys/kernel/mm/transparent_hugepage/enabled");
+        if (thp) {
+            std::string line;
+            std::getline(thp, line);
+            // Check if THP is enabled (shows as "[always]" or "[madvise]")
+            return line.find("[always]") != std::string::npos || 
+                   line.find("[madvise]") != std::string::npos;
+        }
+        return false;
+#else
+        // x86_64: Check traditional huge pages
         std::ifstream meminfo("/proc/meminfo");
         std::string line;
         while (std::getline(meminfo, line)) {
             if (line.find("Hugepagesize:") != std::string::npos) {
-                // Extract the size value
                 size_t pos = line.find(':');
                 if (pos != std::string::npos) {
                     std::string value = line.substr(pos + 1);
@@ -360,10 +372,15 @@ namespace Platform {
             }
         }
         return false;
+#endif
     }
     
     bool has1GBPagesSupport() {
-        // Check if CPU supports 1GB pages
+#if defined(__aarch64__) || defined(__arm__)
+        // ARM64 doesn't support 1GB pages in the same way as x86
+        return false;
+#else
+        // Check if CPU supports 1GB pages (x86_64 only)
         std::ifstream cpuinfo("/proc/cpuinfo");
         std::string line;
         while (std::getline(cpuinfo, line)) {
@@ -383,9 +400,20 @@ namespace Platform {
             }
         }
         return false;
+#endif
     }
     
     size_t getHugePageSize() {
+#if defined(__aarch64__) || defined(__arm__)
+        // ARM64: THP typically uses 2MB pages
+        std::ifstream thp("/sys/kernel/mm/transparent_hugepage/hpage_pmd_size");
+        if (thp) {
+            size_t size;
+            thp >> size;
+            return size;
+        }
+        return 2097152; // Default 2MB
+#else
         std::ifstream meminfo("/proc/meminfo");
         std::string line;
         while (std::getline(meminfo, line)) {
@@ -397,7 +425,7 @@ namespace Platform {
                     int sizeKB = 0;
                     try { 
                         sizeKB = std::stoi(value); 
-                        return static_cast<size_t>(sizeKB) * 1024; // Convert to bytes
+                        return static_cast<size_t>(sizeKB) * 1024;
                     } catch (...) { 
                         return 0; 
                     }
@@ -405,9 +433,34 @@ namespace Platform {
             }
         }
         return 0;
+#endif
     }
     
     std::string getHugePagesStatus() {
+#if defined(__aarch64__) || defined(__arm__)
+        // ARM64: Check Transparent Huge Pages (THP)
+        // To enable THP on ARM64:
+        //   Temporary: echo always | sudo tee /sys/kernel/mm/transparent_hugepage/enabled
+        //   Permanent: Add to /etc/rc.local or create systemd service
+        std::ifstream thp("/sys/kernel/mm/transparent_hugepage/enabled");
+        if (thp) {
+            std::string line;
+            std::getline(thp, line);
+            
+            if (line.find("[always]") != std::string::npos) {
+                return "enabled (THP: always)";
+            } else if (line.find("[madvise]") != std::string::npos) {
+                return "enabled (THP: madvise)";
+            } else if (line.find("[never]") != std::string::npos) {
+                return "unavailable (THP disabled)";
+            }
+        }
+        return "unavailable (THP not supported)";
+#else
+        // x86_64: Check traditional huge pages
+        // To enable huge pages on x86_64:
+        //   Temporary: sudo sysctl -w vm.nr_hugepages=1168
+        //   Permanent: echo "vm.nr_hugepages=1168" | sudo tee -a /etc/sysctl.conf && sudo sysctl -p
         std::ifstream meminfo("/proc/meminfo");
         std::string line;
         int totalPages = 0;
@@ -442,7 +495,8 @@ namespace Platform {
             return ss.str();
         }
         
-        return "unavailable (run: sudo sysctl -w vm.nr_hugepages=1168)";
+        return "unavailable";
+#endif
     }
 
 #endif

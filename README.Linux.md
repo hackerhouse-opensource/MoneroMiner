@@ -102,7 +102,7 @@ If building for distribution, use `-march=x86-64` instead.
 
 ### Huge Pages (Recommended)
 
-#### 2MB Huge Pages (Easy)
+#### x86_64 Systems - 2MB Huge Pages
 
 Enable 2MB huge pages for better RandomX performance:
 
@@ -118,7 +118,7 @@ sudo sysctl -p
 grep HugePages /proc/meminfo
 ```
 
-#### 1GB Pages (Maximum Performance)
+#### x86_64 Systems - 1GB Pages (Maximum Performance)
 
 For CPUs with 1GB page support (check with `grep pdpe1gb /proc/cpuinfo`):
 
@@ -137,11 +137,31 @@ sudo reboot
 cat /proc/meminfo | grep -i huge
 ```
 
-The miner automatically detects and uses the best available page size:
+#### ARM64/AArch64 Systems - Transparent Huge Pages (THP)
 
-- 1GB pages (if available) - Best performance
-- 2MB pages (if available) - Great performance
-- 4KB pages (fallback) - Standard performance
+ARM64 uses Transparent Huge Pages (THP) instead of traditional huge pages:
+
+```bash
+# Check current THP status
+cat /sys/kernel/mm/transparent_hugepage/enabled
+
+# Enable THP (temporary)
+echo always | sudo tee /sys/kernel/mm/transparent_hugepage/enabled
+
+# Enable THP (permanent)
+# Add to /etc/rc.local or create systemd service
+echo "echo always > /sys/kernel/mm/transparent_hugepage/enabled" | sudo tee -a /etc/rc.local
+sudo chmod +x /etc/rc.local
+
+# Verify
+cat /sys/kernel/mm/transparent_hugepage/enabled
+# Should show: [always] madvise never
+```
+
+The miner automatically detects your architecture and uses the appropriate huge pages method:
+
+- **x86_64**: Traditional huge pages (2MB or 1GB)
+- **ARM64**: Transparent Huge Pages (THP)
 
 ### Memory Locking
 

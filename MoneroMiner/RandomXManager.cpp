@@ -66,8 +66,19 @@ bool RandomXManager::initializeCache(const std::string& seedHash) {
     int detectedFlags = randomx_get_flags();
     Utils::threadSafePrint("Detected CPU flags: 0x" + Utils::formatHex(static_cast<uint64_t>(detectedFlags), 8), true);
     
+    // Start with detected flags (includes JIT, AES, etc.)
     cacheAllocFlags = detectedFlags & ~RANDOMX_FLAG_FULL_MEM;
     flags = detectedFlags | RANDOMX_FLAG_FULL_MEM;
+    
+    // Add large pages flag if available
+    if (Platform::hasHugePagesSupport()) {
+        cacheAllocFlags |= RANDOMX_FLAG_LARGE_PAGES;
+        flags |= RANDOMX_FLAG_LARGE_PAGES;
+        Utils::threadSafePrint("Large pages enabled in RandomX", true);
+    } else {
+        Utils::threadSafePrint("Large pages not available - using normal pages", true);
+    }
+    
     useLightMode = false;
     
     Utils::threadSafePrint("Mode: FULL (2GB dataset)", true);
@@ -76,16 +87,15 @@ bool RandomXManager::initializeCache(const std::string& seedHash) {
     
     cache = randomx_alloc_cache(static_cast<randomx_flags>(cacheAllocFlags));
     if (!cache) {
-        Utils::threadSafePrint("Cache allocation failed, trying default flags", true);
-        cache = randomx_alloc_cache(RANDOMX_FLAG_DEFAULT);
+        Utils::threadSafePrint("Cache allocation failed with large pages, trying without", true);
+        // Try without large pages
+        cacheAllocFlags &= ~RANDOMX_FLAG_LARGE_PAGES;
+        flags &= ~RANDOMX_FLAG_LARGE_PAGES;
+        cache = randomx_alloc_cache(static_cast<randomx_flags>(cacheAllocFlags));
         if (!cache) {
             Utils::threadSafePrint("Cache allocation failed completely", true);
             return false;
         }
-        cacheAllocFlags = RANDOMX_FLAG_DEFAULT;
-        flags = RANDOMX_FLAG_DEFAULT;
-        useLightMode = true;
-        Utils::threadSafePrint("WARNING: Falling back to LIGHT mode", true);
     }
 
     std::vector<uint8_t> seedBytes = Utils::hexToBytes(seedHash);
@@ -177,39 +187,8 @@ bool RandomXManager::initialize(const std::string& seedHash) {
         return false;
     }
     
-    // Enable optimizations based on available features
-    randomx_flags rxFlags = randomx_get_flags();
-    
-    // Check for huge pages support using Platform API
-    bool hugePagesAvailable = Platform::hasHugePagesSupport();
-    bool has1GB = Platform::has1GBPagesSupport();
-    size_t pageSize = Platform::getHugePageSize();
-    
-    if (hugePagesAvailable) {
-        rxFlags |= RANDOMX_FLAG_LARGE_PAGES;
-        
-        if (config.debugMode) {
-            std::stringstream ss;
-            ss << "Huge pages enabled: " << (pageSize / 1024 / 1024) << "MB pages";
-            if (has1GB) {
-                ss << " (1GB pages available!)";
-            }
-            Utils::threadSafePrint(ss.str(), true);
-        } else {
-            Utils::threadSafePrint("Huge pages: enabled", true);
-        }
-    } else {
-        if (config.debugMode) {
-            Utils::threadSafePrint("Huge pages: unavailable (performance reduced)", true);
-        }
-    }
-    
-    // Enable other optimizations
-    rxFlags |= RANDOMX_FLAG_JIT;
-    rxFlags |= RANDOMX_FLAG_HARD_AES;
-    rxFlags |= RANDOMX_FLAG_FULL_MEM;
-    
-    flags = static_cast<int>(rxFlags);
+    // Flags are already set in initializeCache with huge pages enabled if available
+    // No need to modify them here again
     
     if (!useLightMode) {
         std::string datasetFileName = "randomx_dataset_" + seedHash.substr(0, 16) + ".bin";
