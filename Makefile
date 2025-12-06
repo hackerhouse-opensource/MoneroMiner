@@ -22,6 +22,10 @@ $(error RandomX source directory not found. Looked for 'RandomX' and 'randomx' i
 endif
 RANDOMX_BUILD = $(RANDOMX_DIR)/build
 
+# Absolute RandomX source path and cache file (used to detect mismatched caches)
+RANDOMX_SRC_ABS := $(shell cd $(RANDOMX_DIR) && pwd)
+RANDOMX_CACHE := $(RANDOMX_BUILD)/CMakeCache.txt
+
 # Include paths
 INCLUDES = -I$(SRC_DIR) -I$(RANDOMX_DIR)/src
 
@@ -54,6 +58,17 @@ randomx: directories
 		echo "Error: RandomX source directory '$(RANDOMX_DIR)' not found."; \
 		echo "Looked for 'randomx' and 'RandomX' in $(PWD)."; \
 		exit 1; \
+	fi
+	# If an existing CMakeCache points at a different source path, back it up to avoid path mismatch errors
+	@if [ -f "$(RANDOMX_CACHE)" ]; then \
+		old_src=$$(sed -n 's/^CMAKE_HOME_DIRECTORY:INTERNAL=//p' "$(RANDOMX_CACHE)" | tr -d '\r'); \
+		if [ -n "$$old_src" ] && [ "$$old_src" != "$(RANDOMX_SRC_ABS)" ]; then \
+			echo "Detected mismatched CMake cache (was generated for $$old_src)"; \
+			backup="$(RANDOMX_BUILD).backup.$$(date +%s)"; \
+			echo "Moving $(RANDOMX_BUILD) to $$backup to avoid path mismatch."; \
+			mv "$(RANDOMX_BUILD)" "$$backup" || rm -rf "$(RANDOMX_BUILD)"; \
+			mkdir -p "$(RANDOMX_BUILD)"; \
+		fi; \
 	fi
 	@cd "$(RANDOMX_DIR)" && mkdir -p build && cd build && \
 	cmake -DCMAKE_BUILD_TYPE=Release \
