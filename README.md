@@ -10,6 +10,7 @@ A lightweight, high-performance Monero (XMR) CPU miner using the RandomX algorit
 - **Persistent dataset caching** for improved startup time
 - **Share tracking** and acceptance rate monitoring
 - **Debug mode** for detailed mining information
+- **Cross-platform support** (Windows, Linux, ARM64/AArch64)
 
 ## Quick Start
 
@@ -73,21 +74,54 @@ MoneroMiner.exe --wallet YOUR_WALLET_ADDRESS --pool pool.supportxmr.com:3333 --t
 
 ### Large Pages Support
 
-For optimal performance, run the miner as Administrator. This enables:
+For optimal performance, enable large/huge pages for 10-30% hashrate improvement.
 
-- **Large Pages (Huge Pages)**: 2MB pages instead of 4KB, reducing TLB misses
-- **Performance gain**: 10-30% hashrate improvement
-- **Windows requirement**: "Lock pages in memory" privilege
+#### Windows - 2MB Large Pages
 
-To enable permanently:
+Run the miner as Administrator to enable 2MB large pages automatically.
+
+To enable permanently without Administrator:
 
 1. Run `gpedit.msc` (Local Group Policy Editor)
 2. Navigate to: Computer Configuration → Windows Settings → Security Settings → Local Policies → User Rights Assignment
 3. Open "Lock pages in memory"
 4. Add your user account
 5. Restart your computer
+6. Run miner normally (no admin needed)
 
-The miner will automatically detect and use large pages when available.
+#### Linux - 2MB Huge Pages
+
+Enable 2MB huge pages (recommended - 1168 pages = 2.3GB):
+
+```bash
+# Temporary (until reboot)
+sudo sysctl -w vm.nr_hugepages=1168
+
+# Permanent
+echo "vm.nr_hugepages=1168" | sudo tee -a /etc/sysctl.conf
+sudo sysctl -p
+```
+
+#### Linux - 1GB Pages (Advanced)
+
+For maximum performance on supported CPUs (requires reboot):
+
+```bash
+# Check CPU support
+grep pdpe1gb /proc/cpuinfo
+
+# Add to /etc/default/grub
+GRUB_CMDLINE_LINUX="default_hugepagesz=1G hugepagesz=1G hugepages=3"
+
+# Update GRUB and reboot
+sudo update-grub
+sudo reboot
+
+# Verify after reboot
+grep HugePages /proc/meminfo
+```
+
+The miner will automatically detect and use the best available page size.
 
 ## Author
 

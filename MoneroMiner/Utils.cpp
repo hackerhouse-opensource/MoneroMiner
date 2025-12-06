@@ -222,5 +222,29 @@ std::string Utils::getPrivilegeStatus() {
         ss << "             Run as administrator for +10-30% performance boost";
     }
     
+    // Add huge pages status with consistent spacing
+    ss << "\nHuge pages: " << (Platform::hasHugePagesSupport() ? "enabled" : "unavailable");
+    
+    // Only show 1GB pages info if on Linux and CPU supports it
+#ifndef PLATFORM_WINDOWS
+    if (Platform::has1GBPagesSupport()) {
+        ss << "\n1GB pages: available";
+    } else {
+        // Check if CPU supports it
+        std::ifstream cpuinfo("/proc/cpuinfo");
+        std::string line;
+        bool cpuSupports = false;
+        while (std::getline(cpuinfo, line)) {
+            if (line.find("pdpe1gb") != std::string::npos) {
+                cpuSupports = true;
+                break;
+            }
+        }
+        if (cpuSupports) {
+            ss << "\n1GB pages: supported but not configured";
+        }
+    }
+#endif
+    
     return ss.str();
 }

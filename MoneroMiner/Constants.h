@@ -28,6 +28,12 @@ namespace RandomXConstants {
     static constexpr uint64_t SCRATCHPAD_L3 = 2097152ULL;        // 2MB
     static constexpr uint64_t CACHE_BASE_SIZE = 2147483648ULL;   // 2GB for Fast Mode
     static constexpr int CACHE_ACCESSES = 4;
+    
+    // Huge pages
+    static constexpr size_t HUGE_PAGE_SIZE_2MB = 2097152ULL;     // 2MB
+    static constexpr size_t HUGE_PAGE_SIZE_1GB = 1073741824ULL;  // 1GB
+    static constexpr int REQUIRED_2MB_PAGES = 1168;              // ~2.3GB for dataset
+    static constexpr int REQUIRED_1GB_PAGES = 3;                 // 3GB for dataset
 }
 
 // Network constants
@@ -63,4 +69,4 @@ namespace DefaultConfig {
 // Mining configuration
 #define JOB_QUEUE_SIZE 2
 #define HASHRATE_AVERAGING_WINDOW_SIZE 60  // 60 seconds
-#define THREAD_PAUSE_TIME 100              // Milliseconds to pause when no jobs available 
+#define THREAD_PAUSE_TIME 100              // Milliseconds to pause when no jobs available

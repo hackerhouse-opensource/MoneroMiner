@@ -187,20 +187,16 @@ void printMemoryInfo() {
     double totalGB = memInfo.ullTotalPhys / (1024.0 * 1024.0 * 1024.0);
     int usage = memInfo.dwMemoryLoad;
     
-    std::cout << " * MEMORY       " 
+    std::cout << "Memory:       " 
               << std::fixed << std::setprecision(1) << usedGB << "/"
               << totalGB << " GB (" << usage << "%)" << std::endl;
-    
-    // Try to get DIMM information via WMI (basic implementation)
-    std::cout << "                (DIMM details require WMI - see Task Manager for full info)" << std::endl;
 #else
     double usedGB = 0.0, totalGB = 0.0;
     int usage = 0;
     Platform::getMemoryInfo(usedGB, totalGB, usage);
-    std::cout << " * MEMORY       "
+    std::cout << "Memory:       "
               << std::fixed << std::setprecision(1) << usedGB << "/"
               << totalGB << " GB (" << usage << "%)" << std::endl;
-    std::cout << "                (" << Platform::getHugePagesInfo() << ")" << std::endl;
 #endif
 }
 
@@ -252,7 +248,7 @@ void printDetailedSystemInfo() {
     std::cout << "CPU:          " << cpuBrand << " (" << sysInfo.dwNumberOfProcessors << " threads) "
               << (is64bit ? "64-bit" : "32-bit") << cpuFeatures << std::endl;
     
-    // Memory - dynamic calculation
+    // Memory - clean display
     printMemoryInfo();
     
     // Motherboard - dynamic registry read
@@ -267,6 +263,9 @@ void printDetailedSystemInfo() {
 
     // Privileges - print elevated status using Platform API
     std::cout << (Platform::isRunningElevated() ? "Privileges: elevated" : "Privileges: normal") << std::endl;
+    
+    // Huge pages status
+    std::cout << "Huge pages: " << Platform::getHugePagesStatus() << std::endl;
 #else
     // Use Platform helpers on POSIX
     std::string cpuBrand = Platform::getCPUBrand();
@@ -277,12 +276,24 @@ void printDetailedSystemInfo() {
     Platform::getMemoryInfo(usedGB, totalGB, usage);
     std::string mboard = Platform::getMotherboardInfo();
     
-    std::cout << "CPU:          " << cpuBrand << " (" << logicalProcessors << " threads) " << cpuFeatures << std::endl;
+    bool is64bit = sizeof(void*) == 8;
+    std::string bitness = is64bit ? "64-bit" : "32-bit";
+    
+    // Clean consistent output format
+    std::cout << "CPU:          " << cpuBrand << " (" << logicalProcessors << " threads) " << bitness << cpuFeatures << std::endl;
     std::cout << "Memory:       " << std::fixed << std::setprecision(1) << usedGB << "/" << totalGB << " GB (" << usage << "%)" << std::endl;
     std::cout << "Motherboard:  " << mboard << std::endl;
     std::cout << "Threads:      " << config.numThreads << std::endl;
     std::cout << "Algorithm:    RandomX (rx/0)" << std::endl;
     std::cout << (Platform::isRunningElevated() ? "Privileges: elevated" : "Privileges: normal") << std::endl;
+    
+    // Huge pages status
+    std::cout << "Huge pages: " << Platform::getHugePagesStatus() << std::endl;
+    
+    // 1GB pages status (Linux only)
+    if (Platform::has1GBPagesSupport()) {
+        std::cout << "1GB pages: available" << std::endl;
+    }
 #endif
 }
 

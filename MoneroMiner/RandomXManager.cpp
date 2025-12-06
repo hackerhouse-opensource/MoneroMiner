@@ -1,7 +1,8 @@
 #include "RandomXManager.h"
 #include "Config.h"
-#include "Utils.h"  // ADD THIS - was missing!
-#include "Globals.h"  // ADD THIS
+#include "Utils.h"
+#include "Globals.h"
+#include "Platform.h"
 #include <fstream>
 #include <vector>
 #include <mutex>
@@ -18,8 +19,16 @@
 #include <random>
 
 // Added missing headers for threads and C string functions
-#include <thread>   // std::thread, hardware_concurrency
-#include <cstring>  // memcpy, memset
+#include <thread>
+#include <cstring>
+
+// Undefine Windows min/max macros that interfere with std::max
+#ifdef max
+#undef max
+#endif
+#ifdef min
+#undef min
+#endif
 
 static constexpr size_t MAX_BLOB_SIZE = 128;
 
@@ -121,10 +130,9 @@ bool RandomXManager::createDataset() {
     unsigned int numThreads = std::thread::hardware_concurrency();
     if (numThreads == 0) numThreads = 1;
     // Reserve one logical CPU for system responsiveness
-    if (numThreads > 1) numThreads = std::max(1u, numThreads - 1u);
+    if (numThreads > 1) numThreads = (std::max)(1u, numThreads - 1u);
     Utils::threadSafePrint("Using " + std::to_string(numThreads) + " threads for dataset initialization (leaving 1 for system)", true);
 
-    // FIX: std::chrono::high_resolution_clock
     auto start = std::chrono::high_resolution_clock::now();
 
     std::vector<std::thread> threads;
@@ -169,14 +177,30 @@ bool RandomXManager::initialize(const std::string& seedHash) {
         return false;
     }
     
-    // Enable optimizations based on privileges
+    // Enable optimizations based on available features
     randomx_flags rxFlags = randomx_get_flags();
     
-    // Try to enable large pages if running with elevated privileges
-    if (Utils::isRunningElevated() && Utils::enableLargePages()) {
+    // Check for huge pages support using Platform API
+    bool hugePagesAvailable = Platform::hasHugePagesSupport();
+    bool has1GB = Platform::has1GBPagesSupport();
+    size_t pageSize = Platform::getHugePageSize();
+    
+    if (hugePagesAvailable) {
         rxFlags |= RANDOMX_FLAG_LARGE_PAGES;
+        
         if (config.debugMode) {
-            Utils::threadSafePrint("Large pages enabled", true);
+            std::stringstream ss;
+            ss << "Huge pages enabled: " << (pageSize / 1024 / 1024) << "MB pages";
+            if (has1GB) {
+                ss << " (1GB pages available!)";
+            }
+            Utils::threadSafePrint(ss.str(), true);
+        } else {
+            Utils::threadSafePrint("Huge pages: enabled", true);
+        }
+    } else {
+        if (config.debugMode) {
+            Utils::threadSafePrint("Huge pages: unavailable (performance reduced)", true);
         }
     }
     
@@ -191,7 +215,6 @@ bool RandomXManager::initialize(const std::string& seedHash) {
         std::string datasetFileName = "randomx_dataset_" + seedHash.substr(0, 16) + ".bin";
         bool loadedDataset = false;
         
-        // FIX: std::filesystem functions
         if (std::filesystem::exists(datasetFileName)) {
             size_t fileSize = std::filesystem::file_size(datasetFileName);
             

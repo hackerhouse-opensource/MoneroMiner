@@ -76,4 +76,10 @@ namespace Platform {
     unsigned int getLogicalProcessors();
     std::string getComputerName();
     bool isRunningElevated();
+    
+    // Huge pages support
+    bool hasHugePagesSupport();      // Check if 2MB pages available
+    bool has1GBPagesSupport();       // Check if 1GB pages available (Linux only)
+    size_t getHugePageSize();        // Returns actual huge page size (2MB or 1GB)
+    std::string getHugePagesStatus(); // Detailed status string
 }

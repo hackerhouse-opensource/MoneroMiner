@@ -144,6 +144,54 @@ namespace Platform {
         }
         return isElevated;
     }
+    
+    bool hasHugePagesSupport() {
+        HANDLE token;
+        if (OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token)) {
+            LUID luid;
+            if (LookupPrivilegeValue(NULL, SE_LOCK_MEMORY_NAME, &luid)) {
+                PRIVILEGE_SET ps;
+                ps.PrivilegeCount = 1;
+                ps.Control = PRIVILEGE_SET_ALL_NECESSARY;
+                ps.Privilege[0].Luid = luid;
+                ps.Privilege[0].Attributes = SE_PRIVILEGE_ENABLED;
+                
+                BOOL result = FALSE;
+                if (PrivilegeCheck(token, &ps, &result) && result) {
+                    CloseHandle(token);
+                    return GetLargePageMinimum() != 0;
+                }
+            }
+            CloseHandle(token);
+        }
+        return false;
+    }
+    
+    bool has1GBPagesSupport() {
+        return false; // Windows doesn't support 1GB pages
+    }
+    
+    size_t getHugePageSize() {
+        if (hasHugePagesSupport()) {
+            return GetLargePageMinimum(); // Usually 2MB on Windows
+        }
+        return 0;
+    }
+    
+    std::string getHugePagesStatus() {
+        if (!isRunningElevated()) {
+            return "unavailable (not elevated)";
+        }
+        
+        if (hasHugePagesSupport()) {
+            size_t pageSize = getHugePageSize();
+            std::stringstream ss;
+            ss << "enabled (" << (pageSize / 1024 / 1024) << "MB pages)";
+            return ss.str();
+        }
+        
+        return "unavailable (enable 'Lock pages in memory')";
+    }
 
 #else // PLATFORM_LINUX
 
@@ -159,18 +207,57 @@ namespace Platform {
     std::string getCPUBrand() {
         std::ifstream cpuinfo("/proc/cpuinfo");
         std::string line;
+        
+        // Try standard x86/x64 "model name" first
         while (std::getline(cpuinfo, line)) {
             if (line.find("model name") != std::string::npos) {
                 size_t pos = line.find(':');
                 if (pos != std::string::npos) {
                     std::string brand = line.substr(pos + 1);
-                    // Trim whitespace
                     brand.erase(0, brand.find_first_not_of(" \t"));
                     brand.erase(brand.find_last_not_of(" \t") + 1);
                     return brand;
                 }
             }
         }
+        
+        // For ARM64/AArch64, try alternative fields
+        cpuinfo.clear();
+        cpuinfo.seekg(0);
+        
+        std::string hardware, model, processor;
+        while (std::getline(cpuinfo, line)) {
+            if (line.find("Hardware") != std::string::npos) {
+                size_t pos = line.find(':');
+                if (pos != std::string::npos) {
+                    hardware = line.substr(pos + 1);
+                    hardware.erase(0, hardware.find_first_not_of(" \t"));
+                    hardware.erase(hardware.find_last_not_of(" \t") + 1);
+                }
+            }
+            else if (line.find("model name") != std::string::npos || line.find("Model") != std::string::npos) {
+                size_t pos = line.find(':');
+                if (pos != std::string::npos) {
+                    model = line.substr(pos + 1);
+                    model.erase(0, model.find_first_not_of(" \t"));
+                    model.erase(model.find_last_not_of(" \t") + 1);
+                }
+            }
+            else if (line.find("Processor") != std::string::npos && processor.empty()) {
+                size_t pos = line.find(':');
+                if (pos != std::string::npos) {
+                    processor = line.substr(pos + 1);
+                    processor.erase(0, processor.find_first_not_of(" \t"));
+                    processor.erase(processor.find_last_not_of(" \t") + 1);
+                }
+            }
+        }
+        
+        // Return best available info
+        if (!model.empty()) return model;
+        if (!processor.empty()) return processor;
+        if (!hardware.empty()) return hardware;
+        
         return "Unknown CPU";
     }
 
@@ -187,6 +274,12 @@ namespace Platform {
                 break;
             }
         }
+        
+        // For ARM, just add VM if no features found
+        if (features.empty()) {
+            features = " VM";
+        }
+        
         return features;
     }
 
@@ -248,6 +341,108 @@ namespace Platform {
 
     bool isRunningElevated() {
         return geteuid() == 0;
+    }
+    
+    bool hasHugePagesSupport() {
+        std::ifstream meminfo("/proc/meminfo");
+        std::string line;
+        while (std::getline(meminfo, line)) {
+            if (line.find("Hugepagesize:") != std::string::npos) {
+                // Extract the size value
+                size_t pos = line.find(':');
+                if (pos != std::string::npos) {
+                    std::string value = line.substr(pos + 1);
+                    value.erase(0, value.find_first_not_of(" \t"));
+                    int sizeKB = 0;
+                    try { sizeKB = std::stoi(value); } catch (...) { return false; }
+                    return sizeKB >= 2048; // At least 2MB
+                }
+            }
+        }
+        return false;
+    }
+    
+    bool has1GBPagesSupport() {
+        // Check if CPU supports 1GB pages
+        std::ifstream cpuinfo("/proc/cpuinfo");
+        std::string line;
+        while (std::getline(cpuinfo, line)) {
+            if (line.find("pdpe1gb") != std::string::npos) {
+                cpuinfo.close();
+                
+                // Check if 1GB pages are configured in kernel
+                std::ifstream meminfo("/proc/meminfo");
+                while (std::getline(meminfo, line)) {
+                    if (line.find("Hugepagesize:") != std::string::npos) {
+                        if (line.find("1048576 kB") != std::string::npos) {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }
+        }
+        return false;
+    }
+    
+    size_t getHugePageSize() {
+        std::ifstream meminfo("/proc/meminfo");
+        std::string line;
+        while (std::getline(meminfo, line)) {
+            if (line.find("Hugepagesize:") != std::string::npos) {
+                size_t pos = line.find(':');
+                if (pos != std::string::npos) {
+                    std::string value = line.substr(pos + 1);
+                    value.erase(0, value.find_first_not_of(" \t"));
+                    int sizeKB = 0;
+                    try { 
+                        sizeKB = std::stoi(value); 
+                        return static_cast<size_t>(sizeKB) * 1024; // Convert to bytes
+                    } catch (...) { 
+                        return 0; 
+                    }
+                }
+            }
+        }
+        return 0;
+    }
+    
+    std::string getHugePagesStatus() {
+        std::ifstream meminfo("/proc/meminfo");
+        std::string line;
+        int totalPages = 0;
+        int freePages = 0;
+        
+        while (std::getline(meminfo, line)) {
+            if (line.find("HugePages_Total:") != std::string::npos) {
+                size_t pos = line.find(':');
+                if (pos != std::string::npos) {
+                    std::string value = line.substr(pos + 1);
+                    value.erase(0, value.find_first_not_of(" \t"));
+                    try { totalPages = std::stoi(value); } catch (...) {}
+                }
+            }
+            if (line.find("HugePages_Free:") != std::string::npos) {
+                size_t pos = line.find(':');
+                if (pos != std::string::npos) {
+                    std::string value = line.substr(pos + 1);
+                    value.erase(0, value.find_first_not_of(" \t"));
+                    try { freePages = std::stoi(value); } catch (...) {}
+                }
+            }
+        }
+        
+        if (totalPages > 0) {
+            size_t pageSize = getHugePageSize();
+            std::stringstream ss;
+            ss << freePages << "/" << totalPages << " available";
+            if (pageSize > 0) {
+                ss << " (" << (pageSize / 1024 / 1024) << "MB pages)";
+            }
+            return ss.str();
+        }
+        
+        return "unavailable (run: sudo sysctl -w vm.nr_hugepages=1168)";
     }
 
 #endif

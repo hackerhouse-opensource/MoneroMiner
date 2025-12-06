@@ -214,7 +214,9 @@ void* allocLargePagesMemory(size_t bytes) {
 		errfunc = "No large pages";
 		return NULL;
 	}
-	mem = VirtualAlloc(NULL, alignSize(bytes, pageMinimum), MEM_COMMIT | MEM_RESERVE | MEM_LARGE_PAGES, PAGE_READWRITE);
+	// Round up to page size
+	size_t allocSize = ((bytes + pageMinimum - 1) / pageMinimum) * pageMinimum;
+	mem = VirtualAlloc(NULL, allocSize, MEM_COMMIT | MEM_RESERVE | MEM_LARGE_PAGES, PAGE_READWRITE);
 #else
 #ifdef __APPLE__
 	mem = mmap(NULL, bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, VM_FLAGS_SUPERPAGE_SIZE_2MB, 0);
@@ -223,7 +225,12 @@ void* allocLargePagesMemory(size_t bytes) {
 #elif defined(__OpenBSD__) || defined(__NetBSD__)
 	mem = MAP_FAILED; // OpenBSD does not support huge pages
 #else
-	mem = mmap(NULL, bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_POPULATE, -1, 0);
+	// Try 1GB pages first if available (Linux only)
+	mem = mmap(NULL, bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | (30 << MAP_HUGE_SHIFT) | MAP_POPULATE, -1, 0);
+	if (mem == MAP_FAILED) {
+		// Fall back to 2MB pages
+		mem = mmap(NULL, bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_POPULATE, -1, 0);
+	}
 #endif
 	if (mem == MAP_FAILED)
 		mem = NULL;

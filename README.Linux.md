@@ -102,7 +102,9 @@ If building for distribution, use `-march=x86-64` instead.
 
 ### Huge Pages (Recommended)
 
-Enable huge pages for better RandomX performance:
+#### 2MB Huge Pages (Easy)
+
+Enable 2MB huge pages for better RandomX performance:
 
 ```bash
 # Temporary (until reboot)
@@ -111,7 +113,35 @@ sudo sysctl -w vm.nr_hugepages=1168
 # Permanent
 echo "vm.nr_hugepages=1168" | sudo tee -a /etc/sysctl.conf
 sudo sysctl -p
+
+# Verify
+grep HugePages /proc/meminfo
 ```
+
+#### 1GB Pages (Maximum Performance)
+
+For CPUs with 1GB page support (check with `grep pdpe1gb /proc/cpuinfo`):
+
+```bash
+# Edit GRUB configuration
+sudo nano /etc/default/grub
+
+# Add to GRUB_CMDLINE_LINUX:
+default_hugepagesz=1G hugepagesz=1G hugepages=3
+
+# Update and reboot
+sudo update-grub
+sudo reboot
+
+# Verify after reboot
+cat /proc/meminfo | grep -i huge
+```
+
+The miner automatically detects and uses the best available page size:
+
+- 1GB pages (if available) - Best performance
+- 2MB pages (if available) - Great performance
+- 4KB pages (fallback) - Standard performance
 
 ### Memory Locking
 

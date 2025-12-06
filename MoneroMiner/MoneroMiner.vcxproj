@@ -168,6 +168,7 @@
     <ClInclude Include="MiningStats.h" />
     <ClInclude Include="MiningThreadData.h" />
     <ClInclude Include="picojson.h" />
+    <ClInclude Include="Platform.h" />
     <ClInclude Include="PoolClient.h" />
     <ClInclude Include="randomx.h" />
     <ClInclude Include="RandomXManager.h" />
