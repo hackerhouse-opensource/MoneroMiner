@@ -13,8 +13,13 @@ LDFLAGS = -pthread -ldl
 SRC_DIR = MoneroMiner
 BUILD_DIR = build
 BIN_DIR = bin
-# RandomX directory: prefer lowercase 'randomx', fall back to 'RandomX', otherwise error later
-RANDOMX_DIR := $(shell if [ -d randomx ]; then echo randomx; elif [ -d RandomX ]; then echo RandomX; else echo randomx; fi)
+
+# Detect RandomX source directory robustly:
+# prefer 'RandomX' (capitalized) then 'randomx' to handle different checkouts/filesystems.
+RANDOMX_DIR := $(shell if [ -d RandomX ]; then echo RandomX; elif [ -d randomx ]; then echo randomx; else echo ""; fi)
+ifeq ($(RANDOMX_DIR),)
+$(error RandomX source directory not found. Looked for 'RandomX' and 'randomx' in $(PWD))
+endif
 RANDOMX_BUILD = $(RANDOMX_DIR)/build
 
 # Include paths
