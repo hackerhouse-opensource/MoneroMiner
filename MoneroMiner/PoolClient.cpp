@@ -4,7 +4,7 @@
 #include "Utils.h"
 #include "RandomXManager.h"
 #include "MiningStats.h"
-#include <ws2tcpip.h>
+#include "Platform.h"  // Replace ws2tcpip.h
 #include <iostream>
 #include <sstream>
 #include <iomanip>
@@ -12,13 +12,12 @@
 #include <thread>
 #include <cstring>
 #include "picojson.h"
-#pragma comment(lib, "ws2_32.lib")
 
 using namespace picojson;
 
 namespace PoolClient {
     // Static member definitions
-    SOCKET poolSocket = INVALID_SOCKET;
+    socket_t poolSocket = INVALID_SOCKET_VALUE;
     std::mutex jobMutex;
     std::queue<Job> jobQueue;
     std::condition_variable jobAvailable;
@@ -29,8 +28,8 @@ namespace PoolClient {
     std::string currentTargetHex;
     std::vector<std::shared_ptr<MiningThreadData>> threadData;
     std::mutex socketMutex;
+    std::mutex submitMutex; // <- define the mutex here (matches extern in header)
     static std::chrono::steady_clock::time_point lastSubmitTime;
-    static std::mutex submitMutex;
     std::string poolId;
 
     // Remove sharePending tracking - not needed anymore
@@ -93,6 +92,7 @@ namespace PoolClient {
 
     bool submitShare(const std::string& jobId, const std::string& nonceHex,
                      const std::string& hashHex, const std::string& algo) {
+        (void)algo; // silence unused parameter
         if (sessionId.empty()) {
             Utils::threadSafePrint("Cannot submit: No session", true);
             return false;
@@ -133,8 +133,8 @@ namespace PoolClient {
                     }
                 }
             } catch (...) {
-                // If we can't parse it, check if it contains "error" keyword
-                if (response.find("\"error\"") != std::string::npos && 
+                // If we can't parse it, check if it contains "error" keyword as a fallback
+                if (response.find("\"error\"") != std::string::npos &&
                     response.find("\"error\":null") == std::string::npos) {
                     hasError = true;
                 }
@@ -186,8 +186,35 @@ namespace PoolClient {
         }
     }
 
-    std::string receiveData(SOCKET socket) {
-        if (socket == INVALID_SOCKET) {
+    // sendRequest: lock socket and send newline-terminated JSON
+    bool sendRequest(const std::string& request) {
+        std::lock_guard<std::mutex> lock(socketMutex);
+        if (poolSocket == INVALID_SOCKET_VALUE) {
+            Utils::threadSafePrint("Cannot send: Invalid socket", true);
+            return false;
+        }
+
+        std::string requestWithNewline = request + "\n";
+        int sendResult = send(poolSocket, requestWithNewline.c_str(), static_cast<int>(requestWithNewline.length()), 0);
+        if (sendResult == SOCKET_ERROR_VALUE) {
+            Utils::threadSafePrint("send failed: " + std::to_string(GET_SOCKET_ERROR()), true);
+            return false;
+        }
+        return true;
+    }
+
+    // Helper: compute nfds for select on each platform
+    static inline int select_nfds(socket_t s) {
+    #ifdef PLATFORM_WINDOWS
+        (void)s;
+        return 0;
+    #else
+        return static_cast<int>(s) + 1;
+    #endif
+    }
+
+    std::string receiveData(socket_t socket) {
+        if (socket == INVALID_SOCKET_VALUE) {
             Utils::threadSafePrint("Invalid socket", true);
             return "";
         }
@@ -200,11 +227,11 @@ namespace PoolClient {
         FD_SET(socket, &readfds);
         struct timeval tv = { 1, 0 };
         
-        int status = select(0, &readfds, nullptr, nullptr, &tv);
+        int status = select(select_nfds(socket), &readfds, nullptr, nullptr, &tv);
         if (status <= 0) {
             if (status == 0) return "";
-            if (WSAGetLastError() == WSAEWOULDBLOCK) return "";
-            Utils::threadSafePrint("select failed: " + std::to_string(WSAGetLastError()), true);
+            if (GET_SOCKET_ERROR() == WOULD_BLOCK) return "";
+            Utils::threadSafePrint("select failed: " + std::to_string(GET_SOCKET_ERROR()), true);
             return "";
         }
 
@@ -212,10 +239,10 @@ namespace PoolClient {
         if (bytesReceived <= 0) {
             if (bytesReceived == 0) {
                 Utils::threadSafePrint("Connection closed by pool", true);
-            } else if (WSAGetLastError() == WSAEWOULDBLOCK) {
+            } else if (GET_SOCKET_ERROR() == WOULD_BLOCK) {
                 return "";
             } else {
-                Utils::threadSafePrint("Error receiving data: " + std::to_string(WSAGetLastError()), true);
+                Utils::threadSafePrint("Error receiving data: " + std::to_string(GET_SOCKET_ERROR()), true);
             }
             return "";
         }
@@ -234,18 +261,17 @@ namespace PoolClient {
     }
 
     bool initialize() {
-        poolSocket = INVALID_SOCKET;
+        poolSocket = INVALID_SOCKET_VALUE;
         shouldStop = false;
         currentSeedHash.clear();
         sessionId.clear();
         currentTargetHex.clear();
         
-        WSADATA wsaData;
-        if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-            Utils::threadSafePrint("Failed to initialize Winsock", true);
+        if (!Platform::initializeSockets()) {
+            Utils::threadSafePrint("Failed to initialize sockets", true);
             return false;
         }
-        Utils::threadSafePrint("Winsock initialized successfully", true);
+        Utils::threadSafePrint("Sockets initialized successfully", true);
         return true;
     }
 
@@ -274,17 +300,17 @@ namespace PoolClient {
         
         // Create socket
         poolSocket = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
-        if (poolSocket == INVALID_SOCKET) {
-            Utils::threadSafePrint("Failed to create socket: " + std::to_string(WSAGetLastError()), true);
+        if (poolSocket == INVALID_SOCKET_VALUE) {
+            Utils::threadSafePrint("Failed to create socket: " + std::to_string(GET_SOCKET_ERROR()), true);
             freeaddrinfo(result);
             return false;
         }
         
         // Connect
-        if (::connect(poolSocket, result->ai_addr, static_cast<int>(result->ai_addrlen)) == SOCKET_ERROR) {
-            Utils::threadSafePrint("Failed to connect to pool: " + std::to_string(WSAGetLastError()), true);
-            closesocket(poolSocket);
-            poolSocket = INVALID_SOCKET;
+        if (::connect(poolSocket, result->ai_addr, static_cast<int>(result->ai_addrlen)) == SOCKET_ERROR_VALUE) {
+            Utils::threadSafePrint("Failed to connect to pool: " + std::to_string(GET_SOCKET_ERROR()), true);
+            CLOSE_SOCKET(poolSocket);
+            poolSocket = INVALID_SOCKET_VALUE;
             freeaddrinfo(result);
             return false;
         }
@@ -385,33 +411,17 @@ namespace PoolClient {
     }
 
     void cleanup() {
-        if (poolSocket != INVALID_SOCKET) {
-            closesocket(poolSocket);
-            poolSocket = INVALID_SOCKET;
+        if (poolSocket != INVALID_SOCKET_VALUE) {
+            CLOSE_SOCKET(poolSocket);
+            poolSocket = INVALID_SOCKET_VALUE;
         }
-        WSACleanup();
-    }
-
-    bool sendRequest(const std::string& request) {
-        if (poolSocket == INVALID_SOCKET) {
-            Utils::threadSafePrint("Cannot send: Invalid socket", true);
-            return false;
-        }
-
-        std::string requestWithNewline = request + "\n";
-        int sendResult = send(poolSocket, requestWithNewline.c_str(), static_cast<int>(requestWithNewline.length()), 0);
-        if (sendResult == SOCKET_ERROR) {
-            Utils::threadSafePrint("send failed: " + std::to_string(WSAGetLastError()), true);
-            return false;
-        }
-        return true;
+        Platform::cleanupSockets();
     }
 
     void jobListener() {
         auto lastKeepalive = std::chrono::steady_clock::now();
         std::string buffer;
-        int keepaliveCount = 0;
-        
+
         while (!shouldStop) {
             // Non-blocking receive with timeout
             fd_set readSet;
@@ -421,8 +431,9 @@ namespace PoolClient {
             struct timeval timeout;
             timeout.tv_sec = 0;
             timeout.tv_usec = 100000; // 100ms
-            
-            int result = select(0, &readSet, nullptr, nullptr, &timeout);
+
+            int nfds = select_nfds(poolSocket);
+            int result = select(nfds, &readSet, nullptr, nullptr, &timeout);
             
             if (result > 0 && FD_ISSET(poolSocket, &readSet)) {
                 char chunk[4096];
@@ -481,7 +492,7 @@ namespace PoolClient {
                                         errorMsg = errorVal.get<std::string>();
                                     }
                                     
-                                    // Undo optimistic acceptance
+                                    // Undo optimistic acceptance if any
                                     MiningStatsUtil::acceptedShares--;
                                     MiningStatsUtil::rejectedShares++;
                                     Utils::threadSafePrint("Share REJECTED (async): " + errorMsg + 
@@ -574,11 +585,11 @@ namespace PoolClient {
     }
 
     std::string sendAndReceive(const std::string& payload) {
-        if (poolSocket == INVALID_SOCKET) return "";
+        if (poolSocket == INVALID_SOCKET_VALUE) return "";
 
         std::string fullPayload = payload + "\n";
         int bytesSent = send(poolSocket, fullPayload.c_str(), static_cast<int>(fullPayload.length()), 0);
-        if (bytesSent == SOCKET_ERROR) return "";
+        if (bytesSent == SOCKET_ERROR_VALUE) return "";
 
         std::string response;
         char buffer[4096];
@@ -596,7 +607,7 @@ namespace PoolClient {
             timeout.tv_sec = 10;
             timeout.tv_usec = 0;
 
-            int selectResult = select(0, &readSet, nullptr, nullptr, &timeout);
+            int selectResult = select(select_nfds(poolSocket), &readSet, nullptr, nullptr, &timeout);
             if (selectResult <= 0) break;
 
             int bytesReceived = recv(poolSocket, buffer, sizeof(buffer) - 1, 0);
@@ -619,57 +630,6 @@ namespace PoolClient {
         return response;
     }
 
-    std::string sendData(const std::string& data) {
-        std::lock_guard<std::mutex> lock(socketMutex);
-        if (poolSocket == INVALID_SOCKET) return "";
-
-        int bytesSent = send(poolSocket, data.c_str(), static_cast<int>(data.length()), 0);
-        if (bytesSent == SOCKET_ERROR) return "";
-
-        return receiveData(poolSocket);
-    }
-
-    void distributeJob(const Job& job) {
-        std::lock_guard<std::mutex> lock(jobMutex);
-        
-        // CRITICAL: Clear ALL old jobs immediately - this prevents stale shares
-        while (!jobQueue.empty()) {
-            jobQueue.pop();
-        }
-        
-        // Push new job (now the ONLY job in queue)
-        jobQueue.push(job);
-        
-        handleSeedHashChange(job.seedHash);
-        jobQueueCondition.notify_all();
-        jobAvailable.notify_all();
-    }
-
-    std::string getPoolId() {
-        return poolId;
-    }
-
-    bool reconnect() {
-        Utils::threadSafePrint("=== ATTEMPTING POOL RECONNECTION ===", true);
-        
-        cleanup();
-        
-        std::this_thread::sleep_for(std::chrono::seconds(5)); // Wait before reconnect
-        
-        if (!connect()) {
-            Utils::threadSafePrint("Reconnection failed: Could not connect to pool", true);
-            return false;
-        }
-        
-        if (!login(config.walletAddress, config.password, config.workerName, config.userAgent)) {
-            Utils::threadSafePrint("Reconnection failed: Could not login to pool", true);
-            return false;
-        }
-        
-        Utils::threadSafePrint("=== POOL RECONNECTION SUCCESSFUL ===", true);
-        return true;
-    }
-
     void sendKeepalive() {
         static int keepaliveCount = 0;
         keepaliveCount++;
@@ -684,9 +644,14 @@ namespace PoolClient {
         request["params"] = picojson::value(params);
         
         std::string message = picojson::value(request).serialize();
-        
-        if (send(poolSocket, message.c_str(), static_cast<int>(message.length()), 0) == SOCKET_ERROR) {
-            Utils::threadSafePrint("Failed to send keepalive", true);
+
+        // Use thread-safe sendRequest (adds newline)
+        if (!sendRequest(message)) {
+            Utils::threadSafePrint("Failed to send keepalive, attempting reconnect", true);
+            // Try to reconnect synchronously (best-effort)
+            if (!reconnect()) {
+                Utils::threadSafePrint("Reconnect attempt failed after keepalive failure", true);
+            }
             return;
         }
         
@@ -694,5 +659,46 @@ namespace PoolClient {
             Utils::threadSafePrint("[KEEPALIVE #" + std::to_string(keepaliveCount) + "] Sent", true);
             Utils::threadSafePrint("[POOL TX] " + message, true);
         }
+    }
+
+    // Add missing distributeJob implementation
+    void distributeJob(const Job& job) {
+        std::lock_guard<std::mutex> lock(jobMutex);
+
+        // Replace any existing jobs with the new one
+        while (!jobQueue.empty()) jobQueue.pop();
+        jobQueue.push(job);
+
+        // Update seed/hash state and notify worker threads
+        handleSeedHashChange(job.seedHash);
+        jobQueueCondition.notify_all();
+        jobAvailable.notify_all();
+
+        if (config.debugMode) {
+            Utils::threadSafePrint("Distributed new job: " + job.getJobId(), true);
+        }
+    }
+
+    // Add missing reconnect implementation
+    bool reconnect() {
+        Utils::threadSafePrint("Attempting reconnect to pool...", true);
+
+        // Clean up current connection and try to re-establish
+        cleanup();
+
+        // Try connect, then login
+        if (!connect()) {
+            Utils::threadSafePrint("Reconnect: failed to connect", true);
+            return false;
+        }
+
+        if (!login(config.walletAddress, config.password, config.workerName, config.userAgent)) {
+            Utils::threadSafePrint("Reconnect: failed to login", true);
+            // leave socket open for caller to inspect / cleanup again
+            return false;
+        }
+
+        Utils::threadSafePrint("Reconnect successful", true);
+        return true;
     }
 }

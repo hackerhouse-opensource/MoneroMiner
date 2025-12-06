@@ -1,1 +1,1 @@
-/usr/bin/c++  -march=native -O3 -DNDEBUG "CMakeFiles/randomx-codegen.dir/src/tests/code-generator.cpp.o" -o randomx-codegen  -Wl,-rpath,/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build librandomx.so
+/usr/bin/c++  -march=native -O3 -DNDEBUG "CMakeFiles/randomx-codegen.dir/src/tests/code-generator.cpp.o" -o randomx-codegen  librandomx.a

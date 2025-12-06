@@ -1,13 +1,18 @@
 #include "Utils.h"
 #include "Config.h"
+#include "Platform.h"   // use platform abstraction instead of windows.h
 #include <iostream>
 #include <fstream>
-#include <sstream>
-#include <iomanip>
 #include <mutex>
 #include <ctime>
 #include <chrono>
-#include <windows.h>
+#include <sstream>
+#include <iomanip>
+#include <cstring>
+
+#ifdef PLATFORM_WINDOWS
+    #include <windows.h>
+#endif
 
 // External references to globals defined in Globals.cpp
 extern Config config;
@@ -60,20 +65,31 @@ std::string Utils::nonceToHex(uint32_t nonce) {
 }
 
 std::string Utils::getCurrentTimestamp() {
-    auto now = std::chrono::system_clock::now();
-    auto time = std::chrono::system_clock::to_time_t(now);
-    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-        now.time_since_epoch()) % 1000;
-    
-    std::tm tm;
-    localtime_s(&tm, &time);
-    
-    std::stringstream ss;
-    ss << std::put_time(&tm, "%d/%m/%Y (%H:%M:%S.")
-       << std::setfill('0') << std::setw(3) << ms.count() << ") "
-       << static_cast<uint32_t>(time) << ": ";  // Added colon and space
-    
-    return ss.str();
+    using namespace std::chrono;
+    auto now = system_clock::now();
+    auto ms_part = duration_cast<milliseconds>(now.time_since_epoch()) % 1000;
+    time_t now_time = system_clock::to_time_t(now);
+
+    struct tm tm;
+#ifdef PLATFORM_WINDOWS
+    localtime_s(&tm, &now_time);
+#else
+    localtime_r(&now_time, &tm);
+#endif
+
+    long long epoch_secs = duration_cast<seconds>(now.time_since_epoch()).count();
+    char buf[128];
+    // Format: MM/DD/YYYY (HH:MM:SS.mmm) <epoch>:
+    snprintf(buf, sizeof(buf), "%02d/%02d/%04d (%02d:%02d:%02d.%03lld) %lld: ",
+             tm.tm_mon + 1,
+             tm.tm_mday,
+             tm.tm_year + 1900,
+             tm.tm_hour,
+             tm.tm_min,
+             tm.tm_sec,
+             static_cast<long long>(ms_part.count()),
+             epoch_secs);
+    return std::string(buf);
 }
 
 std::string Utils::getTimestamp() {
@@ -81,29 +97,44 @@ std::string Utils::getTimestamp() {
 }
 
 void Utils::threadSafePrint(const std::string& message, bool toLog, bool addTimestamp) {
-    std::lock_guard<std::mutex> lock(printMutex);
-    
-    std::string output = addTimestamp ? (getTimestamp() + message) : message;
-    
-    // Print to console unless in headless mode
-    if (!config.headlessMode) {
-        std::cout << output;
-        if (output.back() != '\n') {
-            std::cout << std::endl;
-        }
-    }
-    
-    // Log to file if enabled
-    if (toLog && config.useLogFile) {
-        std::ofstream logFile(config.logFileName, std::ios::app);
-        if (logFile.is_open()) {
-            logFile << output;
-            if (output.back() != '\n') {
-                logFile << std::endl;
-            }
-            logFile.close();
-        }
-    }
+	std::lock_guard<std::mutex> lock(printMutex);
+
+	std::string output = addTimestamp ? (getTimestamp() + message) : message;
+
+	// Print to console unless in headless mode
+	if (!config.headlessMode) {
+#ifdef PLATFORM_WINDOWS
+		// Always print to the console for visibility
+		std::cout << output;
+		if (!output.empty() && output.back() != '\n') std::cout << std::endl;
+
+		// Also send debug output to the debugger when requested:
+		// - caller passed true in `toLog` (many callsites used that for debug)
+		// - or global debug mode is enabled
+		if (toLog || config.debugMode) {
+			// OutputDebugStringA expects a null-terminated C string
+			OutputDebugStringA((output + "\n").c_str());
+		}
+#else
+		// POSIX / Linux fallback: write to stdout as before
+		std::cout << output;
+		if (!output.empty() && output.back() != '\n') {
+			std::cout << std::endl;
+		}
+#endif
+	}
+
+	// Log to file if enabled
+	if (toLog && config.useLogFile) {
+		std::ofstream logFile(config.logFileName, std::ios::app);
+		if (logFile.is_open()) {
+			logFile << output;
+			if (!output.empty() && output.back() != '\n') {
+				logFile << std::endl;
+			}
+			logFile.close();
+		}
+	}
 }
 
 void Utils::logToFile(const std::string& message) {
@@ -137,6 +168,7 @@ std::string Utils::formatHex(const uint8_t* data, size_t len) {
 }
 
 bool Utils::enableLargePages() {
+#ifdef PLATFORM_WINDOWS
     HANDLE hToken;
     if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken)) {
         return false;
@@ -154,25 +186,19 @@ bool Utils::enableLargePages() {
     BOOL result = AdjustTokenPrivileges(hToken, FALSE, &tp, 0, NULL, NULL);
     DWORD error = GetLastError();
     CloseHandle(hToken);
-    
-    return result && (error == ERROR_SUCCESS);
+
+    return (result != FALSE) && (error == ERROR_SUCCESS);
+#else
+    // Large pages handling is platform-specific; on Linux the user can configure hugepages via sysctl/mount.
+    // Return false here to indicate we did not enable Windows-style large pages.
+    (void)0;
+    return false;
+#endif
 }
 
 bool Utils::isRunningElevated() {
-    BOOL isElevated = FALSE;
-    HANDLE hToken = NULL;
-    
-    if (OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &hToken)) {
-        TOKEN_ELEVATION elevation;
-        DWORD size = sizeof(TOKEN_ELEVATION);
-        
-        if (GetTokenInformation(hToken, TokenElevation, &elevation, sizeof(elevation), &size)) {
-            isElevated = elevation.TokenIsElevated;
-        }
-        CloseHandle(hToken);
-    }
-    
-    return isElevated == TRUE;
+    // Delegate to Platform implementation which is cross-platform
+    return Platform::isRunningElevated();
 }
 
 std::string Utils::getPrivilegeStatus() {

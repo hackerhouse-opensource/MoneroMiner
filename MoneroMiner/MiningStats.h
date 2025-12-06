@@ -1,10 +1,12 @@
 #pragma once
 
 #include <atomic>
-#include <memory>
-#include <vector>
 #include <chrono>
+#include <cstdint>
+#include <memory>
 #include <mutex>
+#include <string>
+#include <vector>
 
 // Forward declaration
 class MiningThreadData;

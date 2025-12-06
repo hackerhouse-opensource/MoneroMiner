@@ -3,13 +3,13 @@
 
 # compile C with /usr/bin/cc
 # compile CXX with /usr/bin/c++
-C_DEFINES = -Drandomx_EXPORTS
+C_DEFINES = 
 
 C_INCLUDES = 
 
 C_FLAGS =  -march=native -O3 -DNDEBUG -fPIC
 
-CXX_DEFINES = -Drandomx_EXPORTS
+CXX_DEFINES = 
 
 CXX_INCLUDES = 
 

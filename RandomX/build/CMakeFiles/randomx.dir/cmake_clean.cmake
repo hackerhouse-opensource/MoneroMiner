@@ -51,8 +51,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/randomx.dir/src/vm_interpreted.cpp.o.d"
   "CMakeFiles/randomx.dir/src/vm_interpreted_light.cpp.o"
   "CMakeFiles/randomx.dir/src/vm_interpreted_light.cpp.o.d"
+  "librandomx.a"
   "librandomx.pdb"
-  "librandomx.so"
 )
 
 # Per-language clean rules from dependency scanning.

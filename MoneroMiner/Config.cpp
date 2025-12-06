@@ -1,12 +1,12 @@
 #include "Config.h"
 #include "Globals.h"
+#include "Platform.h"  // Replace windows.h with Platform.h
 #include <iostream>
 #include <string>
 #include <thread>
 #include <sstream>
 #include <fstream>
 #include "Utils.h"
-#include <windows.h> // Add this at top if missing
 
 Config::Config() {
     setDefaults();
@@ -79,13 +79,8 @@ bool Config::parseCommandLine(int argc, char* argv[]) {
     
     // ONLY auto-detect if user did NOT specify --threads
     if (!threadCountSpecified && numThreads <= 1) {
-        // Auto-detect optimal thread count
-        SYSTEM_INFO sysInfo;
-        GetSystemInfo(&sysInfo);
+        unsigned int logicalProcessors = Platform::getLogicalProcessors();
         
-        uint32_t logicalProcessors = sysInfo.dwNumberOfProcessors;
-        
-        // For RandomX, optimal is typically 85-95% of logical processors
         numThreads = logicalProcessors;
         
         // Leave 2-4 threads for system based on total count
@@ -104,17 +99,13 @@ bool Config::parseCommandLine(int argc, char* argv[]) {
     
     // Set default worker name based on machine name if not specified
     if (workerName.empty() || workerName == "worker1") {
-        char computerName[MAX_COMPUTERNAME_LENGTH + 1];
-        DWORD size = sizeof(computerName);
-        if (GetComputerNameA(computerName, &size)) {
-            workerName = std::string(computerName);
-            // Sanitize: lowercase and remove invalid chars
-            for (char& c : workerName) {
-                if (!std::isalnum(c)) c = '_';
-                else c = std::tolower(c);
-            }
-        } else {
-            workerName = "worker1";
+        std::string computerName = Platform::getComputerName();
+        workerName = computerName;
+        
+        // Sanitize: lowercase and remove invalid chars
+        for (char& c : workerName) {
+            if (!std::isalnum(c)) c = '_';
+            else c = std::tolower(c);
         }
     }
     

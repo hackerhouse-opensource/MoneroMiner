@@ -1,13 +1,30 @@
 #include "Platform.h"
 #include <sstream>
 #include <iomanip>
+// ADDED for diagnostic output
+#include <iostream>
+// ADDED includes for POSIX and general usage
+#include <fstream>
+#include <cstring>
+#include <thread>
+#ifndef PLATFORM_WINDOWS
+    #include <sys/sysinfo.h>
+    #include <sys/utsname.h>
+    #include <unistd.h>
+#endif
 
 namespace Platform {
 
 #ifdef PLATFORM_WINDOWS
     bool initializeSockets() {
         WSADATA wsaData;
-        return WSAStartup(MAKEWORD(2, 2), &wsaData) == 0;
+        int res = WSAStartup(MAKEWORD(2, 2), &wsaData);
+        if (res != 0) {
+            // Emit an immediate diagnostic so Windows runs show why sockets failed
+            std::cerr << "Platform::initializeSockets: WSAStartup failed with error: " << res << std::endl;
+            return false;
+        }
+        return true;
     }
     
     void cleanupSockets() {
@@ -134,11 +151,11 @@ namespace Platform {
         // No initialization needed on Linux
         return true;
     }
-    
+
     void cleanupSockets() {
         // No cleanup needed on Linux
     }
-    
+
     std::string getCPUBrand() {
         std::ifstream cpuinfo("/proc/cpuinfo");
         std::string line;
@@ -146,7 +163,7 @@ namespace Platform {
             if (line.find("model name") != std::string::npos) {
                 size_t pos = line.find(':');
                 if (pos != std::string::npos) {
-                    std::string brand = line.substr(pos + 2);
+                    std::string brand = line.substr(pos + 1);
                     // Trim whitespace
                     brand.erase(0, brand.find_first_not_of(" \t"));
                     brand.erase(brand.find_last_not_of(" \t") + 1);
@@ -156,14 +173,13 @@ namespace Platform {
         }
         return "Unknown CPU";
     }
-    
+
     std::string getCPUFeatures() {
         std::ifstream cpuinfo("/proc/cpuinfo");
         std::string line;
         std::string features;
-        
         while (std::getline(cpuinfo, line)) {
-            if (line.find("flags") != std::string::npos) {
+            if (line.find("flags") != std::string::npos || line.find("Features") != std::string::npos) {
                 if (line.find("aes") != std::string::npos) features += " AES";
                 if (line.find("avx") != std::string::npos) features += " AVX";
                 if (line.find("avx2") != std::string::npos) features += " AVX2";
@@ -173,57 +189,55 @@ namespace Platform {
         }
         return features;
     }
-    
+
     std::string getHugePagesInfo() {
         std::ifstream meminfo("/proc/meminfo");
         std::string line;
-        
         while (std::getline(meminfo, line)) {
             if (line.find("HugePages_Total") != std::string::npos) {
                 size_t pos = line.find(':');
                 if (pos != std::string::npos) {
                     std::string value = line.substr(pos + 1);
                     value.erase(0, value.find_first_not_of(" \t"));
-                    int total = std::stoi(value);
+                    int total = 0;
+                    try { total = std::stoi(value); } catch (...) { total = 0; }
                     return total > 0 ? "available (" + std::to_string(total) + " pages)" : "unavailable";
                 }
             }
         }
         return "unavailable";
     }
-    
+
     void getMemoryInfo(double& usedGB, double& totalGB, int& usage) {
         struct sysinfo info;
         if (sysinfo(&info) == 0) {
             totalGB = info.totalram / (1024.0 * 1024.0 * 1024.0);
             double freeGB = info.freeram / (1024.0 * 1024.0 * 1024.0);
             usedGB = totalGB - freeGB;
-            usage = (int)((usedGB / totalGB) * 100.0);
+            usage = (totalGB > 0.0) ? static_cast<int>((usedGB / totalGB) * 100.0) : 0;
         } else {
             usedGB = totalGB = 0;
             usage = 0;
         }
     }
-    
+
     std::string getMotherboardInfo() {
         std::string vendor, product;
-        
         std::ifstream vendorFile("/sys/devices/virtual/dmi/id/board_vendor");
         if (vendorFile) std::getline(vendorFile, vendor);
-        
         std::ifstream productFile("/sys/devices/virtual/dmi/id/board_name");
         if (productFile) std::getline(productFile, product);
-        
         if (!vendor.empty() && !product.empty()) {
             return vendor + " - " + product;
         }
         return "Unknown";
     }
-    
+
     unsigned int getLogicalProcessors() {
-        return std::thread::hardware_concurrency();
+        unsigned int hc = std::thread::hardware_concurrency();
+        return hc == 0 ? 1u : hc;
     }
-    
+
     std::string getComputerName() {
         struct utsname buffer;
         if (uname(&buffer) == 0) {
@@ -231,7 +245,7 @@ namespace Platform {
         }
         return "unknown";
     }
-    
+
     bool isRunningElevated() {
         return geteuid() == 0;
     }

@@ -1074,3 +1074,1631 @@ events:
         
       exitCode: 0
 ...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:85 (check_cxx_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_cxx"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-VNIlNc"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-VNIlNc"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_cxx"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-VNIlNc'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_4bba3/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-VNIlNc'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_4bba3.dir/build.make CMakeFiles/cmTC_4bba3.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-VNIlNc'
+        Building CXX object CMakeFiles/cmTC_4bba3.dir/src.cxx.o
+        /usr/bin/c++ -D_march=native_cxx  -march=native -o CMakeFiles/cmTC_4bba3.dir/src.cxx.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-VNIlNc/src.cxx
+        Linking CXX executable cmTC_4bba3
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_4bba3.dir/link.txt --verbose=1
+        /usr/bin/c++ CMakeFiles/cmTC_4bba3.dir/src.cxx.o -o cmTC_4bba3
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-VNIlNc'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-VNIlNc'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCCompilerFlag.cmake:51 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:91 (check_c_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_c"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-n0ZBXY"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-n0ZBXY"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_c"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-n0ZBXY'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_9e4ed/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-n0ZBXY'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_9e4ed.dir/build.make CMakeFiles/cmTC_9e4ed.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-n0ZBXY'
+        Building C object CMakeFiles/cmTC_9e4ed.dir/src.c.o
+        /usr/bin/cc -D_march=native_c  -march=native -o CMakeFiles/cmTC_9e4ed.dir/src.c.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-n0ZBXY/src.c
+        Linking C executable cmTC_9e4ed
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_9e4ed.dir/link.txt --verbose=1
+        /usr/bin/cc CMakeFiles/cmTC_9e4ed.dir/src.c.o -o cmTC_9e4ed
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-n0ZBXY'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-n0ZBXY'
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:85 (check_cxx_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_cxx"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-i09xn5"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-i09xn5"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_cxx"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-i09xn5'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_6b5b5/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-i09xn5'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_6b5b5.dir/build.make CMakeFiles/cmTC_6b5b5.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-i09xn5'
+        Building CXX object CMakeFiles/cmTC_6b5b5.dir/src.cxx.o
+        /usr/bin/c++ -D_march=native_cxx  -march=native -o CMakeFiles/cmTC_6b5b5.dir/src.cxx.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-i09xn5/src.cxx
+        Linking CXX executable cmTC_6b5b5
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_6b5b5.dir/link.txt --verbose=1
+        /usr/bin/c++ CMakeFiles/cmTC_6b5b5.dir/src.cxx.o -o cmTC_6b5b5
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-i09xn5'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-i09xn5'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCCompilerFlag.cmake:51 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:91 (check_c_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_c"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-Za9cZs"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-Za9cZs"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_c"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-Za9cZs'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_82f70/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-Za9cZs'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_82f70.dir/build.make CMakeFiles/cmTC_82f70.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-Za9cZs'
+        Building C object CMakeFiles/cmTC_82f70.dir/src.c.o
+        /usr/bin/cc -D_march=native_c  -march=native -o CMakeFiles/cmTC_82f70.dir/src.c.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-Za9cZs/src.c
+        Linking C executable cmTC_82f70
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_82f70.dir/link.txt --verbose=1
+        /usr/bin/cc CMakeFiles/cmTC_82f70.dir/src.c.o -o cmTC_82f70
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-Za9cZs'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-Za9cZs'
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:85 (check_cxx_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_cxx"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-x33QU2"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-x33QU2"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_cxx"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-x33QU2'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_6e06f/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-x33QU2'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_6e06f.dir/build.make CMakeFiles/cmTC_6e06f.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-x33QU2'
+        Building CXX object CMakeFiles/cmTC_6e06f.dir/src.cxx.o
+        /usr/bin/c++ -D_march=native_cxx  -march=native -o CMakeFiles/cmTC_6e06f.dir/src.cxx.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-x33QU2/src.cxx
+        Linking CXX executable cmTC_6e06f
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_6e06f.dir/link.txt --verbose=1
+        /usr/bin/c++ CMakeFiles/cmTC_6e06f.dir/src.cxx.o -o cmTC_6e06f
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-x33QU2'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-x33QU2'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCCompilerFlag.cmake:51 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:91 (check_c_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_c"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-36nLhQ"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-36nLhQ"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_c"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-36nLhQ'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_31ad0/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-36nLhQ'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_31ad0.dir/build.make CMakeFiles/cmTC_31ad0.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-36nLhQ'
+        Building C object CMakeFiles/cmTC_31ad0.dir/src.c.o
+        /usr/bin/cc -D_march=native_c  -march=native -o CMakeFiles/cmTC_31ad0.dir/src.c.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-36nLhQ/src.c
+        Linking C executable cmTC_31ad0
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_31ad0.dir/link.txt --verbose=1
+        /usr/bin/cc CMakeFiles/cmTC_31ad0.dir/src.c.o -o cmTC_31ad0
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-36nLhQ'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-36nLhQ'
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:85 (check_cxx_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_cxx"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-iZR8zA"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-iZR8zA"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_cxx"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-iZR8zA'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_cceac/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-iZR8zA'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_cceac.dir/build.make CMakeFiles/cmTC_cceac.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-iZR8zA'
+        Building CXX object CMakeFiles/cmTC_cceac.dir/src.cxx.o
+        /usr/bin/c++ -D_march=native_cxx  -march=native -o CMakeFiles/cmTC_cceac.dir/src.cxx.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-iZR8zA/src.cxx
+        Linking CXX executable cmTC_cceac
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_cceac.dir/link.txt --verbose=1
+        /usr/bin/c++ CMakeFiles/cmTC_cceac.dir/src.cxx.o -o cmTC_cceac
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-iZR8zA'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-iZR8zA'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCCompilerFlag.cmake:51 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:91 (check_c_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_c"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-pjzr6g"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-pjzr6g"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_c"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-pjzr6g'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_f8496/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-pjzr6g'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_f8496.dir/build.make CMakeFiles/cmTC_f8496.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-pjzr6g'
+        Building C object CMakeFiles/cmTC_f8496.dir/src.c.o
+        /usr/bin/cc -D_march=native_c  -march=native -o CMakeFiles/cmTC_f8496.dir/src.c.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-pjzr6g/src.c
+        Linking C executable cmTC_f8496
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_f8496.dir/link.txt --verbose=1
+        /usr/bin/cc CMakeFiles/cmTC_f8496.dir/src.c.o -o cmTC_f8496
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-pjzr6g'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-pjzr6g'
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:85 (check_cxx_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_cxx"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-QVBPym"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-QVBPym"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_cxx"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-QVBPym'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_18b50/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-QVBPym'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_18b50.dir/build.make CMakeFiles/cmTC_18b50.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-QVBPym'
+        Building CXX object CMakeFiles/cmTC_18b50.dir/src.cxx.o
+        /usr/bin/c++ -D_march=native_cxx  -march=native -o CMakeFiles/cmTC_18b50.dir/src.cxx.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-QVBPym/src.cxx
+        Linking CXX executable cmTC_18b50
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_18b50.dir/link.txt --verbose=1
+        /usr/bin/c++ CMakeFiles/cmTC_18b50.dir/src.cxx.o -o cmTC_18b50
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-QVBPym'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-QVBPym'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCCompilerFlag.cmake:51 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:91 (check_c_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_c"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-eZRxkl"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-eZRxkl"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_c"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-eZRxkl'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_af6d4/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-eZRxkl'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_af6d4.dir/build.make CMakeFiles/cmTC_af6d4.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-eZRxkl'
+        Building C object CMakeFiles/cmTC_af6d4.dir/src.c.o
+        /usr/bin/cc -D_march=native_c  -march=native -o CMakeFiles/cmTC_af6d4.dir/src.c.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-eZRxkl/src.c
+        Linking C executable cmTC_af6d4
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_af6d4.dir/link.txt --verbose=1
+        /usr/bin/cc CMakeFiles/cmTC_af6d4.dir/src.c.o -o cmTC_af6d4
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-eZRxkl'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-eZRxkl'
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:85 (check_cxx_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_cxx"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-o6XzdV"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-o6XzdV"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_cxx"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-o6XzdV'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_41956/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-o6XzdV'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_41956.dir/build.make CMakeFiles/cmTC_41956.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-o6XzdV'
+        Building CXX object CMakeFiles/cmTC_41956.dir/src.cxx.o
+        /usr/bin/c++ -D_march=native_cxx  -march=native -o CMakeFiles/cmTC_41956.dir/src.cxx.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-o6XzdV/src.cxx
+        Linking CXX executable cmTC_41956
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_41956.dir/link.txt --verbose=1
+        /usr/bin/c++ CMakeFiles/cmTC_41956.dir/src.cxx.o -o cmTC_41956
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-o6XzdV'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-o6XzdV'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCCompilerFlag.cmake:51 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:91 (check_c_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_c"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-CbSXzH"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-CbSXzH"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_c"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-CbSXzH'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_6b426/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-CbSXzH'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_6b426.dir/build.make CMakeFiles/cmTC_6b426.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-CbSXzH'
+        Building C object CMakeFiles/cmTC_6b426.dir/src.c.o
+        /usr/bin/cc -D_march=native_c  -march=native -o CMakeFiles/cmTC_6b426.dir/src.c.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-CbSXzH/src.c
+        Linking C executable cmTC_6b426
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_6b426.dir/link.txt --verbose=1
+        /usr/bin/cc CMakeFiles/cmTC_6b426.dir/src.c.o -o cmTC_6b426
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-CbSXzH'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-CbSXzH'
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:85 (check_cxx_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_cxx"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-WNLYAp"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-WNLYAp"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_cxx"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-WNLYAp'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_9cb62/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-WNLYAp'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_9cb62.dir/build.make CMakeFiles/cmTC_9cb62.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-WNLYAp'
+        Building CXX object CMakeFiles/cmTC_9cb62.dir/src.cxx.o
+        /usr/bin/c++ -D_march=native_cxx  -march=native -o CMakeFiles/cmTC_9cb62.dir/src.cxx.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-WNLYAp/src.cxx
+        Linking CXX executable cmTC_9cb62
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_9cb62.dir/link.txt --verbose=1
+        /usr/bin/c++ CMakeFiles/cmTC_9cb62.dir/src.cxx.o -o cmTC_9cb62
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-WNLYAp'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-WNLYAp'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCCompilerFlag.cmake:51 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:91 (check_c_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_c"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-Ofv8sB"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-Ofv8sB"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_c"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-Ofv8sB'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_1123d/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-Ofv8sB'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_1123d.dir/build.make CMakeFiles/cmTC_1123d.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-Ofv8sB'
+        Building C object CMakeFiles/cmTC_1123d.dir/src.c.o
+        /usr/bin/cc -D_march=native_c  -march=native -o CMakeFiles/cmTC_1123d.dir/src.c.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-Ofv8sB/src.c
+        Linking C executable cmTC_1123d
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_1123d.dir/link.txt --verbose=1
+        /usr/bin/cc CMakeFiles/cmTC_1123d.dir/src.c.o -o cmTC_1123d
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-Ofv8sB'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-Ofv8sB'
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:85 (check_cxx_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_cxx"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-xbUt0N"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-xbUt0N"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_cxx"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-xbUt0N'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_8f6bb/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-xbUt0N'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_8f6bb.dir/build.make CMakeFiles/cmTC_8f6bb.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-xbUt0N'
+        Building CXX object CMakeFiles/cmTC_8f6bb.dir/src.cxx.o
+        /usr/bin/c++ -D_march=native_cxx  -march=native -o CMakeFiles/cmTC_8f6bb.dir/src.cxx.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-xbUt0N/src.cxx
+        Linking CXX executable cmTC_8f6bb
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_8f6bb.dir/link.txt --verbose=1
+        /usr/bin/c++ CMakeFiles/cmTC_8f6bb.dir/src.cxx.o -o cmTC_8f6bb
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-xbUt0N'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-xbUt0N'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCCompilerFlag.cmake:51 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:91 (check_c_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_c"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-3aQjn5"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-3aQjn5"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_c"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-3aQjn5'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_ce52a/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-3aQjn5'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_ce52a.dir/build.make CMakeFiles/cmTC_ce52a.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-3aQjn5'
+        Building C object CMakeFiles/cmTC_ce52a.dir/src.c.o
+        /usr/bin/cc -D_march=native_c  -march=native -o CMakeFiles/cmTC_ce52a.dir/src.c.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-3aQjn5/src.c
+        Linking C executable cmTC_ce52a
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_ce52a.dir/link.txt --verbose=1
+        /usr/bin/cc CMakeFiles/cmTC_ce52a.dir/src.c.o -o cmTC_ce52a
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-3aQjn5'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-3aQjn5'
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:85 (check_cxx_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_cxx"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-ySnXQX"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-ySnXQX"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_cxx"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-ySnXQX'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_0be20/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-ySnXQX'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_0be20.dir/build.make CMakeFiles/cmTC_0be20.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-ySnXQX'
+        Building CXX object CMakeFiles/cmTC_0be20.dir/src.cxx.o
+        /usr/bin/c++ -D_march=native_cxx  -march=native -o CMakeFiles/cmTC_0be20.dir/src.cxx.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-ySnXQX/src.cxx
+        Linking CXX executable cmTC_0be20
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_0be20.dir/link.txt --verbose=1
+        /usr/bin/c++ CMakeFiles/cmTC_0be20.dir/src.cxx.o -o cmTC_0be20
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-ySnXQX'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-ySnXQX'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCCompilerFlag.cmake:51 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:91 (check_c_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_c"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-FGpFn1"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-FGpFn1"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_c"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-FGpFn1'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_8a531/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-FGpFn1'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_8a531.dir/build.make CMakeFiles/cmTC_8a531.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-FGpFn1'
+        Building C object CMakeFiles/cmTC_8a531.dir/src.c.o
+        /usr/bin/cc -D_march=native_c  -march=native -o CMakeFiles/cmTC_8a531.dir/src.c.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-FGpFn1/src.c
+        Linking C executable cmTC_8a531
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_8a531.dir/link.txt --verbose=1
+        /usr/bin/cc CMakeFiles/cmTC_8a531.dir/src.c.o -o cmTC_8a531
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-FGpFn1'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-FGpFn1'
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:85 (check_cxx_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_cxx"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-YaJfdT"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-YaJfdT"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_cxx"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-YaJfdT'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_eb949/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-YaJfdT'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_eb949.dir/build.make CMakeFiles/cmTC_eb949.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-YaJfdT'
+        Building CXX object CMakeFiles/cmTC_eb949.dir/src.cxx.o
+        /usr/bin/c++ -D_march=native_cxx  -march=native -o CMakeFiles/cmTC_eb949.dir/src.cxx.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-YaJfdT/src.cxx
+        Linking CXX executable cmTC_eb949
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_eb949.dir/link.txt --verbose=1
+        /usr/bin/c++ CMakeFiles/cmTC_eb949.dir/src.cxx.o -o cmTC_eb949
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-YaJfdT'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-YaJfdT'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCCompilerFlag.cmake:51 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:91 (check_c_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_c"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-QH8tWv"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-QH8tWv"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_c"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-QH8tWv'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_fa8e2/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-QH8tWv'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_fa8e2.dir/build.make CMakeFiles/cmTC_fa8e2.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-QH8tWv'
+        Building C object CMakeFiles/cmTC_fa8e2.dir/src.c.o
+        /usr/bin/cc -D_march=native_c  -march=native -o CMakeFiles/cmTC_fa8e2.dir/src.c.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-QH8tWv/src.c
+        Linking C executable cmTC_fa8e2
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_fa8e2.dir/link.txt --verbose=1
+        /usr/bin/cc CMakeFiles/cmTC_fa8e2.dir/src.c.o -o cmTC_fa8e2
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-QH8tWv'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-QH8tWv'
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:85 (check_cxx_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_cxx"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-qaWkLb"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-qaWkLb"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_cxx"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-qaWkLb'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_149f0/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-qaWkLb'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_149f0.dir/build.make CMakeFiles/cmTC_149f0.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-qaWkLb'
+        Building CXX object CMakeFiles/cmTC_149f0.dir/src.cxx.o
+        /usr/bin/c++ -D_march=native_cxx  -march=native -o CMakeFiles/cmTC_149f0.dir/src.cxx.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-qaWkLb/src.cxx
+        Linking CXX executable cmTC_149f0
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_149f0.dir/link.txt --verbose=1
+        /usr/bin/c++ CMakeFiles/cmTC_149f0.dir/src.cxx.o -o cmTC_149f0
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-qaWkLb'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-qaWkLb'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCCompilerFlag.cmake:51 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:91 (check_c_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_c"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-tiIn5E"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-tiIn5E"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_c"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-tiIn5E'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_3107b/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-tiIn5E'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_3107b.dir/build.make CMakeFiles/cmTC_3107b.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-tiIn5E'
+        Building C object CMakeFiles/cmTC_3107b.dir/src.c.o
+        /usr/bin/cc -D_march=native_c  -march=native -o CMakeFiles/cmTC_3107b.dir/src.c.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-tiIn5E/src.c
+        Linking C executable cmTC_3107b
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_3107b.dir/link.txt --verbose=1
+        /usr/bin/cc CMakeFiles/cmTC_3107b.dir/src.c.o -o cmTC_3107b
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-tiIn5E'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-tiIn5E'
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:85 (check_cxx_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_cxx"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-m679D2"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-m679D2"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_cxx"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-m679D2'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_97dd0/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-m679D2'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_97dd0.dir/build.make CMakeFiles/cmTC_97dd0.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-m679D2'
+        Building CXX object CMakeFiles/cmTC_97dd0.dir/src.cxx.o
+        /usr/bin/c++ -D_march=native_cxx  -march=native -o CMakeFiles/cmTC_97dd0.dir/src.cxx.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-m679D2/src.cxx
+        Linking CXX executable cmTC_97dd0
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_97dd0.dir/link.txt --verbose=1
+        /usr/bin/c++ CMakeFiles/cmTC_97dd0.dir/src.cxx.o -o cmTC_97dd0
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-m679D2'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-m679D2'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCCompilerFlag.cmake:51 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:91 (check_c_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_c"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-3upy8k"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-3upy8k"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_c"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-3upy8k'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_7b4d2/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-3upy8k'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_7b4d2.dir/build.make CMakeFiles/cmTC_7b4d2.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-3upy8k'
+        Building C object CMakeFiles/cmTC_7b4d2.dir/src.c.o
+        /usr/bin/cc -D_march=native_c  -march=native -o CMakeFiles/cmTC_7b4d2.dir/src.c.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-3upy8k/src.c
+        Linking C executable cmTC_7b4d2
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_7b4d2.dir/link.txt --verbose=1
+        /usr/bin/cc CMakeFiles/cmTC_7b4d2.dir/src.c.o -o cmTC_7b4d2
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-3upy8k'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-3upy8k'
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:85 (check_cxx_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_cxx"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-DjqyYA"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-DjqyYA"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_cxx"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-DjqyYA'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_5dfe3/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-DjqyYA'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_5dfe3.dir/build.make CMakeFiles/cmTC_5dfe3.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-DjqyYA'
+        Building CXX object CMakeFiles/cmTC_5dfe3.dir/src.cxx.o
+        /usr/bin/c++ -D_march=native_cxx  -march=native -o CMakeFiles/cmTC_5dfe3.dir/src.cxx.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-DjqyYA/src.cxx
+        Linking CXX executable cmTC_5dfe3
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_5dfe3.dir/link.txt --verbose=1
+        /usr/bin/c++ CMakeFiles/cmTC_5dfe3.dir/src.cxx.o -o cmTC_5dfe3
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-DjqyYA'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-DjqyYA'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCCompilerFlag.cmake:51 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:91 (check_c_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_c"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-BymhzU"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-BymhzU"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_c"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-BymhzU'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_f2bfa/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-BymhzU'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_f2bfa.dir/build.make CMakeFiles/cmTC_f2bfa.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-BymhzU'
+        Building C object CMakeFiles/cmTC_f2bfa.dir/src.c.o
+        /usr/bin/cc -D_march=native_c  -march=native -o CMakeFiles/cmTC_f2bfa.dir/src.c.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-BymhzU/src.c
+        Linking C executable cmTC_f2bfa
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_f2bfa.dir/link.txt --verbose=1
+        /usr/bin/cc CMakeFiles/cmTC_f2bfa.dir/src.c.o -o cmTC_f2bfa
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-BymhzU'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-BymhzU'
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:85 (check_cxx_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_cxx"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-itRHpP"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-itRHpP"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_cxx"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-itRHpP'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_8897d/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-itRHpP'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_8897d.dir/build.make CMakeFiles/cmTC_8897d.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-itRHpP'
+        Building CXX object CMakeFiles/cmTC_8897d.dir/src.cxx.o
+        /usr/bin/c++ -D_march=native_cxx  -march=native -o CMakeFiles/cmTC_8897d.dir/src.cxx.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-itRHpP/src.cxx
+        Linking CXX executable cmTC_8897d
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_8897d.dir/link.txt --verbose=1
+        /usr/bin/c++ CMakeFiles/cmTC_8897d.dir/src.cxx.o -o cmTC_8897d
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-itRHpP'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-itRHpP'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCCompilerFlag.cmake:51 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:91 (check_c_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_c"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-bPkezc"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-bPkezc"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_c"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-bPkezc'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_5dfc6/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-bPkezc'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_5dfc6.dir/build.make CMakeFiles/cmTC_5dfc6.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-bPkezc'
+        Building C object CMakeFiles/cmTC_5dfc6.dir/src.c.o
+        /usr/bin/cc -D_march=native_c  -march=native -o CMakeFiles/cmTC_5dfc6.dir/src.c.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-bPkezc/src.c
+        Linking C executable cmTC_5dfc6
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_5dfc6.dir/link.txt --verbose=1
+        /usr/bin/cc CMakeFiles/cmTC_5dfc6.dir/src.c.o -o cmTC_5dfc6
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-bPkezc'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-bPkezc'
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:85 (check_cxx_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_cxx"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-OXRrXW"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-OXRrXW"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_cxx"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-OXRrXW'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_d5837/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-OXRrXW'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_d5837.dir/build.make CMakeFiles/cmTC_d5837.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-OXRrXW'
+        Building CXX object CMakeFiles/cmTC_d5837.dir/src.cxx.o
+        /usr/bin/c++ -D_march=native_cxx  -march=native -o CMakeFiles/cmTC_d5837.dir/src.cxx.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-OXRrXW/src.cxx
+        Linking CXX executable cmTC_d5837
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_d5837.dir/link.txt --verbose=1
+        /usr/bin/c++ CMakeFiles/cmTC_d5837.dir/src.cxx.o -o cmTC_d5837
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-OXRrXW'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-OXRrXW'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCCompilerFlag.cmake:51 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:91 (check_c_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_c"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-4WwKMK"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-4WwKMK"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_c"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-4WwKMK'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_2ba3d/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-4WwKMK'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_2ba3d.dir/build.make CMakeFiles/cmTC_2ba3d.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-4WwKMK'
+        Building C object CMakeFiles/cmTC_2ba3d.dir/src.c.o
+        /usr/bin/cc -D_march=native_c  -march=native -o CMakeFiles/cmTC_2ba3d.dir/src.c.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-4WwKMK/src.c
+        Linking C executable cmTC_2ba3d
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_2ba3d.dir/link.txt --verbose=1
+        /usr/bin/cc CMakeFiles/cmTC_2ba3d.dir/src.c.o -o cmTC_2ba3d
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-4WwKMK'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-4WwKMK'
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:85 (check_cxx_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_cxx"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-Cwwnyl"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-Cwwnyl"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_cxx"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-Cwwnyl'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_8b3e5/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-Cwwnyl'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_8b3e5.dir/build.make CMakeFiles/cmTC_8b3e5.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-Cwwnyl'
+        Building CXX object CMakeFiles/cmTC_8b3e5.dir/src.cxx.o
+        /usr/bin/c++ -D_march=native_cxx  -march=native -o CMakeFiles/cmTC_8b3e5.dir/src.cxx.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-Cwwnyl/src.cxx
+        Linking CXX executable cmTC_8b3e5
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_8b3e5.dir/link.txt --verbose=1
+        /usr/bin/c++ CMakeFiles/cmTC_8b3e5.dir/src.cxx.o -o cmTC_8b3e5
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-Cwwnyl'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-Cwwnyl'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCCompilerFlag.cmake:51 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:91 (check_c_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_c"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-R9CKLR"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-R9CKLR"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_c"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-R9CKLR'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_47ba2/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-R9CKLR'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_47ba2.dir/build.make CMakeFiles/cmTC_47ba2.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-R9CKLR'
+        Building C object CMakeFiles/cmTC_47ba2.dir/src.c.o
+        /usr/bin/cc -D_march=native_c  -march=native -o CMakeFiles/cmTC_47ba2.dir/src.c.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-R9CKLR/src.c
+        Linking C executable cmTC_47ba2
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_47ba2.dir/link.txt --verbose=1
+        /usr/bin/cc CMakeFiles/cmTC_47ba2.dir/src.c.o -o cmTC_47ba2
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-R9CKLR'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-R9CKLR'
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:85 (check_cxx_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_cxx"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-f1vVu0"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-f1vVu0"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_cxx"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-f1vVu0'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_9bc83/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-f1vVu0'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_9bc83.dir/build.make CMakeFiles/cmTC_9bc83.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-f1vVu0'
+        Building CXX object CMakeFiles/cmTC_9bc83.dir/src.cxx.o
+        /usr/bin/c++ -D_march=native_cxx  -march=native -o CMakeFiles/cmTC_9bc83.dir/src.cxx.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-f1vVu0/src.cxx
+        Linking CXX executable cmTC_9bc83
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_9bc83.dir/link.txt --verbose=1
+        /usr/bin/c++ CMakeFiles/cmTC_9bc83.dir/src.cxx.o -o cmTC_9bc83
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-f1vVu0'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-f1vVu0'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCCompilerFlag.cmake:51 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:91 (check_c_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_c"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-iQVFKQ"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-iQVFKQ"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_c"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-iQVFKQ'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_c59d0/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-iQVFKQ'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_c59d0.dir/build.make CMakeFiles/cmTC_c59d0.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-iQVFKQ'
+        Building C object CMakeFiles/cmTC_c59d0.dir/src.c.o
+        /usr/bin/cc -D_march=native_c  -march=native -o CMakeFiles/cmTC_c59d0.dir/src.c.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-iQVFKQ/src.c
+        Linking C executable cmTC_c59d0
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_c59d0.dir/link.txt --verbose=1
+        /usr/bin/cc CMakeFiles/cmTC_c59d0.dir/src.c.o -o cmTC_c59d0
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-iQVFKQ'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-iQVFKQ'
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:85 (check_cxx_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_cxx"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-tXymgn"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-tXymgn"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_cxx"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-tXymgn'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_e0665/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-tXymgn'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_e0665.dir/build.make CMakeFiles/cmTC_e0665.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-tXymgn'
+        Building CXX object CMakeFiles/cmTC_e0665.dir/src.cxx.o
+        /usr/bin/c++ -D_march=native_cxx  -march=native -o CMakeFiles/cmTC_e0665.dir/src.cxx.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-tXymgn/src.cxx
+        Linking CXX executable cmTC_e0665
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_e0665.dir/link.txt --verbose=1
+        /usr/bin/c++ CMakeFiles/cmTC_e0665.dir/src.cxx.o -o cmTC_e0665
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-tXymgn'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-tXymgn'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCCompilerFlag.cmake:51 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:91 (check_c_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_c"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-L3XPdv"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-L3XPdv"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_c"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-L3XPdv'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_9024d/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-L3XPdv'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_9024d.dir/build.make CMakeFiles/cmTC_9024d.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-L3XPdv'
+        Building C object CMakeFiles/cmTC_9024d.dir/src.c.o
+        /usr/bin/cc -D_march=native_c  -march=native -o CMakeFiles/cmTC_9024d.dir/src.c.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-L3XPdv/src.c
+        Linking C executable cmTC_9024d
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_9024d.dir/link.txt --verbose=1
+        /usr/bin/cc CMakeFiles/cmTC_9024d.dir/src.c.o -o cmTC_9024d
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-L3XPdv'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-L3XPdv'
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:85 (check_cxx_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_cxx"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-CePHXn"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-CePHXn"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_cxx"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-CePHXn'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_09194/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-CePHXn'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_09194.dir/build.make CMakeFiles/cmTC_09194.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-CePHXn'
+        Building CXX object CMakeFiles/cmTC_09194.dir/src.cxx.o
+        /usr/bin/c++ -D_march=native_cxx  -march=native -o CMakeFiles/cmTC_09194.dir/src.cxx.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-CePHXn/src.cxx
+        Linking CXX executable cmTC_09194
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_09194.dir/link.txt --verbose=1
+        /usr/bin/c++ CMakeFiles/cmTC_09194.dir/src.cxx.o -o cmTC_09194
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-CePHXn'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-CePHXn'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCCompilerFlag.cmake:51 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:91 (check_c_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_c"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-b0HoMS"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-b0HoMS"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_c"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-b0HoMS'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_ecbe0/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-b0HoMS'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_ecbe0.dir/build.make CMakeFiles/cmTC_ecbe0.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-b0HoMS'
+        Building C object CMakeFiles/cmTC_ecbe0.dir/src.c.o
+        /usr/bin/cc -D_march=native_c  -march=native -o CMakeFiles/cmTC_ecbe0.dir/src.c.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-b0HoMS/src.c
+        Linking C executable cmTC_ecbe0
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_ecbe0.dir/link.txt --verbose=1
+        /usr/bin/cc CMakeFiles/cmTC_ecbe0.dir/src.c.o -o cmTC_ecbe0
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-b0HoMS'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-b0HoMS'
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:85 (check_cxx_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_cxx"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-P8677U"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-P8677U"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_cxx"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-P8677U'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_b65ef/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-P8677U'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_b65ef.dir/build.make CMakeFiles/cmTC_b65ef.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-P8677U'
+        Building CXX object CMakeFiles/cmTC_b65ef.dir/src.cxx.o
+        /usr/bin/c++ -D_march=native_cxx  -march=native -o CMakeFiles/cmTC_b65ef.dir/src.cxx.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-P8677U/src.cxx
+        Linking CXX executable cmTC_b65ef
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_b65ef.dir/link.txt --verbose=1
+        /usr/bin/c++ CMakeFiles/cmTC_b65ef.dir/src.cxx.o -o cmTC_b65ef
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-P8677U'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-P8677U'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCCompilerFlag.cmake:51 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:91 (check_c_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_c"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-zNV66m"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-zNV66m"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_c"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-zNV66m'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_af98b/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-zNV66m'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_af98b.dir/build.make CMakeFiles/cmTC_af98b.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-zNV66m'
+        Building C object CMakeFiles/cmTC_af98b.dir/src.c.o
+        /usr/bin/cc -D_march=native_c  -march=native -o CMakeFiles/cmTC_af98b.dir/src.c.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-zNV66m/src.c
+        Linking C executable cmTC_af98b
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_af98b.dir/link.txt --verbose=1
+        /usr/bin/cc CMakeFiles/cmTC_af98b.dir/src.c.o -o cmTC_af98b
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-zNV66m'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-zNV66m'
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:85 (check_cxx_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_cxx"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-bATJHq"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-bATJHq"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_cxx"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-bATJHq'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_5ec9e/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-bATJHq'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_5ec9e.dir/build.make CMakeFiles/cmTC_5ec9e.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-bATJHq'
+        Building CXX object CMakeFiles/cmTC_5ec9e.dir/src.cxx.o
+        /usr/bin/c++ -D_march=native_cxx  -march=native -o CMakeFiles/cmTC_5ec9e.dir/src.cxx.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-bATJHq/src.cxx
+        Linking CXX executable cmTC_5ec9e
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_5ec9e.dir/link.txt --verbose=1
+        /usr/bin/c++ CMakeFiles/cmTC_5ec9e.dir/src.cxx.o -o cmTC_5ec9e
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-bATJHq'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-bATJHq'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCCompilerFlag.cmake:51 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:91 (check_c_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_c"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-HuatKM"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-HuatKM"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_c"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-HuatKM'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_20ee4/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-HuatKM'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_20ee4.dir/build.make CMakeFiles/cmTC_20ee4.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-HuatKM'
+        Building C object CMakeFiles/cmTC_20ee4.dir/src.c.o
+        /usr/bin/cc -D_march=native_c  -march=native -o CMakeFiles/cmTC_20ee4.dir/src.c.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-HuatKM/src.c
+        Linking C executable cmTC_20ee4
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_20ee4.dir/link.txt --verbose=1
+        /usr/bin/cc CMakeFiles/cmTC_20ee4.dir/src.c.o -o cmTC_20ee4
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-HuatKM'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-HuatKM'
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:85 (check_cxx_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_cxx"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-bmJ3U2"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-bmJ3U2"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_cxx"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-bmJ3U2'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_f7b5e/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-bmJ3U2'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_f7b5e.dir/build.make CMakeFiles/cmTC_f7b5e.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-bmJ3U2'
+        Building CXX object CMakeFiles/cmTC_f7b5e.dir/src.cxx.o
+        /usr/bin/c++ -D_march=native_cxx  -march=native -o CMakeFiles/cmTC_f7b5e.dir/src.cxx.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-bmJ3U2/src.cxx
+        Linking CXX executable cmTC_f7b5e
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_f7b5e.dir/link.txt --verbose=1
+        /usr/bin/c++ CMakeFiles/cmTC_f7b5e.dir/src.cxx.o -o cmTC_f7b5e
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-bmJ3U2'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-bmJ3U2'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCCompilerFlag.cmake:51 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:91 (check_c_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_c"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-gQa7D4"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-gQa7D4"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_c"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-gQa7D4'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_f40f9/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-gQa7D4'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_f40f9.dir/build.make CMakeFiles/cmTC_f40f9.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-gQa7D4'
+        Building C object CMakeFiles/cmTC_f40f9.dir/src.c.o
+        /usr/bin/cc -D_march=native_c  -march=native -o CMakeFiles/cmTC_f40f9.dir/src.c.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-gQa7D4/src.c
+        Linking C executable cmTC_f40f9
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_f40f9.dir/link.txt --verbose=1
+        /usr/bin/cc CMakeFiles/cmTC_f40f9.dir/src.c.o -o cmTC_f40f9
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-gQa7D4'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-gQa7D4'
+        
+      exitCode: 0
+...

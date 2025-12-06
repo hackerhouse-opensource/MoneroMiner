@@ -92,7 +92,7 @@ randomx__tests_EXTERNAL_OBJECTS =
 
 randomx-tests: CMakeFiles/randomx-tests.dir/src/tests/tests.cpp.o
 randomx-tests: CMakeFiles/randomx-tests.dir/build.make
-randomx-tests: librandomx.so
+randomx-tests: librandomx.a
 randomx-tests: CMakeFiles/randomx-tests.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Linking CXX executable randomx-tests"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/randomx-tests.dir/link.txt --verbose=$(VERBOSE)

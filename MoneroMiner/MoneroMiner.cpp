@@ -15,6 +15,7 @@
 #include "Utils.h"
 #include "Job.h"
 #include "Globals.h"
+#include "Platform.h" // use Platform abstraction instead of direct windows.h
 #include <iostream>
 #include <thread>
 #include <vector>
@@ -27,11 +28,15 @@
 #include <fstream>
 #include <unordered_set>
 #include <array> // Add for 256-bit target
-#include <windows.h> // Add for headless mode
-#include <intrin.h>
-#include <sysinfoapi.h>
-#include <powerbase.h>
-#pragma comment(lib, "PowrProf.lib")
+
+// Windows-only headers (keep only on Windows)
+#ifdef PLATFORM_WINDOWS
+    #include <windows.h> // Add for headless mode on Windows only
+    #include <intrin.h>
+    #include <sysinfoapi.h>
+    #include <powerbase.h>
+    #pragma comment(lib, "PowrProf.lib")
+#endif
 
 // Global variable declarations (not definitions)
 extern std::atomic<uint32_t> activeJobId;
@@ -103,6 +108,7 @@ bool meetsTarget256(const uint8_t* hash, const uint8_t* target) {
 
 // New function: Get detailed CPU information
 std::string getCPUBrandString() {
+#ifdef PLATFORM_WINDOWS
     int cpuInfo[4] = {0};
     char cpuBrand[0x40] = {0};
     
@@ -114,10 +120,14 @@ std::string getCPUBrandString() {
     memcpy(cpuBrand + 32, cpuInfo, sizeof(cpuInfo));
     
     return std::string(cpuBrand);
+#else
+    return Platform::getCPUBrand();
+#endif
 }
 
 // New function: Check CPU features
 std::string getCPUFeatures() {
+#ifdef PLATFORM_WINDOWS
     int cpuInfo[4] = {0};
     __cpuid(cpuInfo, 1);
     
@@ -134,10 +144,14 @@ std::string getCPUFeatures() {
     features += " VM"; // RandomX VM support
     
     return features;
+#else
+    return Platform::getCPUFeatures();
+#endif
 }
 
 // Fixed: Check huge pages support properly
 std::string getHugePagesInfo() {
+#ifdef PLATFORM_WINDOWS
     HANDLE token;
     if (OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token)) {
         LUID luid;
@@ -157,10 +171,14 @@ std::string getHugePagesInfo() {
         CloseHandle(token);
     }
     return "unavailable";
+#else
+    return Platform::getHugePagesInfo();
+#endif
 }
 
 // New function: Get memory info including DIMM details
 void printMemoryInfo() {
+#ifdef PLATFORM_WINDOWS
     MEMORYSTATUSEX memInfo;
     memInfo.dwLength = sizeof(MEMORYSTATUSEX);
     GlobalMemoryStatusEx(&memInfo);
@@ -174,19 +192,25 @@ void printMemoryInfo() {
               << totalGB << " GB (" << usage << "%)" << std::endl;
     
     // Try to get DIMM information via WMI (basic implementation)
-    // Note: Full DIMM detection requires WMI COM calls which is complex
-    // For now, show simplified info
     std::cout << "                (DIMM details require WMI - see Task Manager for full info)" << std::endl;
+#else
+    double usedGB = 0.0, totalGB = 0.0;
+    int usage = 0;
+    Platform::getMemoryInfo(usedGB, totalGB, usage);
+    std::cout << " * MEMORY       "
+              << std::fixed << std::setprecision(1) << usedGB << "/"
+              << totalGB << " GB (" << usage << "%)" << std::endl;
+    std::cout << "                (" << Platform::getHugePagesInfo() << ")" << std::endl;
+#endif
 }
 
 // New function: Get motherboard info
 void printMotherboardInfo() {
-    std::cout << " * MOTHERBOARD  ";
-    
-    // Try to read from registry (Windows stores some info here)
+#ifdef PLATFORM_WINDOWS
+    // Print only the motherboard value (label printed by caller)
     HKEY hKey;
-    if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, 
-                      "HARDWARE\\DESCRIPTION\\System\\BIOS", 
+    if (RegOpenKeyExA(HKEY_LOCAL_MACHINE,
+                      "HARDWARE\\DESCRIPTION\\System\\BIOS",
                       0, KEY_READ, &hKey) == ERROR_SUCCESS) {
         char manufacturer[256] = {0};
         char product[256] = {0};
@@ -201,10 +225,14 @@ void printMotherboardInfo() {
     } else {
         std::cout << "Unknown (registry access failed)" << std::endl;
     }
+#else
+    std::cout << Platform::getMotherboardInfo() << std::endl;
+#endif
 }
 
 // Simplified: Print detailed system information (clean format with lowercase labels)
 void printDetailedSystemInfo() {
+#ifdef PLATFORM_WINDOWS
     SYSTEM_INFO sysInfo;
     GetSystemInfo(&sysInfo);
     
@@ -220,52 +248,42 @@ void printDetailedSystemInfo() {
     
     bool is64bit = sizeof(void*) == 8;
     
-    // CPU - dynamic detection
-    std::cout << "CPU:          " << cpuBrand << " (1) " 
+    // CPU - show brand and thread count inline
+    std::cout << "CPU:          " << cpuBrand << " (" << sysInfo.dwNumberOfProcessors << " threads) "
               << (is64bit ? "64-bit" : "32-bit") << cpuFeatures << std::endl;
-    std::cout << "              " << sysInfo.dwNumberOfProcessors << " threads" << std::endl;
     
     // Memory - dynamic calculation
-    MEMORYSTATUSEX memInfo;
-    memInfo.dwLength = sizeof(MEMORYSTATUSEX);
-    GlobalMemoryStatusEx(&memInfo);
-    
-    double usedGB = (memInfo.ullTotalPhys - memInfo.ullAvailPhys) / (1024.0 * 1024.0 * 1024.0);
-    double totalGB = memInfo.ullTotalPhys / (1024.0 * 1024.0 * 1024.0);
-    int usage = memInfo.dwMemoryLoad;
-    
-    std::cout << "Memory:       " 
-              << std::fixed << std::setprecision(1) << usedGB << "/"
-              << totalGB << " GB (" << usage << "%)" << std::endl;
+    printMemoryInfo();
     
     // Motherboard - dynamic registry read
     std::cout << "Motherboard:  ";
-    HKEY hKey;
-    if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, 
-                      "HARDWARE\\DESCRIPTION\\System\\BIOS", 
-                      0, KEY_READ, &hKey) == ERROR_SUCCESS) {
-        char manufacturer[256] = {0};
-        char product[256] = {0};
-        DWORD size = sizeof(manufacturer);
-        
-        RegQueryValueExA(hKey, "SystemManufacturer", NULL, NULL, (LPBYTE)manufacturer, &size);
-        size = sizeof(product);
-        RegQueryValueExA(hKey, "SystemProductName", NULL, NULL, (LPBYTE)product, &size);
-        
-        std::cout << manufacturer << " - " << product << std::endl;
-        RegCloseKey(hKey);
-    } else {
-        std::cout << "Unknown" << std::endl;
-    }
+    printMotherboardInfo();
     
     // Threads - from config
     std::cout << "Threads:      " << config.numThreads << std::endl;
     
     // Algorithm
     std::cout << "Algorithm:    RandomX (rx/0)" << std::endl;
+
+    // Privileges - print elevated status using Platform API
+    std::cout << (Platform::isRunningElevated() ? "Privileges: elevated" : "Privileges: normal") << std::endl;
+#else
+    // Use Platform helpers on POSIX
+    std::string cpuBrand = Platform::getCPUBrand();
+    std::string cpuFeatures = Platform::getCPUFeatures();
+    unsigned int logicalProcessors = Platform::getLogicalProcessors();
+    double usedGB = 0.0, totalGB = 0.0;
+    int usage = 0;
+    Platform::getMemoryInfo(usedGB, totalGB, usage);
+    std::string mboard = Platform::getMotherboardInfo();
     
-    // Privileges - NEW
-    std::cout << Utils::getPrivilegeStatus() << std::endl;
+    std::cout << "CPU:          " << cpuBrand << " (" << logicalProcessors << " threads) " << cpuFeatures << std::endl;
+    std::cout << "Memory:       " << std::fixed << std::setprecision(1) << usedGB << "/" << totalGB << " GB (" << usage << "%)" << std::endl;
+    std::cout << "Motherboard:  " << mboard << std::endl;
+    std::cout << "Threads:      " << config.numThreads << std::endl;
+    std::cout << "Algorithm:    RandomX (rx/0)" << std::endl;
+    std::cout << (Platform::isRunningElevated() ? "Privileges: elevated" : "Privileges: normal") << std::endl;
+#endif
 }
 
 void printHelp() {
@@ -835,41 +853,45 @@ bool startMining() {
 }
 
 int main(int argc, char* argv[]) {
+    // Ensure sockets are initialized as early as possible (critical on Windows)
+    if (!Platform::initializeSockets()) {
+        // Use threadSafePrint so output goes to the same place as other logs
+        Utils::threadSafePrint("Fatal: Failed to initialize network sockets (WSAStartup failed)", true);
+        return 1;
+    }
+    Utils::threadSafePrint("Platform sockets initialized", true);
+
     // Check for --help first
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             printHelp();
+            Platform::cleanupSockets(); // cleanup before exit
             return 0;
         }
     }
 
-    // Initialize Winsock
-    WSADATA wsaData;
-    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-        std::cerr << "Failed to initialize Winsock" << std::endl;
-        return 1;
-    }
-
     // Load configuration FIRST
     if (!loadConfig()) {
-        std::cerr << "Failed to load configuration" << std::endl;
-        WSACleanup();
+        Utils::threadSafePrint("Failed to load configuration", true);
+        Platform::cleanupSockets();
         return 1;
     }
 
     // THEN parse command line arguments (so they override config file)
     if (!config.parseCommandLine(argc, argv)) {
-        WSACleanup();
+        Platform::cleanupSockets();
         return 0;  // --help was shown
     }
     
-    // HEADLESS MODE: Hide console window
+    // HEADLESS MODE: Hide console window (Windows only)
+#ifdef PLATFORM_WINDOWS
     if (config.headlessMode) {
         FreeConsole();
         Utils::threadSafePrint("=== HEADLESS MODE ACTIVATED ===", true);
         Utils::threadSafePrint("Miner running in background. Check " + config.logFileName + " for status.", true);
     }
-    
+#endif
+
     // Show the main header with timestamp
     Utils::threadSafePrint("=== MoneroMiner v1.0.0 ===", true);
     
@@ -1025,7 +1047,7 @@ int main(int argc, char* argv[]) {
     RandomXManager::cleanup();
     PoolClient::cleanup();
     
-    WSACleanup();
+    Platform::cleanupSockets(); // ensure Winsock cleaned up on Windows
     
     Utils::threadSafePrint("Miner shut down successfully", true);
     

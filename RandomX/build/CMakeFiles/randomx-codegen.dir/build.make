@@ -92,7 +92,7 @@ randomx__codegen_EXTERNAL_OBJECTS =
 
 randomx-codegen: CMakeFiles/randomx-codegen.dir/src/tests/code-generator.cpp.o
 randomx-codegen: CMakeFiles/randomx-codegen.dir/build.make
-randomx-codegen: librandomx.so
+randomx-codegen: librandomx.a
 randomx-codegen: CMakeFiles/randomx-codegen.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Linking CXX executable randomx-codegen"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/randomx-codegen.dir/link.txt --verbose=$(VERBOSE)

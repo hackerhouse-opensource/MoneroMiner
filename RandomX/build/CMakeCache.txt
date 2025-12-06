@@ -18,7 +18,7 @@
 ARCH:UNINITIALIZED=native
 
 //No help, variable specified on the command line.
-BUILD_SHARED_LIBS:UNINITIALIZED=ON
+BUILD_SHARED_LIBS:UNINITIALIZED=OFF
 
 //Path to a program.
 CMAKE_ADDR2LINE:FILEPATH=/usr/bin/addr2line

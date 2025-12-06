@@ -108,7 +108,7 @@ randomx__benchmark_EXTERNAL_OBJECTS =
 randomx-benchmark: CMakeFiles/randomx-benchmark.dir/src/tests/benchmark.cpp.o
 randomx-benchmark: CMakeFiles/randomx-benchmark.dir/src/tests/affinity.cpp.o
 randomx-benchmark: CMakeFiles/randomx-benchmark.dir/build.make
-randomx-benchmark: librandomx.so
+randomx-benchmark: librandomx.a
 randomx-benchmark: CMakeFiles/randomx-benchmark.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Linking CXX executable randomx-benchmark"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/randomx-benchmark.dir/link.txt --verbose=$(VERBOSE)

@@ -19,12 +19,9 @@ RANDOMX_BUILD = $(RANDOMX_DIR)/build
 # Include paths
 INCLUDES = -I$(SRC_DIR) -I$(RANDOMX_DIR)/src
 
-# Source files (excluding Windows-specific and duplicates)
+# Source files (excluding Windows-specific, old/unused files)
 SOURCES = $(wildcard $(SRC_DIR)/*.cpp)
-SOURCES := $(filter-out $(SRC_DIR)/framework.cpp $(SRC_DIR)/pch.cpp $(SRC_DIR)/main.cpp, $(SOURCES))
-
-# Add Platform.cpp explicitly
-SOURCES += $(SRC_DIR)/Platform.cpp
+SOURCES := $(filter-out $(SRC_DIR)/framework.cpp $(SRC_DIR)/pch.cpp $(SRC_DIR)/main.cpp $(SRC_DIR)/MiningThread.cpp, $(SOURCES))
 
 # Object files
 OBJECTS = $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(SOURCES))
@@ -33,7 +30,7 @@ OBJECTS = $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(SOURCES))
 TARGET = $(BIN_DIR)/monerominer
 
 # RandomX library
-RANDOMX_LIB = $(RANDOMX_BUILD)/librandomx.so
+RANDOMX_LIB = $(RANDOMX_BUILD)/librandomx.a
 
 # Default target
 all: directories randomx $(TARGET)
@@ -49,7 +46,7 @@ randomx: directories
 	@echo "Building RandomX library..."
 	@cd $(RANDOMX_DIR) && mkdir -p build && cd build && \
 	cmake -DCMAKE_BUILD_TYPE=Release \
-	      -DBUILD_SHARED_LIBS=ON \
+	      -DBUILD_SHARED_LIBS=OFF \
 	      -DARCH=native \
 	      .. && \
 	$(MAKE) -j$(nproc)
@@ -58,7 +55,8 @@ randomx: directories
 # Build MoneroMiner
 $(TARGET): $(OBJECTS)
 	@echo "Linking $(TARGET)..."
-	$(CXX) $(OBJECTS) -o $(TARGET) $(LDFLAGS) -L$(RANDOMX_BUILD) -lrandomx -Wl,-rpath,'$$ORIGIN/../../$(RANDOMX_BUILD)'
+	# Link static RandomX directly (no rpath required)
+	$(CXX) $(OBJECTS) $(RANDOMX_LIB) -o $(TARGET) $(LDFLAGS)
 	@echo "Build complete: $(TARGET)"
 
 # Compile source files
@@ -90,7 +88,7 @@ distclean: clean
 # Run the miner
 run: all
 	@echo "Starting MoneroMiner..."
-	LD_LIBRARY_PATH=$(RANDOMX_BUILD):$$LD_LIBRARY_PATH $(TARGET)
+	$(TARGET)
 
 # Debug build
 debug: CXXFLAGS += -g -DDEBUG -O0

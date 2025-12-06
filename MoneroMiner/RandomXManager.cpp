@@ -3,8 +3,23 @@
 #include "Utils.h"  // ADD THIS - was missing!
 #include "Globals.h"  // ADD THIS
 #include <fstream>
+#include <vector>
+#include <mutex>
+#include <atomic>
+#include <chrono>
+#include <iostream>
 #include <sstream>
 #include <iomanip>
+#include <stdexcept>
+#include <memory>
+#include <cstdlib>
+#include <cstdint>
+#include <algorithm>
+#include <random>
+
+// Added missing headers for threads and C string functions
+#include <thread>   // std::thread, hardware_concurrency
+#include <cstring>  // memcpy, memset
 
 static constexpr size_t MAX_BLOB_SIZE = 128;
 
@@ -479,7 +494,7 @@ bool RandomXManager::calculateHashForThread(int threadId, const std::vector<uint
     
     // CRITICAL FIX: DON'T insert nonce - it's already in the input blob!
     // The calling code (MoneroMiner.cpp) already wrote the nonce to the blob
-    std::memcpy(blob, input.data(), input.size());
+    memcpy(blob, input.data(), input.size());
     
     // Calculate hash directly
     randomx_calculate_hash(vm, blob, input.size(), hash);
