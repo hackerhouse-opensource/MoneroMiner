@@ -60,6 +60,9 @@ void updateThreadStats(MiningThreadData* data, uint64_t hashCount, uint64_t tota
                       int elapsedSeconds, const std::string& jobId, uint32_t currentNonce) {
     if (!data) return;
 
+    // suppress unused-parameter warning for hashCount (we don't use this param here)
+    (void)hashCount;
+
     data->incrementHashCount();
     globalStats.totalHashes = totalHashCount;
     globalStats.acceptedShares = data->getAcceptedShares();
