@@ -146,24 +146,39 @@ namespace Platform {
     }
     
     bool hasHugePagesSupport() {
+        // Windows: Check if we have SeLockMemoryPrivilege and can get large page size
+        // To enable permanently: Run gpedit.msc -> Computer Configuration -> Windows Settings
+        // -> Security Settings -> Local Policies -> User Rights Assignment
+        // -> "Lock pages in memory" -> Add your user account -> Restart
         HANDLE token;
-        if (OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token)) {
-            LUID luid;
-            if (LookupPrivilegeValue(NULL, SE_LOCK_MEMORY_NAME, &luid)) {
-                PRIVILEGE_SET ps;
-                ps.PrivilegeCount = 1;
-                ps.Control = PRIVILEGE_SET_ALL_NECESSARY;
-                ps.Privilege[0].Luid = luid;
-                ps.Privilege[0].Attributes = SE_PRIVILEGE_ENABLED;
-                
-                BOOL result = FALSE;
-                if (PrivilegeCheck(token, &ps, &result) && result) {
-                    CloseHandle(token);
-                    return GetLargePageMinimum() != 0;
-                }
-            }
-            CloseHandle(token);
+        if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &token)) {
+            return false;
         }
+        
+        // Try to enable the privilege
+        TOKEN_PRIVILEGES tp;
+        LUID luid;
+        
+        if (!LookupPrivilegeValue(NULL, SE_LOCK_MEMORY_NAME, &luid)) {
+            CloseHandle(token);
+            return false;
+        }
+        
+        tp.PrivilegeCount = 1;
+        tp.Privileges[0].Luid = luid;
+        tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+        
+        BOOL result = AdjustTokenPrivileges(token, FALSE, &tp, 0, NULL, NULL);
+        DWORD error = GetLastError();
+        
+        CloseHandle(token);
+        
+        // Check if privilege was successfully enabled AND large pages are available
+        if (result && error == ERROR_SUCCESS) {
+            SIZE_T pageSize = GetLargePageMinimum();
+            return pageSize != 0;
+        }
+        
         return false;
     }
     
@@ -183,14 +198,45 @@ namespace Platform {
             return "unavailable (not elevated)";
         }
         
-        if (hasHugePagesSupport()) {
-            size_t pageSize = getHugePageSize();
-            std::stringstream ss;
-            ss << "enabled (" << (pageSize / 1024 / 1024) << "MB pages)";
-            return ss.str();
+        // Try to enable the privilege
+        HANDLE token;
+        if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &token)) {
+            return "unavailable (token error)";
         }
         
-        return "unavailable (enable 'Lock pages in memory')";
+        TOKEN_PRIVILEGES tp;
+        LUID luid;
+        
+        if (!LookupPrivilegeValue(NULL, SE_LOCK_MEMORY_NAME, &luid)) {
+            CloseHandle(token);
+            return "unavailable (privilege not found)";
+        }
+        
+        tp.PrivilegeCount = 1;
+        tp.Privileges[0].Luid = luid;
+        tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+        
+        BOOL result = AdjustTokenPrivileges(token, FALSE, &tp, 0, NULL, NULL);
+        DWORD error = GetLastError();
+        
+        CloseHandle(token);
+        
+        if (result && error == ERROR_SUCCESS) {
+            SIZE_T pageSize = GetLargePageMinimum();
+            if (pageSize > 0) {
+                std::stringstream ss;
+                ss << "enabled (" << (pageSize / 1024 / 1024) << "MB pages)";
+                return ss.str();
+            }
+            return "unavailable (GetLargePageMinimum failed)";
+        }
+        
+        // Error codes for better diagnostics
+        if (error == ERROR_NOT_ALL_ASSIGNED) {
+            return "unavailable (privilege not assigned)";
+        }
+        
+        return "unavailable";
     }
 
 #else // PLATFORM_LINUX

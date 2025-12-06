@@ -225,7 +225,7 @@ std::string Utils::getPrivilegeStatus() {
     // Add huge pages status with consistent spacing
     ss << "\nHuge pages: " << (Platform::hasHugePagesSupport() ? "enabled" : "unavailable");
     
-    // Only show 1GB pages info if on Linux and CPU supports it
+    // Only show 1GB pages info on non-Windows platforms
 #ifndef PLATFORM_WINDOWS
     if (Platform::has1GBPagesSupport()) {
         ss << "\n1GB pages: available";
