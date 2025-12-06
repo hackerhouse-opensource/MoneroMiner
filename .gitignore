@@ -438,3 +438,6 @@ $RECYCLE.BIN/
 # Wallet addresses (security)
 wallet.txt
 *.wallet
+
+# RandomX build artifacts
+RandomX/build

@@ -1,1 +1,0 @@
-/usr/bin/c++  -march=native -O3 -DNDEBUG "CMakeFiles/randomx-benchmark.dir/src/tests/benchmark.cpp.o" "CMakeFiles/randomx-benchmark.dir/src/tests/affinity.cpp.o" -o randomx-benchmark  librandomx.a
