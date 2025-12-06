@@ -45,9 +45,6 @@ namespace PoolClient {
 
     bool processShareResponse(const std::string& response) {
         if (response.empty()) {
-            if (config.debugMode) {
-                Utils::threadSafePrint("Empty response (share already counted as accepted)", true);
-            }
             return true;
         }
 
@@ -58,33 +55,10 @@ namespace PoolClient {
                 const picojson::object& obj = v.get<picojson::object>();
                 
                 if (config.debugMode) {
-                    Utils::threadSafePrint("Parsed pool response: " + v.serialize(), true);
+                    Utils::threadSafePrint("Processing additional response data: " + v.serialize(), true);
                 }
 
-                // Check for error response - ONLY case that matters
-                if (obj.find("error") != obj.end() && !obj.at("error").is<picojson::null>()) {
-                    std::string errorMsg = "Unknown error";
-                    const picojson::value& errorVal = obj.at("error");
-                    
-                    if (errorVal.is<picojson::object>()) {
-                        const picojson::object& errorObj = errorVal.get<picojson::object>();
-                        if (errorObj.find("message") != errorObj.end()) {
-                            errorMsg = errorObj.at("message").get<std::string>();
-                        }
-                    } else if (errorVal.is<std::string>()) {
-                        errorMsg = errorVal.get<std::string>();
-                    }
-                    
-                    // Undo the optimistic acceptance
-                    MiningStatsUtil::acceptedShares--;
-                    MiningStatsUtil::rejectedShares++;
-                    Utils::threadSafePrint("Share REJECTED: " + errorMsg + 
-                                         " (Accepted: " + std::to_string(MiningStatsUtil::acceptedShares.load()) +
-                                         ", Rejected: " + std::to_string(MiningStatsUtil::rejectedShares.load()) + ")", true);
-                    return false;
-                }
-
-                // If response is a new job, process it (but don't tie to share acceptance)
+                // Check if response contains a new job (pool often sends new job with share response)
                 if (obj.find("method") != obj.end() && obj.at("method").get<std::string>() == "job") {
                     if (obj.find("params") != obj.end() && obj.at("params").is<picojson::object>()) {
                         const picojson::object& params = obj.at("params").get<picojson::object>();
@@ -103,38 +77,17 @@ namespace PoolClient {
                         Job job(blobStr, jobId, target, height, seedHash);
                         distributeJob(job);
                     }
-                    return true;
                 }
                 
-                // Any other response without error = share was accepted (already counted)
-                if (config.debugMode) {
-                    Utils::threadSafePrint("Pool acknowledged share (no error)", true);
-                }
                 return true;
             }
         }
         catch (const std::exception& e) {
-            Utils::threadSafePrint("Error parsing pool response: " + std::string(e.what()), true);
-            Utils::threadSafePrint("Response was: " + response, true);
-            
-            // Only undo acceptance if response clearly contains error
-            if (response.find("\"error\"") != std::string::npos && 
-                response.find("\"error\":null") == std::string::npos) {
-                MiningStatsUtil::acceptedShares--;
-                MiningStatsUtil::rejectedShares++;
-                return false;
-            }
-            
             if (config.debugMode) {
-                Utils::threadSafePrint("Parse error but no clear rejection - share remains accepted", true);
+                Utils::threadSafePrint("Error processing share response: " + std::string(e.what()), true);
             }
-            return true;
         }
         
-        // Unknown format but no error - share remains accepted
-        if (config.debugMode) {
-            Utils::threadSafePrint("Unknown response format (no error, share remains accepted)", true);
-        }
         return true;
     }
 
@@ -164,22 +117,73 @@ namespace PoolClient {
             Utils::threadSafePrint("Submit: " + payload, true);
         }
         
-        // OPTIMISTICALLY count as accepted immediately
-        MiningStatsUtil::acceptedShares++;
-        Utils::threadSafePrint("Share submitted → ACCEPTED (Total: " + 
-                             std::to_string(MiningStatsUtil::acceptedShares.load()) + ")", true);
-        
-        // Send the share
+        // Send the share and get response
         std::string response = sendAndReceive(payload);
         
-        // Process response to check for errors (which will undo the acceptance)
+        // Check response for errors FIRST
+        bool hasError = false;
         if (!response.empty()) {
-            processShareResponse(response);
+            try {
+                picojson::value v;
+                std::string err = picojson::parse(v, response);
+                if (err.empty() && v.is<picojson::object>()) {
+                    const picojson::object& obj = v.get<picojson::object>();
+                    if (obj.find("error") != obj.end() && !obj.at("error").is<picojson::null>()) {
+                        hasError = true;
+                    }
+                }
+            } catch (...) {
+                // If we can't parse it, check if it contains "error" keyword
+                if (response.find("\"error\"") != std::string::npos && 
+                    response.find("\"error\":null") == std::string::npos) {
+                    hasError = true;
+                }
+            }
         }
         
-        // Always return true since we optimistically accepted
-        // (rejection is handled in processShareResponse if error occurs)
-        return true;
+        // Only count as accepted if NO error was found
+        if (!hasError) {
+            MiningStatsUtil::acceptedShares++;
+            Utils::threadSafePrint("Share submitted - ACCEPTED (Total: " + 
+                                 std::to_string(MiningStatsUtil::acceptedShares.load()) + ")", true);
+            
+            // Process response for any additional info (like new jobs)
+            if (!response.empty()) {
+                processShareResponse(response);
+            }
+            return true;
+        } else {
+            // Error found - count as rejected
+            MiningStatsUtil::rejectedShares++;
+            
+            // Parse the actual error message
+            std::string errorMsg = "Unknown error";
+            try {
+                picojson::value v;
+                std::string err = picojson::parse(v, response);
+                if (err.empty() && v.is<picojson::object>()) {
+                    const picojson::object& obj = v.get<picojson::object>();
+                    if (obj.find("error") != obj.end()) {
+                        const picojson::value& errorVal = obj.at("error");
+                        if (errorVal.is<picojson::object>()) {
+                            const picojson::object& errorObj = errorVal.get<picojson::object>();
+                            if (errorObj.find("message") != errorObj.end()) {
+                                errorMsg = errorObj.at("message").get<std::string>();
+                            }
+                        } else if (errorVal.is<std::string>()) {
+                            errorMsg = errorVal.get<std::string>();
+                        }
+                    }
+                }
+            } catch (...) {
+                // Keep default error message
+            }
+            
+            Utils::threadSafePrint("Share REJECTED: " + errorMsg + 
+                                 " (Accepted: " + std::to_string(MiningStatsUtil::acceptedShares.load()) +
+                                 ", Rejected: " + std::to_string(MiningStatsUtil::rejectedShares.load()) + ")", true);
+            return false;
+        }
     }
 
     std::string receiveData(SOCKET socket) {

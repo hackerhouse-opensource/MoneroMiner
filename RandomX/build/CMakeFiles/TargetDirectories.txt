@@ -1,0 +1,10 @@
+/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/randomx.dir
+/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/randomx-tests.dir
+/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/randomx-codegen.dir
+/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/randomx-benchmark.dir
+/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/edit_cache.dir
+/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/rebuild_cache.dir
+/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/list_install_components.dir
+/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/install.dir
+/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/install/local.dir
+/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/install/strip.dir

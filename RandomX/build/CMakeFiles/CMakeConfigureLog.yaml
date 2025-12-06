@@ -1,0 +1,1076 @@
+
+---
+events:
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/CMakeDetermineSystem.cmake:205 (message)"
+      - "CMakeLists.txt:31 (project)"
+    message: |
+      The system is: Linux - 6.6.87.2-microsoft-standard-WSL2 - x86_64
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/CMakeDetermineCompilerId.cmake:17 (message)"
+      - "/usr/share/cmake-3.30/Modules/CMakeDetermineCompilerId.cmake:64 (__determine_compiler_id_test)"
+      - "/usr/share/cmake-3.30/Modules/CMakeDetermineCCompiler.cmake:123 (CMAKE_DETERMINE_COMPILER_ID)"
+      - "CMakeLists.txt:31 (project)"
+    message: |
+      Compiling the C compiler identification source file "CMakeCCompilerId.c" succeeded.
+      Compiler: /usr/bin/cc 
+      Build flags: 
+      Id flags:  
+      
+      The output was:
+      0
+      
+      
+      Compilation of the C compiler identification source "CMakeCCompilerId.c" produced "a.out"
+      
+      The C compiler identification is GNU, found in:
+        /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/3.30.3/CompilerIdC/a.out
+      
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/CMakeDetermineCompilerId.cmake:17 (message)"
+      - "/usr/share/cmake-3.30/Modules/CMakeDetermineCompilerId.cmake:64 (__determine_compiler_id_test)"
+      - "/usr/share/cmake-3.30/Modules/CMakeDetermineCXXCompiler.cmake:126 (CMAKE_DETERMINE_COMPILER_ID)"
+      - "CMakeLists.txt:31 (project)"
+    message: |
+      Compiling the CXX compiler identification source file "CMakeCXXCompilerId.cpp" succeeded.
+      Compiler: /usr/bin/c++ 
+      Build flags: 
+      Id flags:  
+      
+      The output was:
+      0
+      
+      
+      Compilation of the CXX compiler identification source "CMakeCXXCompilerId.cpp" produced "a.out"
+      
+      The CXX compiler identification is GNU, found in:
+        /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/3.30.3/CompilerIdCXX/a.out
+      
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/CMakeDetermineCompilerABI.cmake:74 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/CMakeTestCCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:31 (project)"
+    checks:
+      - "Detecting C compiler ABI info"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-hnJA67"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-hnJA67"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "CMAKE_C_ABI_COMPILED"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-hnJA67'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_ec03a/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-hnJA67'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_ec03a.dir/build.make CMakeFiles/cmTC_ec03a.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-hnJA67'
+        Building C object CMakeFiles/cmTC_ec03a.dir/CMakeCCompilerABI.c.o
+        /usr/bin/cc   -v -o CMakeFiles/cmTC_ec03a.dir/CMakeCCompilerABI.c.o -c /usr/share/cmake-3.30/Modules/CMakeCCompilerABI.c
+        Using built-in specs.
+        COLLECT_GCC=/usr/bin/cc
+        OFFLOAD_TARGET_NAMES=nvptx-none:amdgcn-amdhsa
+        OFFLOAD_TARGET_DEFAULT=1
+        Target: x86_64-linux-gnu
+        Configured with: ../src/configure -v --with-pkgversion='Debian 14.2.0-19' --with-bugurl=file:///usr/share/doc/gcc-14/README.Bugs --enable-languages=c,ada,c++,go,d,fortran,objc,obj-c++,m2,rust --prefix=/usr --with-gcc-major-version-only --program-suffix=-14 --program-prefix=x86_64-linux-gnu- --enable-shared --enable-linker-build-id --libexecdir=/usr/libexec --without-included-gettext --enable-threads=posix --libdir=/usr/lib --enable-nls --enable-bootstrap --enable-clocale=gnu --enable-libstdcxx-debug --enable-libstdcxx-time=yes --with-default-libstdcxx-abi=new --enable-libstdcxx-backtrace --enable-gnu-unique-object --disable-vtable-verify --enable-plugin --enable-default-pie --with-system-zlib --enable-libphobos-checking=release --with-target-system-zlib=auto --enable-objc-gc=auto --enable-multiarch --disable-werror --enable-cet --with-arch-32=i686 --with-abi=m64 --with-multilib-list=m32,m64,mx32 --enable-multilib --with-tune=generic --enable-offload-targets=nvptx-none=/build/reproducible-path/gcc-14-14.2.0/debian/tmp-nvptx/usr,amdgcn-amdhsa=/build/reproducible-path/gcc-14-14.2.0/debian/tmp-gcn/usr --enable-offload-defaulted --without-cuda-driver --enable-checking=release --build=x86_64-linux-gnu --host=x86_64-linux-gnu --target=x86_64-linux-gnu --with-build-config=bootstrap-lto-lean --enable-link-serialization=3
+        Thread model: posix
+        Supported LTO compression algorithms: zlib zstd
+        gcc version 14.2.0 (Debian 14.2.0-19) 
+        COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_ec03a.dir/CMakeCCompilerABI.c.o' '-c' '-mtune=generic' '-march=x86-64' '-dumpdir' 'CMakeFiles/cmTC_ec03a.dir/'
+         /usr/libexec/gcc/x86_64-linux-gnu/14/cc1 -quiet -v -imultiarch x86_64-linux-gnu /usr/share/cmake-3.30/Modules/CMakeCCompilerABI.c -quiet -dumpdir CMakeFiles/cmTC_ec03a.dir/ -dumpbase CMakeCCompilerABI.c.c -dumpbase-ext .c -mtune=generic -march=x86-64 -version -fasynchronous-unwind-tables -o /tmp/ccVUIUEP.s
+        GNU C17 (Debian 14.2.0-19) version 14.2.0 (x86_64-linux-gnu)
+        	compiled by GNU C version 14.2.0, GMP version 6.3.0, MPFR version 4.2.1, MPC version 1.3.1, isl version isl-0.27-GMP
+        
+        warning: MPFR header version 4.2.1 differs from library version 4.2.2.
+        GGC heuristics: --param ggc-min-expand=100 --param ggc-min-heapsize=131072
+        ignoring nonexistent directory "/usr/local/include/x86_64-linux-gnu"
+        ignoring nonexistent directory "/usr/local/include"
+        ignoring nonexistent directory "/usr/lib/gcc/x86_64-linux-gnu/14/include-fixed/x86_64-linux-gnu"
+        ignoring nonexistent directory "/usr/lib/gcc/x86_64-linux-gnu/14/include-fixed"
+        ignoring nonexistent directory "/usr/lib/gcc/x86_64-linux-gnu/14/../../../../x86_64-linux-gnu/include"
+        #include "..." search starts here:
+        #include <...> search starts here:
+         /usr/lib/gcc/x86_64-linux-gnu/14/include
+         /usr/include/x86_64-linux-gnu
+         /usr/include
+        End of search list.
+        Compiler executable checksum: 0051dfc1fa4e89ba97760da93f2546f3
+        COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_ec03a.dir/CMakeCCompilerABI.c.o' '-c' '-mtune=generic' '-march=x86-64' '-dumpdir' 'CMakeFiles/cmTC_ec03a.dir/'
+         as -v --64 -o CMakeFiles/cmTC_ec03a.dir/CMakeCCompilerABI.c.o /tmp/ccVUIUEP.s
+        GNU assembler version 2.44 (x86_64-linux-gnu) using BFD version (GNU Binutils for Debian) 2.44
+        COMPILER_PATH=/usr/libexec/gcc/x86_64-linux-gnu/14/:/usr/libexec/gcc/x86_64-linux-gnu/14/:/usr/libexec/gcc/x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/14/:/usr/lib/gcc/x86_64-linux-gnu/
+        LIBRARY_PATH=/usr/lib/gcc/x86_64-linux-gnu/14/:/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/14/../../../../lib/:/lib/x86_64-linux-gnu/:/lib/../lib/:/usr/lib/x86_64-linux-gnu/:/usr/lib/../lib/:/usr/lib/gcc/x86_64-linux-gnu/14/../../../:/lib/:/usr/lib/
+        COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_ec03a.dir/CMakeCCompilerABI.c.o' '-c' '-mtune=generic' '-march=x86-64' '-dumpdir' 'CMakeFiles/cmTC_ec03a.dir/CMakeCCompilerABI.c.'
+        Linking C executable cmTC_ec03a
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_ec03a.dir/link.txt --verbose=1
+        /usr/bin/cc  -v -Wl,-v CMakeFiles/cmTC_ec03a.dir/CMakeCCompilerABI.c.o -o cmTC_ec03a
+        Using built-in specs.
+        COLLECT_GCC=/usr/bin/cc
+        COLLECT_LTO_WRAPPER=/usr/libexec/gcc/x86_64-linux-gnu/14/lto-wrapper
+        OFFLOAD_TARGET_NAMES=nvptx-none:amdgcn-amdhsa
+        OFFLOAD_TARGET_DEFAULT=1
+        Target: x86_64-linux-gnu
+        Configured with: ../src/configure -v --with-pkgversion='Debian 14.2.0-19' --with-bugurl=file:///usr/share/doc/gcc-14/README.Bugs --enable-languages=c,ada,c++,go,d,fortran,objc,obj-c++,m2,rust --prefix=/usr --with-gcc-major-version-only --program-suffix=-14 --program-prefix=x86_64-linux-gnu- --enable-shared --enable-linker-build-id --libexecdir=/usr/libexec --without-included-gettext --enable-threads=posix --libdir=/usr/lib --enable-nls --enable-bootstrap --enable-clocale=gnu --enable-libstdcxx-debug --enable-libstdcxx-time=yes --with-default-libstdcxx-abi=new --enable-libstdcxx-backtrace --enable-gnu-unique-object --disable-vtable-verify --enable-plugin --enable-default-pie --with-system-zlib --enable-libphobos-checking=release --with-target-system-zlib=auto --enable-objc-gc=auto --enable-multiarch --disable-werror --enable-cet --with-arch-32=i686 --with-abi=m64 --with-multilib-list=m32,m64,mx32 --enable-multilib --with-tune=generic --enable-offload-targets=nvptx-none=/build/reproducible-path/gcc-14-14.2.0/debian/tmp-nvptx/usr,amdgcn-amdhsa=/build/reproducible-path/gcc-14-14.2.0/debian/tmp-gcn/usr --enable-offload-defaulted --without-cuda-driver --enable-checking=release --build=x86_64-linux-gnu --host=x86_64-linux-gnu --target=x86_64-linux-gnu --with-build-config=bootstrap-lto-lean --enable-link-serialization=3
+        Thread model: posix
+        Supported LTO compression algorithms: zlib zstd
+        gcc version 14.2.0 (Debian 14.2.0-19) 
+        COMPILER_PATH=/usr/libexec/gcc/x86_64-linux-gnu/14/:/usr/libexec/gcc/x86_64-linux-gnu/14/:/usr/libexec/gcc/x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/14/:/usr/lib/gcc/x86_64-linux-gnu/
+        LIBRARY_PATH=/usr/lib/gcc/x86_64-linux-gnu/14/:/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/14/../../../../lib/:/lib/x86_64-linux-gnu/:/lib/../lib/:/usr/lib/x86_64-linux-gnu/:/usr/lib/../lib/:/usr/lib/gcc/x86_64-linux-gnu/14/../../../:/lib/:/usr/lib/
+        COLLECT_GCC_OPTIONS='-v' '-o' 'cmTC_ec03a' '-mtune=generic' '-march=x86-64' '-dumpdir' 'cmTC_ec03a.'
+         /usr/libexec/gcc/x86_64-linux-gnu/14/collect2 -plugin /usr/libexec/gcc/x86_64-linux-gnu/14/liblto_plugin.so -plugin-opt=/usr/libexec/gcc/x86_64-linux-gnu/14/lto-wrapper -plugin-opt=-fresolution=/tmp/ccZIURUU.res -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lc -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_s --build-id --eh-frame-hdr -m elf_x86_64 --hash-style=gnu --as-needed -dynamic-linker /lib64/ld-linux-x86-64.so.2 -pie -o cmTC_ec03a /usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/Scrt1.o /usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/crti.o /usr/lib/gcc/x86_64-linux-gnu/14/crtbeginS.o -L/usr/lib/gcc/x86_64-linux-gnu/14 -L/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu -L/usr/lib/gcc/x86_64-linux-gnu/14/../../../../lib -L/lib/x86_64-linux-gnu -L/lib/../lib -L/usr/lib/x86_64-linux-gnu -L/usr/lib/../lib -L/usr/lib/gcc/x86_64-linux-gnu/14/../../.. -v CMakeFiles/cmTC_ec03a.dir/CMakeCCompilerABI.c.o -lgcc --push-state --as-needed -lgcc_s --pop-state -lc -lgcc --push-state --as-needed -lgcc_s --pop-state /usr/lib/gcc/x86_64-linux-gnu/14/crtendS.o /usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/crtn.o
+        collect2 version 14.2.0
+        /usr/bin/ld -plugin /usr/libexec/gcc/x86_64-linux-gnu/14/liblto_plugin.so -plugin-opt=/usr/libexec/gcc/x86_64-linux-gnu/14/lto-wrapper -plugin-opt=-fresolution=/tmp/ccZIURUU.res -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lc -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_s --build-id --eh-frame-hdr -m elf_x86_64 --hash-style=gnu --as-needed -dynamic-linker /lib64/ld-linux-x86-64.so.2 -pie -o cmTC_ec03a /usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/Scrt1.o /usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/crti.o /usr/lib/gcc/x86_64-linux-gnu/14/crtbeginS.o -L/usr/lib/gcc/x86_64-linux-gnu/14 -L/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu -L/usr/lib/gcc/x86_64-linux-gnu/14/../../../../lib -L/lib/x86_64-linux-gnu -L/lib/../lib -L/usr/lib/x86_64-linux-gnu -L/usr/lib/../lib -L/usr/lib/gcc/x86_64-linux-gnu/14/../../.. -v CMakeFiles/cmTC_ec03a.dir/CMakeCCompilerABI.c.o -lgcc --push-state --as-needed -lgcc_s --pop-state -lc -lgcc --push-state --as-needed -lgcc_s --pop-state /usr/lib/gcc/x86_64-linux-gnu/14/crtendS.o /usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/crtn.o
+        GNU ld (GNU Binutils for Debian) 2.44
+        COLLECT_GCC_OPTIONS='-v' '-o' 'cmTC_ec03a' '-mtune=generic' '-march=x86-64' '-dumpdir' 'cmTC_ec03a.'
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-hnJA67'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-hnJA67'
+        
+      exitCode: 0
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/CMakeDetermineCompilerABI.cmake:182 (message)"
+      - "/usr/share/cmake-3.30/Modules/CMakeTestCCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:31 (project)"
+    message: |
+      Parsed C implicit include dir info: rv=done
+        found start of include info
+        found start of implicit include info
+          add: [/usr/lib/gcc/x86_64-linux-gnu/14/include]
+          add: [/usr/include/x86_64-linux-gnu]
+          add: [/usr/include]
+        end of search list found
+        collapse include dir [/usr/lib/gcc/x86_64-linux-gnu/14/include] ==> [/usr/lib/gcc/x86_64-linux-gnu/14/include]
+        collapse include dir [/usr/include/x86_64-linux-gnu] ==> [/usr/include/x86_64-linux-gnu]
+        collapse include dir [/usr/include] ==> [/usr/include]
+        implicit include dirs: [/usr/lib/gcc/x86_64-linux-gnu/14/include;/usr/include/x86_64-linux-gnu;/usr/include]
+      
+      
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/CMakeDetermineCompilerABI.cmake:218 (message)"
+      - "/usr/share/cmake-3.30/Modules/CMakeTestCCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:31 (project)"
+    message: |
+      Parsed C implicit link information:
+        link line regex: [^( *|.*[/\\])(ld[0-9]*(\\.[a-z]+)?|CMAKE_LINK_STARTFILE-NOTFOUND|([^/\\]+-)?ld|collect2)[^/\\]*( |$)]
+        linker tool regex: [^[ 	]*(->|")?[ 	]*(([^"]*[/\\])?(ld[0-9]*(\\.[a-z]+)?))("|,| |$)]
+        ignore line: [Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-hnJA67']
+        ignore line: []
+        ignore line: [Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_ec03a/fast]
+        ignore line: [gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-hnJA67']
+        ignore line: [/usr/bin/gmake  -f CMakeFiles/cmTC_ec03a.dir/build.make CMakeFiles/cmTC_ec03a.dir/build]
+        ignore line: [gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-hnJA67']
+        ignore line: [Building C object CMakeFiles/cmTC_ec03a.dir/CMakeCCompilerABI.c.o]
+        ignore line: [/usr/bin/cc   -v -o CMakeFiles/cmTC_ec03a.dir/CMakeCCompilerABI.c.o -c /usr/share/cmake-3.30/Modules/CMakeCCompilerABI.c]
+        ignore line: [Using built-in specs.]
+        ignore line: [COLLECT_GCC=/usr/bin/cc]
+        ignore line: [OFFLOAD_TARGET_NAMES=nvptx-none:amdgcn-amdhsa]
+        ignore line: [OFFLOAD_TARGET_DEFAULT=1]
+        ignore line: [Target: x86_64-linux-gnu]
+        ignore line: [Configured with: ../src/configure -v --with-pkgversion='Debian 14.2.0-19' --with-bugurl=file:///usr/share/doc/gcc-14/README.Bugs --enable-languages=c ada c++ go d fortran objc obj-c++ m2 rust --prefix=/usr --with-gcc-major-version-only --program-suffix=-14 --program-prefix=x86_64-linux-gnu- --enable-shared --enable-linker-build-id --libexecdir=/usr/libexec --without-included-gettext --enable-threads=posix --libdir=/usr/lib --enable-nls --enable-bootstrap --enable-clocale=gnu --enable-libstdcxx-debug --enable-libstdcxx-time=yes --with-default-libstdcxx-abi=new --enable-libstdcxx-backtrace --enable-gnu-unique-object --disable-vtable-verify --enable-plugin --enable-default-pie --with-system-zlib --enable-libphobos-checking=release --with-target-system-zlib=auto --enable-objc-gc=auto --enable-multiarch --disable-werror --enable-cet --with-arch-32=i686 --with-abi=m64 --with-multilib-list=m32 m64 mx32 --enable-multilib --with-tune=generic --enable-offload-targets=nvptx-none=/build/reproducible-path/gcc-14-14.2.0/debian/tmp-nvptx/usr amdgcn-amdhsa=/build/reproducible-path/gcc-14-14.2.0/debian/tmp-gcn/usr --enable-offload-defaulted --without-cuda-driver --enable-checking=release --build=x86_64-linux-gnu --host=x86_64-linux-gnu --target=x86_64-linux-gnu --with-build-config=bootstrap-lto-lean --enable-link-serialization=3]
+        ignore line: [Thread model: posix]
+        ignore line: [Supported LTO compression algorithms: zlib zstd]
+        ignore line: [gcc version 14.2.0 (Debian 14.2.0-19) ]
+        ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_ec03a.dir/CMakeCCompilerABI.c.o' '-c' '-mtune=generic' '-march=x86-64' '-dumpdir' 'CMakeFiles/cmTC_ec03a.dir/']
+        ignore line: [ /usr/libexec/gcc/x86_64-linux-gnu/14/cc1 -quiet -v -imultiarch x86_64-linux-gnu /usr/share/cmake-3.30/Modules/CMakeCCompilerABI.c -quiet -dumpdir CMakeFiles/cmTC_ec03a.dir/ -dumpbase CMakeCCompilerABI.c.c -dumpbase-ext .c -mtune=generic -march=x86-64 -version -fasynchronous-unwind-tables -o /tmp/ccVUIUEP.s]
+        ignore line: [GNU C17 (Debian 14.2.0-19) version 14.2.0 (x86_64-linux-gnu)]
+        ignore line: [	compiled by GNU C version 14.2.0  GMP version 6.3.0  MPFR version 4.2.1  MPC version 1.3.1  isl version isl-0.27-GMP]
+        ignore line: []
+        ignore line: [warning: MPFR header version 4.2.1 differs from library version 4.2.2.]
+        ignore line: [GGC heuristics: --param ggc-min-expand=100 --param ggc-min-heapsize=131072]
+        ignore line: [ignoring nonexistent directory "/usr/local/include/x86_64-linux-gnu"]
+        ignore line: [ignoring nonexistent directory "/usr/local/include"]
+        ignore line: [ignoring nonexistent directory "/usr/lib/gcc/x86_64-linux-gnu/14/include-fixed/x86_64-linux-gnu"]
+        ignore line: [ignoring nonexistent directory "/usr/lib/gcc/x86_64-linux-gnu/14/include-fixed"]
+        ignore line: [ignoring nonexistent directory "/usr/lib/gcc/x86_64-linux-gnu/14/../../../../x86_64-linux-gnu/include"]
+        ignore line: [#include "..." search starts here:]
+        ignore line: [#include <...> search starts here:]
+        ignore line: [ /usr/lib/gcc/x86_64-linux-gnu/14/include]
+        ignore line: [ /usr/include/x86_64-linux-gnu]
+        ignore line: [ /usr/include]
+        ignore line: [End of search list.]
+        ignore line: [Compiler executable checksum: 0051dfc1fa4e89ba97760da93f2546f3]
+        ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_ec03a.dir/CMakeCCompilerABI.c.o' '-c' '-mtune=generic' '-march=x86-64' '-dumpdir' 'CMakeFiles/cmTC_ec03a.dir/']
+        ignore line: [ as -v --64 -o CMakeFiles/cmTC_ec03a.dir/CMakeCCompilerABI.c.o /tmp/ccVUIUEP.s]
+        ignore line: [GNU assembler version 2.44 (x86_64-linux-gnu) using BFD version (GNU Binutils for Debian) 2.44]
+        ignore line: [COMPILER_PATH=/usr/libexec/gcc/x86_64-linux-gnu/14/:/usr/libexec/gcc/x86_64-linux-gnu/14/:/usr/libexec/gcc/x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/14/:/usr/lib/gcc/x86_64-linux-gnu/]
+        ignore line: [LIBRARY_PATH=/usr/lib/gcc/x86_64-linux-gnu/14/:/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/14/../../../../lib/:/lib/x86_64-linux-gnu/:/lib/../lib/:/usr/lib/x86_64-linux-gnu/:/usr/lib/../lib/:/usr/lib/gcc/x86_64-linux-gnu/14/../../../:/lib/:/usr/lib/]
+        ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_ec03a.dir/CMakeCCompilerABI.c.o' '-c' '-mtune=generic' '-march=x86-64' '-dumpdir' 'CMakeFiles/cmTC_ec03a.dir/CMakeCCompilerABI.c.']
+        ignore line: [Linking C executable cmTC_ec03a]
+        ignore line: [/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_ec03a.dir/link.txt --verbose=1]
+        ignore line: [/usr/bin/cc  -v -Wl -v CMakeFiles/cmTC_ec03a.dir/CMakeCCompilerABI.c.o -o cmTC_ec03a]
+        ignore line: [Using built-in specs.]
+        ignore line: [COLLECT_GCC=/usr/bin/cc]
+        ignore line: [COLLECT_LTO_WRAPPER=/usr/libexec/gcc/x86_64-linux-gnu/14/lto-wrapper]
+        ignore line: [OFFLOAD_TARGET_NAMES=nvptx-none:amdgcn-amdhsa]
+        ignore line: [OFFLOAD_TARGET_DEFAULT=1]
+        ignore line: [Target: x86_64-linux-gnu]
+        ignore line: [Configured with: ../src/configure -v --with-pkgversion='Debian 14.2.0-19' --with-bugurl=file:///usr/share/doc/gcc-14/README.Bugs --enable-languages=c ada c++ go d fortran objc obj-c++ m2 rust --prefix=/usr --with-gcc-major-version-only --program-suffix=-14 --program-prefix=x86_64-linux-gnu- --enable-shared --enable-linker-build-id --libexecdir=/usr/libexec --without-included-gettext --enable-threads=posix --libdir=/usr/lib --enable-nls --enable-bootstrap --enable-clocale=gnu --enable-libstdcxx-debug --enable-libstdcxx-time=yes --with-default-libstdcxx-abi=new --enable-libstdcxx-backtrace --enable-gnu-unique-object --disable-vtable-verify --enable-plugin --enable-default-pie --with-system-zlib --enable-libphobos-checking=release --with-target-system-zlib=auto --enable-objc-gc=auto --enable-multiarch --disable-werror --enable-cet --with-arch-32=i686 --with-abi=m64 --with-multilib-list=m32 m64 mx32 --enable-multilib --with-tune=generic --enable-offload-targets=nvptx-none=/build/reproducible-path/gcc-14-14.2.0/debian/tmp-nvptx/usr amdgcn-amdhsa=/build/reproducible-path/gcc-14-14.2.0/debian/tmp-gcn/usr --enable-offload-defaulted --without-cuda-driver --enable-checking=release --build=x86_64-linux-gnu --host=x86_64-linux-gnu --target=x86_64-linux-gnu --with-build-config=bootstrap-lto-lean --enable-link-serialization=3]
+        ignore line: [Thread model: posix]
+        ignore line: [Supported LTO compression algorithms: zlib zstd]
+        ignore line: [gcc version 14.2.0 (Debian 14.2.0-19) ]
+        ignore line: [COMPILER_PATH=/usr/libexec/gcc/x86_64-linux-gnu/14/:/usr/libexec/gcc/x86_64-linux-gnu/14/:/usr/libexec/gcc/x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/14/:/usr/lib/gcc/x86_64-linux-gnu/]
+        ignore line: [LIBRARY_PATH=/usr/lib/gcc/x86_64-linux-gnu/14/:/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/14/../../../../lib/:/lib/x86_64-linux-gnu/:/lib/../lib/:/usr/lib/x86_64-linux-gnu/:/usr/lib/../lib/:/usr/lib/gcc/x86_64-linux-gnu/14/../../../:/lib/:/usr/lib/]
+        ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'cmTC_ec03a' '-mtune=generic' '-march=x86-64' '-dumpdir' 'cmTC_ec03a.']
+        link line: [ /usr/libexec/gcc/x86_64-linux-gnu/14/collect2 -plugin /usr/libexec/gcc/x86_64-linux-gnu/14/liblto_plugin.so -plugin-opt=/usr/libexec/gcc/x86_64-linux-gnu/14/lto-wrapper -plugin-opt=-fresolution=/tmp/ccZIURUU.res -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lc -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_s --build-id --eh-frame-hdr -m elf_x86_64 --hash-style=gnu --as-needed -dynamic-linker /lib64/ld-linux-x86-64.so.2 -pie -o cmTC_ec03a /usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/Scrt1.o /usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/crti.o /usr/lib/gcc/x86_64-linux-gnu/14/crtbeginS.o -L/usr/lib/gcc/x86_64-linux-gnu/14 -L/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu -L/usr/lib/gcc/x86_64-linux-gnu/14/../../../../lib -L/lib/x86_64-linux-gnu -L/lib/../lib -L/usr/lib/x86_64-linux-gnu -L/usr/lib/../lib -L/usr/lib/gcc/x86_64-linux-gnu/14/../../.. -v CMakeFiles/cmTC_ec03a.dir/CMakeCCompilerABI.c.o -lgcc --push-state --as-needed -lgcc_s --pop-state -lc -lgcc --push-state --as-needed -lgcc_s --pop-state /usr/lib/gcc/x86_64-linux-gnu/14/crtendS.o /usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/crtn.o]
+          arg [/usr/libexec/gcc/x86_64-linux-gnu/14/collect2] ==> ignore
+          arg [-plugin] ==> ignore
+          arg [/usr/libexec/gcc/x86_64-linux-gnu/14/liblto_plugin.so] ==> ignore
+          arg [-plugin-opt=/usr/libexec/gcc/x86_64-linux-gnu/14/lto-wrapper] ==> ignore
+          arg [-plugin-opt=-fresolution=/tmp/ccZIURUU.res] ==> ignore
+          arg [-plugin-opt=-pass-through=-lgcc] ==> ignore
+          arg [-plugin-opt=-pass-through=-lgcc_s] ==> ignore
+          arg [-plugin-opt=-pass-through=-lc] ==> ignore
+          arg [-plugin-opt=-pass-through=-lgcc] ==> ignore
+          arg [-plugin-opt=-pass-through=-lgcc_s] ==> ignore
+          arg [--build-id] ==> ignore
+          arg [--eh-frame-hdr] ==> ignore
+          arg [-m] ==> ignore
+          arg [elf_x86_64] ==> ignore
+          arg [--hash-style=gnu] ==> ignore
+          arg [--as-needed] ==> ignore
+          arg [-dynamic-linker] ==> ignore
+          arg [/lib64/ld-linux-x86-64.so.2] ==> ignore
+          arg [-pie] ==> ignore
+          arg [-o] ==> ignore
+          arg [cmTC_ec03a] ==> ignore
+          arg [/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/Scrt1.o] ==> obj [/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/Scrt1.o]
+          arg [/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/crti.o] ==> obj [/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/crti.o]
+          arg [/usr/lib/gcc/x86_64-linux-gnu/14/crtbeginS.o] ==> obj [/usr/lib/gcc/x86_64-linux-gnu/14/crtbeginS.o]
+          arg [-L/usr/lib/gcc/x86_64-linux-gnu/14] ==> dir [/usr/lib/gcc/x86_64-linux-gnu/14]
+          arg [-L/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu] ==> dir [/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu]
+          arg [-L/usr/lib/gcc/x86_64-linux-gnu/14/../../../../lib] ==> dir [/usr/lib/gcc/x86_64-linux-gnu/14/../../../../lib]
+          arg [-L/lib/x86_64-linux-gnu] ==> dir [/lib/x86_64-linux-gnu]
+          arg [-L/lib/../lib] ==> dir [/lib/../lib]
+          arg [-L/usr/lib/x86_64-linux-gnu] ==> dir [/usr/lib/x86_64-linux-gnu]
+          arg [-L/usr/lib/../lib] ==> dir [/usr/lib/../lib]
+          arg [-L/usr/lib/gcc/x86_64-linux-gnu/14/../../..] ==> dir [/usr/lib/gcc/x86_64-linux-gnu/14/../../..]
+          arg [-v] ==> ignore
+          arg [CMakeFiles/cmTC_ec03a.dir/CMakeCCompilerABI.c.o] ==> ignore
+          arg [-lgcc] ==> lib [gcc]
+          arg [--push-state] ==> ignore
+          arg [--as-needed] ==> ignore
+          arg [-lgcc_s] ==> lib [gcc_s]
+          arg [--pop-state] ==> ignore
+          arg [-lc] ==> lib [c]
+          arg [-lgcc] ==> lib [gcc]
+          arg [--push-state] ==> ignore
+          arg [--as-needed] ==> ignore
+          arg [-lgcc_s] ==> lib [gcc_s]
+          arg [--pop-state] ==> ignore
+          arg [/usr/lib/gcc/x86_64-linux-gnu/14/crtendS.o] ==> obj [/usr/lib/gcc/x86_64-linux-gnu/14/crtendS.o]
+          arg [/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/crtn.o] ==> obj [/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/crtn.o]
+        ignore line: [collect2 version 14.2.0]
+        ignore line: [/usr/bin/ld -plugin /usr/libexec/gcc/x86_64-linux-gnu/14/liblto_plugin.so -plugin-opt=/usr/libexec/gcc/x86_64-linux-gnu/14/lto-wrapper -plugin-opt=-fresolution=/tmp/ccZIURUU.res -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lc -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_s --build-id --eh-frame-hdr -m elf_x86_64 --hash-style=gnu --as-needed -dynamic-linker /lib64/ld-linux-x86-64.so.2 -pie -o cmTC_ec03a /usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/Scrt1.o /usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/crti.o /usr/lib/gcc/x86_64-linux-gnu/14/crtbeginS.o -L/usr/lib/gcc/x86_64-linux-gnu/14 -L/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu -L/usr/lib/gcc/x86_64-linux-gnu/14/../../../../lib -L/lib/x86_64-linux-gnu -L/lib/../lib -L/usr/lib/x86_64-linux-gnu -L/usr/lib/../lib -L/usr/lib/gcc/x86_64-linux-gnu/14/../../.. -v CMakeFiles/cmTC_ec03a.dir/CMakeCCompilerABI.c.o -lgcc --push-state --as-needed -lgcc_s --pop-state -lc -lgcc --push-state --as-needed -lgcc_s --pop-state /usr/lib/gcc/x86_64-linux-gnu/14/crtendS.o /usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/crtn.o]
+        linker tool for 'C': /usr/bin/ld
+        collapse obj [/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/Scrt1.o] ==> [/usr/lib/x86_64-linux-gnu/Scrt1.o]
+        collapse obj [/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/crti.o] ==> [/usr/lib/x86_64-linux-gnu/crti.o]
+        collapse obj [/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/crtn.o] ==> [/usr/lib/x86_64-linux-gnu/crtn.o]
+        collapse library dir [/usr/lib/gcc/x86_64-linux-gnu/14] ==> [/usr/lib/gcc/x86_64-linux-gnu/14]
+        collapse library dir [/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu] ==> [/usr/lib/x86_64-linux-gnu]
+        collapse library dir [/usr/lib/gcc/x86_64-linux-gnu/14/../../../../lib] ==> [/usr/lib]
+        collapse library dir [/lib/x86_64-linux-gnu] ==> [/lib/x86_64-linux-gnu]
+        collapse library dir [/lib/../lib] ==> [/lib]
+        collapse library dir [/usr/lib/x86_64-linux-gnu] ==> [/usr/lib/x86_64-linux-gnu]
+        collapse library dir [/usr/lib/../lib] ==> [/usr/lib]
+        collapse library dir [/usr/lib/gcc/x86_64-linux-gnu/14/../../..] ==> [/usr/lib]
+        implicit libs: [gcc;gcc_s;c;gcc;gcc_s]
+        implicit objs: [/usr/lib/x86_64-linux-gnu/Scrt1.o;/usr/lib/x86_64-linux-gnu/crti.o;/usr/lib/gcc/x86_64-linux-gnu/14/crtbeginS.o;/usr/lib/gcc/x86_64-linux-gnu/14/crtendS.o;/usr/lib/x86_64-linux-gnu/crtn.o]
+        implicit dirs: [/usr/lib/gcc/x86_64-linux-gnu/14;/usr/lib/x86_64-linux-gnu;/usr/lib;/lib/x86_64-linux-gnu;/lib]
+        implicit fwks: []
+      
+      
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CMakeDetermineLinkerId.cmake:40 (message)"
+      - "/usr/share/cmake-3.30/Modules/CMakeDetermineCompilerABI.cmake:255 (cmake_determine_linker_id)"
+      - "/usr/share/cmake-3.30/Modules/CMakeTestCCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:31 (project)"
+    message: |
+      Running the C compiler's linker: "/usr/bin/ld" "-v"
+      GNU ld (GNU Binutils for Debian) 2.44
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/CMakeDetermineCompilerABI.cmake:74 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/CMakeTestCXXCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:31 (project)"
+    checks:
+      - "Detecting CXX compiler ABI info"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-LVyR1y"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-LVyR1y"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_SCAN_FOR_MODULES: "OFF"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "CMAKE_CXX_ABI_COMPILED"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-LVyR1y'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_f60d0/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-LVyR1y'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_f60d0.dir/build.make CMakeFiles/cmTC_f60d0.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-LVyR1y'
+        Building CXX object CMakeFiles/cmTC_f60d0.dir/CMakeCXXCompilerABI.cpp.o
+        /usr/bin/c++   -v -o CMakeFiles/cmTC_f60d0.dir/CMakeCXXCompilerABI.cpp.o -c /usr/share/cmake-3.30/Modules/CMakeCXXCompilerABI.cpp
+        Using built-in specs.
+        COLLECT_GCC=/usr/bin/c++
+        OFFLOAD_TARGET_NAMES=nvptx-none:amdgcn-amdhsa
+        OFFLOAD_TARGET_DEFAULT=1
+        Target: x86_64-linux-gnu
+        Configured with: ../src/configure -v --with-pkgversion='Debian 14.2.0-19' --with-bugurl=file:///usr/share/doc/gcc-14/README.Bugs --enable-languages=c,ada,c++,go,d,fortran,objc,obj-c++,m2,rust --prefix=/usr --with-gcc-major-version-only --program-suffix=-14 --program-prefix=x86_64-linux-gnu- --enable-shared --enable-linker-build-id --libexecdir=/usr/libexec --without-included-gettext --enable-threads=posix --libdir=/usr/lib --enable-nls --enable-bootstrap --enable-clocale=gnu --enable-libstdcxx-debug --enable-libstdcxx-time=yes --with-default-libstdcxx-abi=new --enable-libstdcxx-backtrace --enable-gnu-unique-object --disable-vtable-verify --enable-plugin --enable-default-pie --with-system-zlib --enable-libphobos-checking=release --with-target-system-zlib=auto --enable-objc-gc=auto --enable-multiarch --disable-werror --enable-cet --with-arch-32=i686 --with-abi=m64 --with-multilib-list=m32,m64,mx32 --enable-multilib --with-tune=generic --enable-offload-targets=nvptx-none=/build/reproducible-path/gcc-14-14.2.0/debian/tmp-nvptx/usr,amdgcn-amdhsa=/build/reproducible-path/gcc-14-14.2.0/debian/tmp-gcn/usr --enable-offload-defaulted --without-cuda-driver --enable-checking=release --build=x86_64-linux-gnu --host=x86_64-linux-gnu --target=x86_64-linux-gnu --with-build-config=bootstrap-lto-lean --enable-link-serialization=3
+        Thread model: posix
+        Supported LTO compression algorithms: zlib zstd
+        gcc version 14.2.0 (Debian 14.2.0-19) 
+        COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_f60d0.dir/CMakeCXXCompilerABI.cpp.o' '-c' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-dumpdir' 'CMakeFiles/cmTC_f60d0.dir/'
+         /usr/libexec/gcc/x86_64-linux-gnu/14/cc1plus -quiet -v -imultiarch x86_64-linux-gnu -D_GNU_SOURCE /usr/share/cmake-3.30/Modules/CMakeCXXCompilerABI.cpp -quiet -dumpdir CMakeFiles/cmTC_f60d0.dir/ -dumpbase CMakeCXXCompilerABI.cpp.cpp -dumpbase-ext .cpp -mtune=generic -march=x86-64 -version -fasynchronous-unwind-tables -o /tmp/ccB2iRCD.s
+        GNU C++17 (Debian 14.2.0-19) version 14.2.0 (x86_64-linux-gnu)
+        	compiled by GNU C version 14.2.0, GMP version 6.3.0, MPFR version 4.2.1, MPC version 1.3.1, isl version isl-0.27-GMP
+        
+        warning: MPFR header version 4.2.1 differs from library version 4.2.2.
+        GGC heuristics: --param ggc-min-expand=100 --param ggc-min-heapsize=131072
+        ignoring duplicate directory "/usr/include/x86_64-linux-gnu/c++/14"
+        ignoring nonexistent directory "/usr/local/include/x86_64-linux-gnu"
+        ignoring nonexistent directory "/usr/local/include"
+        ignoring nonexistent directory "/usr/lib/gcc/x86_64-linux-gnu/14/include-fixed/x86_64-linux-gnu"
+        ignoring nonexistent directory "/usr/lib/gcc/x86_64-linux-gnu/14/include-fixed"
+        ignoring nonexistent directory "/usr/lib/gcc/x86_64-linux-gnu/14/../../../../x86_64-linux-gnu/include"
+        #include "..." search starts here:
+        #include <...> search starts here:
+         /usr/include/c++/14
+         /usr/include/x86_64-linux-gnu/c++/14
+         /usr/include/c++/14/backward
+         /usr/lib/gcc/x86_64-linux-gnu/14/include
+         /usr/include/x86_64-linux-gnu
+         /usr/include
+        End of search list.
+        Compiler executable checksum: a0e1d70a4b6c50c7ed1b3d36dfd3f9a4
+        COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_f60d0.dir/CMakeCXXCompilerABI.cpp.o' '-c' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-dumpdir' 'CMakeFiles/cmTC_f60d0.dir/'
+         as -v --64 -o CMakeFiles/cmTC_f60d0.dir/CMakeCXXCompilerABI.cpp.o /tmp/ccB2iRCD.s
+        GNU assembler version 2.44 (x86_64-linux-gnu) using BFD version (GNU Binutils for Debian) 2.44
+        COMPILER_PATH=/usr/libexec/gcc/x86_64-linux-gnu/14/:/usr/libexec/gcc/x86_64-linux-gnu/14/:/usr/libexec/gcc/x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/14/:/usr/lib/gcc/x86_64-linux-gnu/
+        LIBRARY_PATH=/usr/lib/gcc/x86_64-linux-gnu/14/:/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/14/../../../../lib/:/lib/x86_64-linux-gnu/:/lib/../lib/:/usr/lib/x86_64-linux-gnu/:/usr/lib/../lib/:/usr/lib/gcc/x86_64-linux-gnu/14/../../../:/lib/:/usr/lib/
+        COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_f60d0.dir/CMakeCXXCompilerABI.cpp.o' '-c' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-dumpdir' 'CMakeFiles/cmTC_f60d0.dir/CMakeCXXCompilerABI.cpp.'
+        Linking CXX executable cmTC_f60d0
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_f60d0.dir/link.txt --verbose=1
+        /usr/bin/c++  -v -Wl,-v CMakeFiles/cmTC_f60d0.dir/CMakeCXXCompilerABI.cpp.o -o cmTC_f60d0
+        Using built-in specs.
+        COLLECT_GCC=/usr/bin/c++
+        COLLECT_LTO_WRAPPER=/usr/libexec/gcc/x86_64-linux-gnu/14/lto-wrapper
+        OFFLOAD_TARGET_NAMES=nvptx-none:amdgcn-amdhsa
+        OFFLOAD_TARGET_DEFAULT=1
+        Target: x86_64-linux-gnu
+        Configured with: ../src/configure -v --with-pkgversion='Debian 14.2.0-19' --with-bugurl=file:///usr/share/doc/gcc-14/README.Bugs --enable-languages=c,ada,c++,go,d,fortran,objc,obj-c++,m2,rust --prefix=/usr --with-gcc-major-version-only --program-suffix=-14 --program-prefix=x86_64-linux-gnu- --enable-shared --enable-linker-build-id --libexecdir=/usr/libexec --without-included-gettext --enable-threads=posix --libdir=/usr/lib --enable-nls --enable-bootstrap --enable-clocale=gnu --enable-libstdcxx-debug --enable-libstdcxx-time=yes --with-default-libstdcxx-abi=new --enable-libstdcxx-backtrace --enable-gnu-unique-object --disable-vtable-verify --enable-plugin --enable-default-pie --with-system-zlib --enable-libphobos-checking=release --with-target-system-zlib=auto --enable-objc-gc=auto --enable-multiarch --disable-werror --enable-cet --with-arch-32=i686 --with-abi=m64 --with-multilib-list=m32,m64,mx32 --enable-multilib --with-tune=generic --enable-offload-targets=nvptx-none=/build/reproducible-path/gcc-14-14.2.0/debian/tmp-nvptx/usr,amdgcn-amdhsa=/build/reproducible-path/gcc-14-14.2.0/debian/tmp-gcn/usr --enable-offload-defaulted --without-cuda-driver --enable-checking=release --build=x86_64-linux-gnu --host=x86_64-linux-gnu --target=x86_64-linux-gnu --with-build-config=bootstrap-lto-lean --enable-link-serialization=3
+        Thread model: posix
+        Supported LTO compression algorithms: zlib zstd
+        gcc version 14.2.0 (Debian 14.2.0-19) 
+        COMPILER_PATH=/usr/libexec/gcc/x86_64-linux-gnu/14/:/usr/libexec/gcc/x86_64-linux-gnu/14/:/usr/libexec/gcc/x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/14/:/usr/lib/gcc/x86_64-linux-gnu/
+        LIBRARY_PATH=/usr/lib/gcc/x86_64-linux-gnu/14/:/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/14/../../../../lib/:/lib/x86_64-linux-gnu/:/lib/../lib/:/usr/lib/x86_64-linux-gnu/:/usr/lib/../lib/:/usr/lib/gcc/x86_64-linux-gnu/14/../../../:/lib/:/usr/lib/
+        COLLECT_GCC_OPTIONS='-v' '-o' 'cmTC_f60d0' '-foffload-options=-l_GCC_m' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-dumpdir' 'cmTC_f60d0.'
+         /usr/libexec/gcc/x86_64-linux-gnu/14/collect2 -plugin /usr/libexec/gcc/x86_64-linux-gnu/14/liblto_plugin.so -plugin-opt=/usr/libexec/gcc/x86_64-linux-gnu/14/lto-wrapper -plugin-opt=-fresolution=/tmp/ccYPK7ZV.res -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lc -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc --build-id --eh-frame-hdr -m elf_x86_64 --hash-style=gnu --as-needed -dynamic-linker /lib64/ld-linux-x86-64.so.2 -pie -o cmTC_f60d0 /usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/Scrt1.o /usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/crti.o /usr/lib/gcc/x86_64-linux-gnu/14/crtbeginS.o -L/usr/lib/gcc/x86_64-linux-gnu/14 -L/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu -L/usr/lib/gcc/x86_64-linux-gnu/14/../../../../lib -L/lib/x86_64-linux-gnu -L/lib/../lib -L/usr/lib/x86_64-linux-gnu -L/usr/lib/../lib -L/usr/lib/gcc/x86_64-linux-gnu/14/../../.. -v CMakeFiles/cmTC_f60d0.dir/CMakeCXXCompilerABI.cpp.o -lstdc++ -lm -lgcc_s -lgcc -lc -lgcc_s -lgcc /usr/lib/gcc/x86_64-linux-gnu/14/crtendS.o /usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/crtn.o
+        collect2 version 14.2.0
+        /usr/bin/ld -plugin /usr/libexec/gcc/x86_64-linux-gnu/14/liblto_plugin.so -plugin-opt=/usr/libexec/gcc/x86_64-linux-gnu/14/lto-wrapper -plugin-opt=-fresolution=/tmp/ccYPK7ZV.res -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lc -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc --build-id --eh-frame-hdr -m elf_x86_64 --hash-style=gnu --as-needed -dynamic-linker /lib64/ld-linux-x86-64.so.2 -pie -o cmTC_f60d0 /usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/Scrt1.o /usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/crti.o /usr/lib/gcc/x86_64-linux-gnu/14/crtbeginS.o -L/usr/lib/gcc/x86_64-linux-gnu/14 -L/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu -L/usr/lib/gcc/x86_64-linux-gnu/14/../../../../lib -L/lib/x86_64-linux-gnu -L/lib/../lib -L/usr/lib/x86_64-linux-gnu -L/usr/lib/../lib -L/usr/lib/gcc/x86_64-linux-gnu/14/../../.. -v CMakeFiles/cmTC_f60d0.dir/CMakeCXXCompilerABI.cpp.o -lstdc++ -lm -lgcc_s -lgcc -lc -lgcc_s -lgcc /usr/lib/gcc/x86_64-linux-gnu/14/crtendS.o /usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/crtn.o
+        GNU ld (GNU Binutils for Debian) 2.44
+        COLLECT_GCC_OPTIONS='-v' '-o' 'cmTC_f60d0' '-foffload-options=-l_GCC_m' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-dumpdir' 'cmTC_f60d0.'
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-LVyR1y'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-LVyR1y'
+        
+      exitCode: 0
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/CMakeDetermineCompilerABI.cmake:182 (message)"
+      - "/usr/share/cmake-3.30/Modules/CMakeTestCXXCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:31 (project)"
+    message: |
+      Parsed CXX implicit include dir info: rv=done
+        found start of include info
+        found start of implicit include info
+          add: [/usr/include/c++/14]
+          add: [/usr/include/x86_64-linux-gnu/c++/14]
+          add: [/usr/include/c++/14/backward]
+          add: [/usr/lib/gcc/x86_64-linux-gnu/14/include]
+          add: [/usr/include/x86_64-linux-gnu]
+          add: [/usr/include]
+        end of search list found
+        collapse include dir [/usr/include/c++/14] ==> [/usr/include/c++/14]
+        collapse include dir [/usr/include/x86_64-linux-gnu/c++/14] ==> [/usr/include/x86_64-linux-gnu/c++/14]
+        collapse include dir [/usr/include/c++/14/backward] ==> [/usr/include/c++/14/backward]
+        collapse include dir [/usr/lib/gcc/x86_64-linux-gnu/14/include] ==> [/usr/lib/gcc/x86_64-linux-gnu/14/include]
+        collapse include dir [/usr/include/x86_64-linux-gnu] ==> [/usr/include/x86_64-linux-gnu]
+        collapse include dir [/usr/include] ==> [/usr/include]
+        implicit include dirs: [/usr/include/c++/14;/usr/include/x86_64-linux-gnu/c++/14;/usr/include/c++/14/backward;/usr/lib/gcc/x86_64-linux-gnu/14/include;/usr/include/x86_64-linux-gnu;/usr/include]
+      
+      
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/CMakeDetermineCompilerABI.cmake:218 (message)"
+      - "/usr/share/cmake-3.30/Modules/CMakeTestCXXCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:31 (project)"
+    message: |
+      Parsed CXX implicit link information:
+        link line regex: [^( *|.*[/\\])(ld[0-9]*(\\.[a-z]+)?|CMAKE_LINK_STARTFILE-NOTFOUND|([^/\\]+-)?ld|collect2)[^/\\]*( |$)]
+        linker tool regex: [^[ 	]*(->|")?[ 	]*(([^"]*[/\\])?(ld[0-9]*(\\.[a-z]+)?))("|,| |$)]
+        ignore line: [Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-LVyR1y']
+        ignore line: []
+        ignore line: [Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_f60d0/fast]
+        ignore line: [gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-LVyR1y']
+        ignore line: [/usr/bin/gmake  -f CMakeFiles/cmTC_f60d0.dir/build.make CMakeFiles/cmTC_f60d0.dir/build]
+        ignore line: [gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-LVyR1y']
+        ignore line: [Building CXX object CMakeFiles/cmTC_f60d0.dir/CMakeCXXCompilerABI.cpp.o]
+        ignore line: [/usr/bin/c++   -v -o CMakeFiles/cmTC_f60d0.dir/CMakeCXXCompilerABI.cpp.o -c /usr/share/cmake-3.30/Modules/CMakeCXXCompilerABI.cpp]
+        ignore line: [Using built-in specs.]
+        ignore line: [COLLECT_GCC=/usr/bin/c++]
+        ignore line: [OFFLOAD_TARGET_NAMES=nvptx-none:amdgcn-amdhsa]
+        ignore line: [OFFLOAD_TARGET_DEFAULT=1]
+        ignore line: [Target: x86_64-linux-gnu]
+        ignore line: [Configured with: ../src/configure -v --with-pkgversion='Debian 14.2.0-19' --with-bugurl=file:///usr/share/doc/gcc-14/README.Bugs --enable-languages=c ada c++ go d fortran objc obj-c++ m2 rust --prefix=/usr --with-gcc-major-version-only --program-suffix=-14 --program-prefix=x86_64-linux-gnu- --enable-shared --enable-linker-build-id --libexecdir=/usr/libexec --without-included-gettext --enable-threads=posix --libdir=/usr/lib --enable-nls --enable-bootstrap --enable-clocale=gnu --enable-libstdcxx-debug --enable-libstdcxx-time=yes --with-default-libstdcxx-abi=new --enable-libstdcxx-backtrace --enable-gnu-unique-object --disable-vtable-verify --enable-plugin --enable-default-pie --with-system-zlib --enable-libphobos-checking=release --with-target-system-zlib=auto --enable-objc-gc=auto --enable-multiarch --disable-werror --enable-cet --with-arch-32=i686 --with-abi=m64 --with-multilib-list=m32 m64 mx32 --enable-multilib --with-tune=generic --enable-offload-targets=nvptx-none=/build/reproducible-path/gcc-14-14.2.0/debian/tmp-nvptx/usr amdgcn-amdhsa=/build/reproducible-path/gcc-14-14.2.0/debian/tmp-gcn/usr --enable-offload-defaulted --without-cuda-driver --enable-checking=release --build=x86_64-linux-gnu --host=x86_64-linux-gnu --target=x86_64-linux-gnu --with-build-config=bootstrap-lto-lean --enable-link-serialization=3]
+        ignore line: [Thread model: posix]
+        ignore line: [Supported LTO compression algorithms: zlib zstd]
+        ignore line: [gcc version 14.2.0 (Debian 14.2.0-19) ]
+        ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_f60d0.dir/CMakeCXXCompilerABI.cpp.o' '-c' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-dumpdir' 'CMakeFiles/cmTC_f60d0.dir/']
+        ignore line: [ /usr/libexec/gcc/x86_64-linux-gnu/14/cc1plus -quiet -v -imultiarch x86_64-linux-gnu -D_GNU_SOURCE /usr/share/cmake-3.30/Modules/CMakeCXXCompilerABI.cpp -quiet -dumpdir CMakeFiles/cmTC_f60d0.dir/ -dumpbase CMakeCXXCompilerABI.cpp.cpp -dumpbase-ext .cpp -mtune=generic -march=x86-64 -version -fasynchronous-unwind-tables -o /tmp/ccB2iRCD.s]
+        ignore line: [GNU C++17 (Debian 14.2.0-19) version 14.2.0 (x86_64-linux-gnu)]
+        ignore line: [	compiled by GNU C version 14.2.0  GMP version 6.3.0  MPFR version 4.2.1  MPC version 1.3.1  isl version isl-0.27-GMP]
+        ignore line: []
+        ignore line: [warning: MPFR header version 4.2.1 differs from library version 4.2.2.]
+        ignore line: [GGC heuristics: --param ggc-min-expand=100 --param ggc-min-heapsize=131072]
+        ignore line: [ignoring duplicate directory "/usr/include/x86_64-linux-gnu/c++/14"]
+        ignore line: [ignoring nonexistent directory "/usr/local/include/x86_64-linux-gnu"]
+        ignore line: [ignoring nonexistent directory "/usr/local/include"]
+        ignore line: [ignoring nonexistent directory "/usr/lib/gcc/x86_64-linux-gnu/14/include-fixed/x86_64-linux-gnu"]
+        ignore line: [ignoring nonexistent directory "/usr/lib/gcc/x86_64-linux-gnu/14/include-fixed"]
+        ignore line: [ignoring nonexistent directory "/usr/lib/gcc/x86_64-linux-gnu/14/../../../../x86_64-linux-gnu/include"]
+        ignore line: [#include "..." search starts here:]
+        ignore line: [#include <...> search starts here:]
+        ignore line: [ /usr/include/c++/14]
+        ignore line: [ /usr/include/x86_64-linux-gnu/c++/14]
+        ignore line: [ /usr/include/c++/14/backward]
+        ignore line: [ /usr/lib/gcc/x86_64-linux-gnu/14/include]
+        ignore line: [ /usr/include/x86_64-linux-gnu]
+        ignore line: [ /usr/include]
+        ignore line: [End of search list.]
+        ignore line: [Compiler executable checksum: a0e1d70a4b6c50c7ed1b3d36dfd3f9a4]
+        ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_f60d0.dir/CMakeCXXCompilerABI.cpp.o' '-c' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-dumpdir' 'CMakeFiles/cmTC_f60d0.dir/']
+        ignore line: [ as -v --64 -o CMakeFiles/cmTC_f60d0.dir/CMakeCXXCompilerABI.cpp.o /tmp/ccB2iRCD.s]
+        ignore line: [GNU assembler version 2.44 (x86_64-linux-gnu) using BFD version (GNU Binutils for Debian) 2.44]
+        ignore line: [COMPILER_PATH=/usr/libexec/gcc/x86_64-linux-gnu/14/:/usr/libexec/gcc/x86_64-linux-gnu/14/:/usr/libexec/gcc/x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/14/:/usr/lib/gcc/x86_64-linux-gnu/]
+        ignore line: [LIBRARY_PATH=/usr/lib/gcc/x86_64-linux-gnu/14/:/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/14/../../../../lib/:/lib/x86_64-linux-gnu/:/lib/../lib/:/usr/lib/x86_64-linux-gnu/:/usr/lib/../lib/:/usr/lib/gcc/x86_64-linux-gnu/14/../../../:/lib/:/usr/lib/]
+        ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_f60d0.dir/CMakeCXXCompilerABI.cpp.o' '-c' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-dumpdir' 'CMakeFiles/cmTC_f60d0.dir/CMakeCXXCompilerABI.cpp.']
+        ignore line: [Linking CXX executable cmTC_f60d0]
+        ignore line: [/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_f60d0.dir/link.txt --verbose=1]
+        ignore line: [/usr/bin/c++  -v -Wl -v CMakeFiles/cmTC_f60d0.dir/CMakeCXXCompilerABI.cpp.o -o cmTC_f60d0]
+        ignore line: [Using built-in specs.]
+        ignore line: [COLLECT_GCC=/usr/bin/c++]
+        ignore line: [COLLECT_LTO_WRAPPER=/usr/libexec/gcc/x86_64-linux-gnu/14/lto-wrapper]
+        ignore line: [OFFLOAD_TARGET_NAMES=nvptx-none:amdgcn-amdhsa]
+        ignore line: [OFFLOAD_TARGET_DEFAULT=1]
+        ignore line: [Target: x86_64-linux-gnu]
+        ignore line: [Configured with: ../src/configure -v --with-pkgversion='Debian 14.2.0-19' --with-bugurl=file:///usr/share/doc/gcc-14/README.Bugs --enable-languages=c ada c++ go d fortran objc obj-c++ m2 rust --prefix=/usr --with-gcc-major-version-only --program-suffix=-14 --program-prefix=x86_64-linux-gnu- --enable-shared --enable-linker-build-id --libexecdir=/usr/libexec --without-included-gettext --enable-threads=posix --libdir=/usr/lib --enable-nls --enable-bootstrap --enable-clocale=gnu --enable-libstdcxx-debug --enable-libstdcxx-time=yes --with-default-libstdcxx-abi=new --enable-libstdcxx-backtrace --enable-gnu-unique-object --disable-vtable-verify --enable-plugin --enable-default-pie --with-system-zlib --enable-libphobos-checking=release --with-target-system-zlib=auto --enable-objc-gc=auto --enable-multiarch --disable-werror --enable-cet --with-arch-32=i686 --with-abi=m64 --with-multilib-list=m32 m64 mx32 --enable-multilib --with-tune=generic --enable-offload-targets=nvptx-none=/build/reproducible-path/gcc-14-14.2.0/debian/tmp-nvptx/usr amdgcn-amdhsa=/build/reproducible-path/gcc-14-14.2.0/debian/tmp-gcn/usr --enable-offload-defaulted --without-cuda-driver --enable-checking=release --build=x86_64-linux-gnu --host=x86_64-linux-gnu --target=x86_64-linux-gnu --with-build-config=bootstrap-lto-lean --enable-link-serialization=3]
+        ignore line: [Thread model: posix]
+        ignore line: [Supported LTO compression algorithms: zlib zstd]
+        ignore line: [gcc version 14.2.0 (Debian 14.2.0-19) ]
+        ignore line: [COMPILER_PATH=/usr/libexec/gcc/x86_64-linux-gnu/14/:/usr/libexec/gcc/x86_64-linux-gnu/14/:/usr/libexec/gcc/x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/14/:/usr/lib/gcc/x86_64-linux-gnu/]
+        ignore line: [LIBRARY_PATH=/usr/lib/gcc/x86_64-linux-gnu/14/:/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/:/usr/lib/gcc/x86_64-linux-gnu/14/../../../../lib/:/lib/x86_64-linux-gnu/:/lib/../lib/:/usr/lib/x86_64-linux-gnu/:/usr/lib/../lib/:/usr/lib/gcc/x86_64-linux-gnu/14/../../../:/lib/:/usr/lib/]
+        ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'cmTC_f60d0' '-foffload-options=-l_GCC_m' '-shared-libgcc' '-mtune=generic' '-march=x86-64' '-dumpdir' 'cmTC_f60d0.']
+        link line: [ /usr/libexec/gcc/x86_64-linux-gnu/14/collect2 -plugin /usr/libexec/gcc/x86_64-linux-gnu/14/liblto_plugin.so -plugin-opt=/usr/libexec/gcc/x86_64-linux-gnu/14/lto-wrapper -plugin-opt=-fresolution=/tmp/ccYPK7ZV.res -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lc -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc --build-id --eh-frame-hdr -m elf_x86_64 --hash-style=gnu --as-needed -dynamic-linker /lib64/ld-linux-x86-64.so.2 -pie -o cmTC_f60d0 /usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/Scrt1.o /usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/crti.o /usr/lib/gcc/x86_64-linux-gnu/14/crtbeginS.o -L/usr/lib/gcc/x86_64-linux-gnu/14 -L/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu -L/usr/lib/gcc/x86_64-linux-gnu/14/../../../../lib -L/lib/x86_64-linux-gnu -L/lib/../lib -L/usr/lib/x86_64-linux-gnu -L/usr/lib/../lib -L/usr/lib/gcc/x86_64-linux-gnu/14/../../.. -v CMakeFiles/cmTC_f60d0.dir/CMakeCXXCompilerABI.cpp.o -lstdc++ -lm -lgcc_s -lgcc -lc -lgcc_s -lgcc /usr/lib/gcc/x86_64-linux-gnu/14/crtendS.o /usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/crtn.o]
+          arg [/usr/libexec/gcc/x86_64-linux-gnu/14/collect2] ==> ignore
+          arg [-plugin] ==> ignore
+          arg [/usr/libexec/gcc/x86_64-linux-gnu/14/liblto_plugin.so] ==> ignore
+          arg [-plugin-opt=/usr/libexec/gcc/x86_64-linux-gnu/14/lto-wrapper] ==> ignore
+          arg [-plugin-opt=-fresolution=/tmp/ccYPK7ZV.res] ==> ignore
+          arg [-plugin-opt=-pass-through=-lgcc_s] ==> ignore
+          arg [-plugin-opt=-pass-through=-lgcc] ==> ignore
+          arg [-plugin-opt=-pass-through=-lc] ==> ignore
+          arg [-plugin-opt=-pass-through=-lgcc_s] ==> ignore
+          arg [-plugin-opt=-pass-through=-lgcc] ==> ignore
+          arg [--build-id] ==> ignore
+          arg [--eh-frame-hdr] ==> ignore
+          arg [-m] ==> ignore
+          arg [elf_x86_64] ==> ignore
+          arg [--hash-style=gnu] ==> ignore
+          arg [--as-needed] ==> ignore
+          arg [-dynamic-linker] ==> ignore
+          arg [/lib64/ld-linux-x86-64.so.2] ==> ignore
+          arg [-pie] ==> ignore
+          arg [-o] ==> ignore
+          arg [cmTC_f60d0] ==> ignore
+          arg [/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/Scrt1.o] ==> obj [/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/Scrt1.o]
+          arg [/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/crti.o] ==> obj [/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/crti.o]
+          arg [/usr/lib/gcc/x86_64-linux-gnu/14/crtbeginS.o] ==> obj [/usr/lib/gcc/x86_64-linux-gnu/14/crtbeginS.o]
+          arg [-L/usr/lib/gcc/x86_64-linux-gnu/14] ==> dir [/usr/lib/gcc/x86_64-linux-gnu/14]
+          arg [-L/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu] ==> dir [/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu]
+          arg [-L/usr/lib/gcc/x86_64-linux-gnu/14/../../../../lib] ==> dir [/usr/lib/gcc/x86_64-linux-gnu/14/../../../../lib]
+          arg [-L/lib/x86_64-linux-gnu] ==> dir [/lib/x86_64-linux-gnu]
+          arg [-L/lib/../lib] ==> dir [/lib/../lib]
+          arg [-L/usr/lib/x86_64-linux-gnu] ==> dir [/usr/lib/x86_64-linux-gnu]
+          arg [-L/usr/lib/../lib] ==> dir [/usr/lib/../lib]
+          arg [-L/usr/lib/gcc/x86_64-linux-gnu/14/../../..] ==> dir [/usr/lib/gcc/x86_64-linux-gnu/14/../../..]
+          arg [-v] ==> ignore
+          arg [CMakeFiles/cmTC_f60d0.dir/CMakeCXXCompilerABI.cpp.o] ==> ignore
+          arg [-lstdc++] ==> lib [stdc++]
+          arg [-lm] ==> lib [m]
+          arg [-lgcc_s] ==> lib [gcc_s]
+          arg [-lgcc] ==> lib [gcc]
+          arg [-lc] ==> lib [c]
+          arg [-lgcc_s] ==> lib [gcc_s]
+          arg [-lgcc] ==> lib [gcc]
+          arg [/usr/lib/gcc/x86_64-linux-gnu/14/crtendS.o] ==> obj [/usr/lib/gcc/x86_64-linux-gnu/14/crtendS.o]
+          arg [/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/crtn.o] ==> obj [/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/crtn.o]
+        ignore line: [collect2 version 14.2.0]
+        ignore line: [/usr/bin/ld -plugin /usr/libexec/gcc/x86_64-linux-gnu/14/liblto_plugin.so -plugin-opt=/usr/libexec/gcc/x86_64-linux-gnu/14/lto-wrapper -plugin-opt=-fresolution=/tmp/ccYPK7ZV.res -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lc -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc --build-id --eh-frame-hdr -m elf_x86_64 --hash-style=gnu --as-needed -dynamic-linker /lib64/ld-linux-x86-64.so.2 -pie -o cmTC_f60d0 /usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/Scrt1.o /usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/crti.o /usr/lib/gcc/x86_64-linux-gnu/14/crtbeginS.o -L/usr/lib/gcc/x86_64-linux-gnu/14 -L/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu -L/usr/lib/gcc/x86_64-linux-gnu/14/../../../../lib -L/lib/x86_64-linux-gnu -L/lib/../lib -L/usr/lib/x86_64-linux-gnu -L/usr/lib/../lib -L/usr/lib/gcc/x86_64-linux-gnu/14/../../.. -v CMakeFiles/cmTC_f60d0.dir/CMakeCXXCompilerABI.cpp.o -lstdc++ -lm -lgcc_s -lgcc -lc -lgcc_s -lgcc /usr/lib/gcc/x86_64-linux-gnu/14/crtendS.o /usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/crtn.o]
+        linker tool for 'CXX': /usr/bin/ld
+        collapse obj [/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/Scrt1.o] ==> [/usr/lib/x86_64-linux-gnu/Scrt1.o]
+        collapse obj [/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/crti.o] ==> [/usr/lib/x86_64-linux-gnu/crti.o]
+        collapse obj [/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu/crtn.o] ==> [/usr/lib/x86_64-linux-gnu/crtn.o]
+        collapse library dir [/usr/lib/gcc/x86_64-linux-gnu/14] ==> [/usr/lib/gcc/x86_64-linux-gnu/14]
+        collapse library dir [/usr/lib/gcc/x86_64-linux-gnu/14/../../../x86_64-linux-gnu] ==> [/usr/lib/x86_64-linux-gnu]
+        collapse library dir [/usr/lib/gcc/x86_64-linux-gnu/14/../../../../lib] ==> [/usr/lib]
+        collapse library dir [/lib/x86_64-linux-gnu] ==> [/lib/x86_64-linux-gnu]
+        collapse library dir [/lib/../lib] ==> [/lib]
+        collapse library dir [/usr/lib/x86_64-linux-gnu] ==> [/usr/lib/x86_64-linux-gnu]
+        collapse library dir [/usr/lib/../lib] ==> [/usr/lib]
+        collapse library dir [/usr/lib/gcc/x86_64-linux-gnu/14/../../..] ==> [/usr/lib]
+        implicit libs: [stdc++;m;gcc_s;gcc;c;gcc_s;gcc]
+        implicit objs: [/usr/lib/x86_64-linux-gnu/Scrt1.o;/usr/lib/x86_64-linux-gnu/crti.o;/usr/lib/gcc/x86_64-linux-gnu/14/crtbeginS.o;/usr/lib/gcc/x86_64-linux-gnu/14/crtendS.o;/usr/lib/x86_64-linux-gnu/crtn.o]
+        implicit dirs: [/usr/lib/gcc/x86_64-linux-gnu/14;/usr/lib/x86_64-linux-gnu;/usr/lib;/lib/x86_64-linux-gnu;/lib]
+        implicit fwks: []
+      
+      
+  -
+    kind: "message-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CMakeDetermineLinkerId.cmake:40 (message)"
+      - "/usr/share/cmake-3.30/Modules/CMakeDetermineCompilerABI.cmake:255 (cmake_determine_linker_id)"
+      - "/usr/share/cmake-3.30/Modules/CMakeTestCXXCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
+      - "CMakeLists.txt:31 (project)"
+    message: |
+      Running the CXX compiler's linker: "/usr/bin/ld" "-v"
+      GNU ld (GNU Binutils for Debian) 2.44
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:85 (check_cxx_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_cxx"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-sUbfku"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-sUbfku"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_cxx"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-sUbfku'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_9af59/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-sUbfku'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_9af59.dir/build.make CMakeFiles/cmTC_9af59.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-sUbfku'
+        Building CXX object CMakeFiles/cmTC_9af59.dir/src.cxx.o
+        /usr/bin/c++ -D_march=native_cxx  -march=native -o CMakeFiles/cmTC_9af59.dir/src.cxx.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-sUbfku/src.cxx
+        Linking CXX executable cmTC_9af59
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_9af59.dir/link.txt --verbose=1
+        /usr/bin/c++ CMakeFiles/cmTC_9af59.dir/src.cxx.o -o cmTC_9af59
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-sUbfku'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-sUbfku'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCCompilerFlag.cmake:51 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:91 (check_c_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_c"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-9kvN0B"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-9kvN0B"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_c"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-9kvN0B'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_004e0/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-9kvN0B'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_004e0.dir/build.make CMakeFiles/cmTC_004e0.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-9kvN0B'
+        Building C object CMakeFiles/cmTC_004e0.dir/src.c.o
+        /usr/bin/cc -D_march=native_c  -march=native -o CMakeFiles/cmTC_004e0.dir/src.c.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-9kvN0B/src.c
+        Linking C executable cmTC_004e0
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_004e0.dir/link.txt --verbose=1
+        /usr/bin/cc CMakeFiles/cmTC_004e0.dir/src.c.o -o cmTC_004e0
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-9kvN0B'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-9kvN0B'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/CheckCSourceCompiles.cmake:52 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/FindThreads.cmake:97 (CHECK_C_SOURCE_COMPILES)"
+      - "/usr/share/cmake-3.30/Modules/FindThreads.cmake:163 (_threads_check_libc)"
+      - "CMakeLists.txt:248 (find_package)"
+    checks:
+      - "Performing Test CMAKE_HAVE_LIBC_PTHREAD"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-yVEPrN"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-yVEPrN"
+    cmakeVariables:
+      CMAKE_C_FLAGS: " -march=native"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "CMAKE_HAVE_LIBC_PTHREAD"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-yVEPrN'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_f07a4/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-yVEPrN'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_f07a4.dir/build.make CMakeFiles/cmTC_f07a4.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-yVEPrN'
+        Building C object CMakeFiles/cmTC_f07a4.dir/src.c.o
+        /usr/bin/cc -DCMAKE_HAVE_LIBC_PTHREAD  -march=native  -o CMakeFiles/cmTC_f07a4.dir/src.c.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-yVEPrN/src.c
+        Linking C executable cmTC_f07a4
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_f07a4.dir/link.txt --verbose=1
+        /usr/bin/cc  -march=native  CMakeFiles/cmTC_f07a4.dir/src.c.o -o cmTC_f07a4
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-yVEPrN'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-yVEPrN'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/CheckCXXSourceCompiles.cmake:52 (cmake_check_source_compiles)"
+      - "CMakeLists.txt:259 (check_cxx_source_compiles)"
+    checks:
+      - "Performing Test HAVE_CXX_ATOMICS"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-meNzD9"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-meNzD9"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: " -march=native"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "HAVE_CXX_ATOMICS"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-meNzD9'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_ee2c0/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-meNzD9'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_ee2c0.dir/build.make CMakeFiles/cmTC_ee2c0.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-meNzD9'
+        Building CXX object CMakeFiles/cmTC_ee2c0.dir/src.cxx.o
+        /usr/bin/c++ -DHAVE_CXX_ATOMICS  -march=native  -o CMakeFiles/cmTC_ee2c0.dir/src.cxx.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-meNzD9/src.cxx
+        Linking CXX executable cmTC_ee2c0
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_ee2c0.dir/link.txt --verbose=1
+        /usr/bin/c++  -march=native  CMakeFiles/cmTC_ee2c0.dir/src.cxx.o -o cmTC_ee2c0
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-meNzD9'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-meNzD9'
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:85 (check_cxx_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_cxx"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-g6X2tD"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-g6X2tD"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_cxx"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-g6X2tD'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_0f1a8/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-g6X2tD'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_0f1a8.dir/build.make CMakeFiles/cmTC_0f1a8.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-g6X2tD'
+        Building CXX object CMakeFiles/cmTC_0f1a8.dir/src.cxx.o
+        /usr/bin/c++ -D_march=native_cxx  -march=native -o CMakeFiles/cmTC_0f1a8.dir/src.cxx.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-g6X2tD/src.cxx
+        Linking CXX executable cmTC_0f1a8
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_0f1a8.dir/link.txt --verbose=1
+        /usr/bin/c++ CMakeFiles/cmTC_0f1a8.dir/src.cxx.o -o cmTC_0f1a8
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-g6X2tD'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-g6X2tD'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCCompilerFlag.cmake:51 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:91 (check_c_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_c"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-29n75o"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-29n75o"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_c"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-29n75o'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_da066/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-29n75o'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_da066.dir/build.make CMakeFiles/cmTC_da066.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-29n75o'
+        Building C object CMakeFiles/cmTC_da066.dir/src.c.o
+        /usr/bin/cc -D_march=native_c  -march=native -o CMakeFiles/cmTC_da066.dir/src.c.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-29n75o/src.c
+        Linking C executable cmTC_da066
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_da066.dir/link.txt --verbose=1
+        /usr/bin/cc CMakeFiles/cmTC_da066.dir/src.c.o -o cmTC_da066
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-29n75o'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-29n75o'
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:85 (check_cxx_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_cxx"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-e2zoXq"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-e2zoXq"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_cxx"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-e2zoXq'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_6514c/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-e2zoXq'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_6514c.dir/build.make CMakeFiles/cmTC_6514c.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-e2zoXq'
+        Building CXX object CMakeFiles/cmTC_6514c.dir/src.cxx.o
+        /usr/bin/c++ -D_march=native_cxx  -march=native -o CMakeFiles/cmTC_6514c.dir/src.cxx.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-e2zoXq/src.cxx
+        Linking CXX executable cmTC_6514c
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_6514c.dir/link.txt --verbose=1
+        /usr/bin/c++ CMakeFiles/cmTC_6514c.dir/src.cxx.o -o cmTC_6514c
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-e2zoXq'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-e2zoXq'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCCompilerFlag.cmake:51 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:91 (check_c_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_c"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-B5uL8g"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-B5uL8g"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_c"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-B5uL8g'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_148d1/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-B5uL8g'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_148d1.dir/build.make CMakeFiles/cmTC_148d1.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-B5uL8g'
+        Building C object CMakeFiles/cmTC_148d1.dir/src.c.o
+        /usr/bin/cc -D_march=native_c  -march=native -o CMakeFiles/cmTC_148d1.dir/src.c.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-B5uL8g/src.c
+        Linking C executable cmTC_148d1
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_148d1.dir/link.txt --verbose=1
+        /usr/bin/cc CMakeFiles/cmTC_148d1.dir/src.c.o -o cmTC_148d1
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-B5uL8g'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-B5uL8g'
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:85 (check_cxx_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_cxx"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-fsHD2V"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-fsHD2V"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_cxx"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-fsHD2V'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_8926c/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-fsHD2V'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_8926c.dir/build.make CMakeFiles/cmTC_8926c.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-fsHD2V'
+        Building CXX object CMakeFiles/cmTC_8926c.dir/src.cxx.o
+        /usr/bin/c++ -D_march=native_cxx  -march=native -o CMakeFiles/cmTC_8926c.dir/src.cxx.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-fsHD2V/src.cxx
+        Linking CXX executable cmTC_8926c
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_8926c.dir/link.txt --verbose=1
+        /usr/bin/c++ CMakeFiles/cmTC_8926c.dir/src.cxx.o -o cmTC_8926c
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-fsHD2V'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-fsHD2V'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCCompilerFlag.cmake:51 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:91 (check_c_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_c"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-alG7Bb"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-alG7Bb"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_c"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-alG7Bb'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_a7748/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-alG7Bb'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_a7748.dir/build.make CMakeFiles/cmTC_a7748.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-alG7Bb'
+        Building C object CMakeFiles/cmTC_a7748.dir/src.c.o
+        /usr/bin/cc -D_march=native_c  -march=native -o CMakeFiles/cmTC_a7748.dir/src.c.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-alG7Bb/src.c
+        Linking C executable cmTC_a7748
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_a7748.dir/link.txt --verbose=1
+        /usr/bin/cc CMakeFiles/cmTC_a7748.dir/src.c.o -o cmTC_a7748
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-alG7Bb'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-alG7Bb'
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:85 (check_cxx_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_cxx"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-Qa77jP"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-Qa77jP"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_cxx"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-Qa77jP'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_dce4c/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-Qa77jP'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_dce4c.dir/build.make CMakeFiles/cmTC_dce4c.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-Qa77jP'
+        Building CXX object CMakeFiles/cmTC_dce4c.dir/src.cxx.o
+        /usr/bin/c++ -D_march=native_cxx  -march=native -o CMakeFiles/cmTC_dce4c.dir/src.cxx.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-Qa77jP/src.cxx
+        Linking CXX executable cmTC_dce4c
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_dce4c.dir/link.txt --verbose=1
+        /usr/bin/c++ CMakeFiles/cmTC_dce4c.dir/src.cxx.o -o cmTC_dce4c
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-Qa77jP'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-Qa77jP'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCCompilerFlag.cmake:51 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:91 (check_c_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_c"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-EIQNrC"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-EIQNrC"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_c"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-EIQNrC'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_4f1b9/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-EIQNrC'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_4f1b9.dir/build.make CMakeFiles/cmTC_4f1b9.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-EIQNrC'
+        Building C object CMakeFiles/cmTC_4f1b9.dir/src.c.o
+        /usr/bin/cc -D_march=native_c  -march=native -o CMakeFiles/cmTC_4f1b9.dir/src.c.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-EIQNrC/src.c
+        Linking C executable cmTC_4f1b9
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_4f1b9.dir/link.txt --verbose=1
+        /usr/bin/cc CMakeFiles/cmTC_4f1b9.dir/src.c.o -o cmTC_4f1b9
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-EIQNrC'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-EIQNrC'
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCXXCompilerFlag.cmake:34 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:85 (check_cxx_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_cxx"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-NTF3ki"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-NTF3ki"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_cxx"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-NTF3ki'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_8d370/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-NTF3ki'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_8d370.dir/build.make CMakeFiles/cmTC_8d370.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-NTF3ki'
+        Building CXX object CMakeFiles/cmTC_8d370.dir/src.cxx.o
+        /usr/bin/c++ -D_march=native_cxx  -march=native -o CMakeFiles/cmTC_8d370.dir/src.cxx.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-NTF3ki/src.cxx
+        Linking CXX executable cmTC_8d370
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_8d370.dir/link.txt --verbose=1
+        /usr/bin/c++ CMakeFiles/cmTC_8d370.dir/src.cxx.o -o cmTC_8d370
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-NTF3ki'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-NTF3ki'
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.30/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.30/Modules/CheckCCompilerFlag.cmake:51 (cmake_check_compiler_flag)"
+      - "CMakeLists.txt:91 (check_c_compiler_flag)"
+      - "CMakeLists.txt:128 (add_flag)"
+    checks:
+      - "Performing Test _march=native_c"
+    directories:
+      source: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-1A9lqV"
+      binary: "/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-1A9lqV"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "_march=native_c"
+      cached: true
+      stdout: |
+        Change Dir: '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-1A9lqV'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_174bd/fast
+        gmake[1]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-1A9lqV'
+        /usr/bin/gmake  -f CMakeFiles/cmTC_174bd.dir/build.make CMakeFiles/cmTC_174bd.dir/build
+        gmake[2]: Entering directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-1A9lqV'
+        Building C object CMakeFiles/cmTC_174bd.dir/src.c.o
+        /usr/bin/cc -D_march=native_c  -march=native -o CMakeFiles/cmTC_174bd.dir/src.c.o -c /mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-1A9lqV/src.c
+        Linking C executable cmTC_174bd
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_174bd.dir/link.txt --verbose=1
+        /usr/bin/cc CMakeFiles/cmTC_174bd.dir/src.c.o -o cmTC_174bd
+        gmake[2]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-1A9lqV'
+        gmake[1]: Leaving directory '/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build/CMakeFiles/CMakeScratch/TryCompile-1A9lqV'
+        
+      exitCode: 0
+...

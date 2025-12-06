@@ -1,0 +1,1 @@
+/usr/bin/c++  -march=native -O3 -DNDEBUG "CMakeFiles/randomx-tests.dir/src/tests/tests.cpp.o" -o randomx-tests  -Wl,-rpath,/mnt/c/Users/Fantastic/source/repos/MoneroMiner/randomx/build librandomx.so
