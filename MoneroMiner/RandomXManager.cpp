@@ -505,6 +505,10 @@ void RandomXManager::handleSeedHashChange(const std::string& newSeedHash) {
 }
 
 bool RandomXManager::calculateHashForThread(int threadId, const std::vector<uint8_t>& input, uint64_t nonce) {
+    // Note: nonce parameter kept for API compatibility but not used
+    // The nonce is already embedded in the input blob by the calling code
+    (void)nonce; // Suppress unused parameter warning
+    
     randomx_vm* vm = nullptr;
     {
         std::shared_lock<std::shared_mutex> vmLock(vmMutex);

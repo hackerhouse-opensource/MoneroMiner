@@ -122,17 +122,36 @@ namespace randomx {
 	
 	// AMD Zen detection for runtime optimizations
 	inline bool isAMDZen() {
-		#ifdef __GNUC__
-		uint32_t eax, ebx, ecx, edx;
-		__cpuid(0, eax, ebx, ecx, edx);
-		if (ebx == 0x68747541 && ecx == 0x444D4163 && edx == 0x69746E65) { // "AuthenticAMD"
-			__cpuid(1, eax, ebx, ecx, edx);
-			uint32_t family = ((eax >> 8) & 0xF) + ((eax >> 20) & 0xFF);
-			return family >= 0x17; // Zen is family 17h+
-		}
-		#endif
-		return false;
+#if defined(_MSC_VER) || defined(__GNUC__)
+	int cpuInfo[4] = { 0 };
+	unsigned int eax = 0, ebx = 0, ecx = 0, edx = 0;
+	
+#ifdef _MSC_VER
+	__cpuid(cpuInfo, 0);
+	eax = cpuInfo[0];
+	ebx = cpuInfo[1];
+	ecx = cpuInfo[2];
+	edx = cpuInfo[3];
+#else
+	__get_cpuid(0, &eax, &ebx, &ecx, &edx);
+#endif
+	
+	// Check if vendor is AMD (AuthenticAMD)
+	if (ebx == 0x68747541 && edx == 0x69746e65 && ecx == 0x444d4163) {
+		// Get extended CPU info
+#ifdef _MSC_VER
+		__cpuid(cpuInfo, 1);
+		unsigned int family = ((cpuInfo[0] >> 8) & 0xF) + ((cpuInfo[0] >> 20) & 0xFF);
+#else
+		__get_cpuid(1, &eax, &ebx, &ecx, &edx);
+		unsigned int family = ((eax >> 8) & 0xF) + ((eax >> 20) & 0xFF);
+#endif
+		// Zen is family 0x17 (23) and Zen2/3 is family 0x19 (25)
+		return (family == 0x17 || family == 0x19);
 	}
+#endif
+	return false;
+}
 #elif defined(__aarch64__)
 	#define RANDOMX_HAVE_COMPILER 1
 	#define RANDOMX_COMPILER_A64

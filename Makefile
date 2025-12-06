@@ -118,13 +118,30 @@ install: all
 # Clean build artifacts
 clean:
 	@echo "Cleaning build artifacts..."
-	rm -rf $(BUILD_DIR)
-	rm -rf $(BIN_DIR)
+	rm -rf build/*.o
+	rm -f MoneroMiner
 
-# Clean everything including RandomX
+# Deep clean - remove everything including RandomX
 distclean: clean
-	@echo "Cleaning RandomX build..."
-	rm -rf $(RANDOMX_BUILD)
+	@echo "Deep cleaning (including RandomX)..."
+	rm -rf randomx/build
+	rm -rf RandomX/build
+	rm -f randomx_dataset_*.bin
+
+# Clean RandomX only
+clean-randomx:
+	@echo "Cleaning RandomX library..."
+	rm -rf randomx/build
+	rm -rf RandomX/build
+	@if [ -d "randomx/build" ]; then \
+		cd randomx/build && $(MAKE) clean 2>/dev/null || true; \
+	fi
+	@if [ -d "RandomX/build" ]; then \
+		cd RandomX/build && $(MAKE) clean 2>/dev/null || true; \
+	fi
+
+# Rebuild everything from scratch
+rebuild: distclean all
 
 # Run the miner
 run: all
