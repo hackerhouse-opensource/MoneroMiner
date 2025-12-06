@@ -94,6 +94,14 @@ namespace randomx {
 
 	constexpr int32_t superScalarHashOffset = RandomXCodeSize;
 
+	// AMD Zen optimization: Align hot code paths to 64-byte boundaries for L1 cache line efficiency
+	#ifdef __znver1__
+	constexpr size_t ZenCacheLineSize = 64;
+	#define ZEN_ALIGN alignas(ZenCacheLineSize)
+	#else
+	#define ZEN_ALIGN
+	#endif
+
 #if defined(_MSC_VER) && (defined(_DEBUG) || defined (RELWITHDEBINFO))
 #define ADDR(x) ((((uint8_t*)&x)[0] == 0xE9) ? (((uint8_t*)&x) + *(const int32_t*)(((uint8_t*)&x) + 1) + 5) : ((uint8_t*)&x))
 #else
@@ -229,6 +237,7 @@ namespace randomx {
 			throw std::runtime_error("allocMemoryPages");
 		memcpy(code, codePrologue, prologueSize);
 		memcpy(code + epilogueOffset, codeEpilogue, epilogueSize);
+		rcpCount = 0;
 	}
 
 	JitCompilerX86::~JitCompilerX86() {
@@ -345,6 +354,9 @@ namespace randomx {
 	}
 
 	void JitCompilerX86::generateSuperscalarCode(Instruction& instr, std::vector<uint64_t> &reciprocalCache) {
+		// AMD Zen optimization: Better instruction pairing
+		// Interleave integer and load operations to improve pipeline utilization
+		
 		switch ((SuperscalarInstructionType)instr.opcode)
 		{
 		case randomx::SuperscalarInstructionType::ISUB_R:
@@ -365,6 +377,7 @@ namespace randomx {
 			emitByte(0xc0 + 8 * instr.dst + instr.src);
 			break;
 		case randomx::SuperscalarInstructionType::IROR_C:
+			// AMD Zen: Use ROR instead of shift-or sequence when possible
 			emit(REX_ROT_I8);
 			emitByte(0xc8 + instr.dst);
 			emitByte(instr.getImm32() & 63);

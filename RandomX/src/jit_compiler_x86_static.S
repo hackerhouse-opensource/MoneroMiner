@@ -77,6 +77,7 @@ DECL(randomx_prefetch_scratchpad):
 
 DECL(randomx_prefetch_scratchpad_end):
 
+# AMD Zen optimization: Align critical loop to 64-byte boundary
 .balign 64
 DECL(randomx_program_prologue):
 #if defined(WINABI)
@@ -91,6 +92,8 @@ DECL(randomx_program_prologue):
 	and eax, RANDOMX_SCRATCHPAD_MASK
 	ror rdx, 32
 	and edx, RANDOMX_SCRATCHPAD_MASK
+	# AMD prefetch optimization: Use PREFETCHNTA for dataset
+	prefetchnta [rsi+rax]
 	jmp rx_program_loop_begin
 
 .balign 64

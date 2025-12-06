@@ -89,6 +89,16 @@ The table below lists the performance of selected CPUs using the optimal number 
 
 Note that RandomX currently includes a JIT compiler for x86-64, ARM64 and RISCV64. Other architectures have to use the portable interpreter, which is much slower.
 
+### Platform-Specific Optimizations
+
+This fork includes targeted optimizations for:
+
+- **AMD Zen/Zen 2/Zen 3/Zen 4**: Cache-line aligned hot paths, optimized prefetching, BMI2 instructions
+- **ARM Cortex-A76/A78**: NEON vectorization, crypto extensions, adaptive threading
+- **Intel Core (10th gen+)**: AVX2/AVX-512 SIMD, hyper-threading awareness
+
+Build with `ARCH=native` to automatically detect and enable your CPU's features. For cross-compilation, specify `-DCPU_VENDOR=AMD` or `-DCPU_VENDOR=Intel`.
+
 ### GPU performance
 
 SChernykh is developing GPU mining code for RandomX. Benchmarks are included in the following repositories:

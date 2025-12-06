@@ -56,6 +56,19 @@ src/virtual_machine.cpp
 src/vm_compiled_light.cpp
 src/blake2/blake2b.c)
 
+# Detect AMD CPU for targeted optimizations
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64|x86_64")
+  execute_process(
+    COMMAND sh -c "grep -m1 'vendor_id' /proc/cpuinfo | grep AMD || echo notAMD"
+    OUTPUT_VARIABLE CPU_VENDOR
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+  )
+  if(CPU_VENDOR MATCHES "AMD")
+    message(STATUS "Detected AMD CPU - enabling Zen optimizations")
+    set(RANDOMX_AMD_ZEN ON)
+  endif()
+endif()
+
 if(NOT ARCH_ID)
   # allow cross compiling
   if(CMAKE_SYSTEM_PROCESSOR STREQUAL "")
