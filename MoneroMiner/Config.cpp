@@ -75,7 +75,7 @@ bool Config::parseCommandLine(int argc, char* argv[]) {
     // ONLY auto-detect if user did NOT specify --threads
     if (!threadCountSpecified && numThreads <= 1) {
         unsigned int logicalProcessors = Platform::getLogicalProcessors();
-        
+
         // Use the majority of logical processors but leave one core for the system.
         // This yields: 3 threads on 4-core, 7 on 8-core, 15 on 16-core, 23 on 24-core, etc.
         unsigned int recommended = (logicalProcessors > 1) ? (logicalProcessors - 1) : 1;

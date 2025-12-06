@@ -123,13 +123,13 @@ bool RandomXManager::createDataset() {
     // Reserve one logical CPU for system responsiveness
     if (numThreads > 1) numThreads = std::max(1u, numThreads - 1u);
     Utils::threadSafePrint("Using " + std::to_string(numThreads) + " threads for dataset initialization (leaving 1 for system)", true);
-    
+
     // FIX: std::chrono::high_resolution_clock
     auto start = std::chrono::high_resolution_clock::now();
-    
+
     std::vector<std::thread> threads;
     unsigned long itemsPerThread = itemCount / numThreads;
-    
+
     for (unsigned int t = 0; t < numThreads; t++) {
         unsigned long startIndex = t * itemsPerThread;
         unsigned long count = (t == numThreads - 1) ? (itemCount - startIndex) : itemsPerThread;
