@@ -115,6 +115,7 @@ namespace randomx {
 	constexpr uint32_t CodeSize = RandomXCodeSize + SuperscalarSize;
 	constexpr uint32_t ExecutableSize = CodeSize - LiteralPoolSize;
 
+	// Ensure this doesn't affect x86-64 code paths
 	constexpr int32_t LiteralPoolOffset = LiteralPoolSize / 2;
 	constexpr int32_t SuperScalarLiteralPoolOffset = RandomXCodeSize;
 	constexpr int32_t SuperScalarLiteralPoolRefOffset = RandomXCodeSize + (RANDOMX_CACHE_ACCESSES - 1) * LiteralPoolSize + LiteralPoolOffset;

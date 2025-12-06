@@ -119,6 +119,20 @@ namespace randomx {
 	#define RANDOMX_COMPILER_X86
 	class JitCompilerX86;
 	using JitCompiler = JitCompilerX86;
+	
+	// AMD Zen detection for runtime optimizations
+	inline bool isAMDZen() {
+		#ifdef __GNUC__
+		uint32_t eax, ebx, ecx, edx;
+		__cpuid(0, eax, ebx, ecx, edx);
+		if (ebx == 0x68747541 && ecx == 0x444D4163 && edx == 0x69746E65) { // "AuthenticAMD"
+			__cpuid(1, eax, ebx, ecx, edx);
+			uint32_t family = ((eax >> 8) & 0xF) + ((eax >> 20) & 0xFF);
+			return family >= 0x17; // Zen is family 17h+
+		}
+		#endif
+		return false;
+	}
 #elif defined(__aarch64__)
 	#define RANDOMX_HAVE_COMPILER 1
 	#define RANDOMX_COMPILER_A64

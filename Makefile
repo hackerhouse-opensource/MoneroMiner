@@ -4,9 +4,24 @@
 CXX = g++
 CC = gcc
 
-# Compiler flags
+# Detect CPU vendor for architecture-specific flags
+CPU_VENDOR := $(shell grep -m1 'vendor_id' /proc/cpuinfo 2>/dev/null | grep -o 'AMD\|Intel' || echo unknown)
+
+# Compiler flags with AMD Zen optimizations
+ifeq ($(CPU_VENDOR),AMD)
+CXXFLAGS = -std=c++17 -O3 -march=znver2 -mtune=znver2 -mavx2 -mbmi2 -maes -Wall -Wextra -pthread
+CFLAGS = -O3 -march=znver2 -mtune=znver2 -mavx2 -mbmi2 -maes -Wall -Wextra
+$(info Building with AMD Zen optimizations)
+else ifeq ($(CPU_VENDOR),Intel)
 CXXFLAGS = -std=c++17 -O3 -march=native -Wall -Wextra -pthread
 CFLAGS = -O3 -march=native -Wall -Wextra
+$(info Building with Intel optimizations)
+else
+CXXFLAGS = -std=c++17 -O3 -march=native -Wall -Wextra -pthread
+CFLAGS = -O3 -march=native -Wall -Wextra
+$(info Building with generic optimizations)
+endif
+
 LDFLAGS = -pthread -ldl
 
 # Directories
