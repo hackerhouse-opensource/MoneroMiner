@@ -35,10 +35,18 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "configuration.h"
 #include "randomx.h"
 
+// Architecture-specific includes
 #ifdef _MSC_VER
 #include <intrin.h>
-#else
+#elif defined(__x86_64__) || defined(__i386__) || defined(_M_X64) || defined(_M_IX86)
+// Only include cpuid.h on x86/x64 architectures
 #include <cpuid.h>
+#elif defined(__aarch64__) || defined(__arm__) || defined(_M_ARM64)
+// ARM-specific includes
+#include <sys/auxv.h>
+#ifdef __linux__
+#include <asm/hwcap.h>
+#endif
 #endif
 
 namespace randomx {
@@ -128,7 +136,8 @@ namespace randomx {
 	
 	// AMD Zen detection for runtime optimizations
 	inline bool isAMDZen() {
-#if defined(_MSC_VER) || defined(__GNUC__)
+#if defined(__x86_64__) || defined(__i386__) || defined(_M_X64) || defined(_M_IX86) || defined(_MSC_VER)
+	// Only check on x86/x64 architectures
 	int cpuInfo[4] = { 0 };
 	unsigned int eax = 0, ebx = 0, ecx = 0, edx = 0;
 	
@@ -156,6 +165,7 @@ namespace randomx {
 		return (family == 0x17 || family == 0x19);
 	}
 #endif
+	// On ARM or other architectures, always return false
 	return false;
 }
 #elif defined(__aarch64__)
