@@ -63,12 +63,19 @@ bool RandomXManager::initializeCache(const std::string& seedHash) {
         cache = nullptr;
     }
 
+    // Get base flags from RandomX
     int detectedFlags = randomx_get_flags();
     Utils::threadSafePrint("Detected CPU flags: 0x" + Utils::formatHex(static_cast<uint64_t>(detectedFlags), 8), true);
     
-    // Start with detected flags (includes JIT, AES, etc.)
+    // Build cache flags (everything except FULL_MEM)
     cacheAllocFlags = detectedFlags & ~RANDOMX_FLAG_FULL_MEM;
+    
+    // Build VM/dataset flags (add FULL_MEM for 2GB dataset mode)
     flags = detectedFlags | RANDOMX_FLAG_FULL_MEM;
+    
+    // Ensure JIT is explicitly enabled (it should be in detectedFlags, but be explicit)
+    flags |= RANDOMX_FLAG_JIT;
+    cacheAllocFlags |= RANDOMX_FLAG_JIT;
     
     // Add large pages flag if available
     if (Platform::hasHugePagesSupport()) {
@@ -81,13 +88,26 @@ bool RandomXManager::initializeCache(const std::string& seedHash) {
     
     useLightMode = false;
     
+    // Log what we're actually using
     Utils::threadSafePrint("Mode: FULL (2GB dataset)", true);
     Utils::threadSafePrint("Cache flags: 0x" + Utils::formatHex(static_cast<uint64_t>(cacheAllocFlags), 8), true);
     Utils::threadSafePrint("VM/Dataset flags: 0x" + Utils::formatHex(static_cast<uint64_t>(flags), 8), true);
     
+    // Decode and show what flags mean
+    if (config.debugMode) {
+        std::stringstream ss;
+        ss << "Active flags: ";
+        if (flags & RANDOMX_FLAG_JIT) ss << "JIT ";
+        if (flags & RANDOMX_FLAG_HARD_AES) ss << "AES ";
+        if (flags & RANDOMX_FLAG_FULL_MEM) ss << "FULL_MEM ";
+        if (flags & RANDOMX_FLAG_LARGE_PAGES) ss << "LARGE_PAGES ";
+        if (flags & RANDOMX_FLAG_SECURE) ss << "SECURE ";
+        Utils::threadSafePrint(ss.str(), true);
+    }
+    
     cache = randomx_alloc_cache(static_cast<randomx_flags>(cacheAllocFlags));
     if (!cache) {
-        Utils::threadSafePrint("Cache allocation failed with large pages, trying without", true);
+        Utils::threadSafePrint("Cache allocation failed with current flags, trying fallback", true);
         // Try without large pages
         cacheAllocFlags &= ~RANDOMX_FLAG_LARGE_PAGES;
         flags &= ~RANDOMX_FLAG_LARGE_PAGES;
@@ -187,8 +207,7 @@ bool RandomXManager::initialize(const std::string& seedHash) {
         return false;
     }
     
-    // Flags are already set in initializeCache with huge pages enabled if available
-    // No need to modify them here again
+    // Flags are already set in initializeCache with huge pages and JIT enabled if available
     
     if (!useLightMode) {
         std::string datasetFileName = "randomx_dataset_" + seedHash.substr(0, 16) + ".bin";
@@ -224,9 +243,38 @@ bool RandomXManager::initialize(const std::string& seedHash) {
     currentSeedHash = seedHash;
     initialized = true;
     
-    if (!config.debugMode) {
-        Utils::threadSafePrint("RandomX ready", true);
+    // Print XMRig-style summary
+    std::stringstream summary;
+    summary << "RandomX: allocated ";
+    
+    // Calculate total memory (cache + dataset)
+    int cacheSize = 256; // 256 MB cache
+    int datasetSize = useLightMode ? 0 : 2080; // 2080 MB dataset if full mode
+    int totalSize = cacheSize + datasetSize;
+    
+    summary << totalSize << " MB (" << datasetSize << "+" << cacheSize << ")";
+    
+    // Huge pages percentage
+    if (flags & RANDOMX_FLAG_LARGE_PAGES) {
+        summary << " huge pages 100%";
     } else {
+        summary << " huge pages 0%";
+    }
+    
+    // Show flags
+    if (flags & RANDOMX_FLAG_JIT) {
+        summary << " +JIT";
+    }
+    if (flags & RANDOMX_FLAG_HARD_AES) {
+        summary << " +AES";
+    }
+    if (flags & RANDOMX_FLAG_FULL_MEM) {
+        summary << " +FULL";
+    }
+    
+    Utils::threadSafePrint(summary.str(), true);
+    
+    if (config.debugMode) {
         Utils::threadSafePrint("=== RANDOMX READY ===", true);
         Utils::threadSafePrint("Flags: 0x" + Utils::formatHex(static_cast<uint64_t>(flags), 8), true);
     }
@@ -545,7 +593,7 @@ std::string RandomXManager::getTargetHex() {
     ss << std::hex << std::setfill('0');
     
     for (int i = 3; i >= 0; i--) {
-        ss << std::setw(16) << expandedTarget.data[i];  // FIX
+        ss << std::setw(16) << expandedTarget.data[i];
     }
     
     return ss.str();
@@ -559,8 +607,8 @@ double RandomXManager::getDifficulty() {
 double RandomXManager::getTargetThreshold() {
     std::lock_guard<std::mutex> lock(targetMutex);
     
-    double result = static_cast<double>(expandedTarget.data[0]);  // FIX
-    result += static_cast<double>(expandedTarget.data[1]) * 18446744073709551616.0;  // FIX
+    double result = static_cast<double>(expandedTarget.data[0]);
+    result += static_cast<double>(expandedTarget.data[1]) * 18446744073709551616.0;
     
     return result;
 }
@@ -574,5 +622,5 @@ randomx_cache* RandomXManager::getCache() {
 }
 
 randomx_flags RandomXManager::getVMFlags() {
-    return static_cast<randomx_flags>(flags);  // FIX: changed from vmFlags to flags
+    return static_cast<randomx_flags>(flags);
 }
