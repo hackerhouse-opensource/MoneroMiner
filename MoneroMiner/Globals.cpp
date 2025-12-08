@@ -14,7 +14,6 @@
 
 // Define global variables
 bool debugMode = false;
-std::atomic<bool> shouldStop(false);
 std::atomic<bool> showedInitMessage(false);
 Config config;  // Define the global config instance
 std::ofstream logFile;
@@ -32,9 +31,6 @@ std::string currentJobId;
 std::atomic<uint64_t> totalHashes(0);
 
 // Mining statistics
-std::atomic<uint32_t> activeJobId(0);
-std::atomic<uint32_t> notifiedJobId(0);
-std::atomic<bool> newJobAvailable(false);
 std::atomic<uint64_t> acceptedShares(0);
 std::atomic<uint64_t> rejectedShares(0);
 std::atomic<uint64_t> jsonRpcId(0);
@@ -47,6 +43,14 @@ randomx_dataset* currentDataset = nullptr;
 std::string currentSeedHash;
 std::mutex cacheMutex;
 std::mutex seedHashMutex;
+
+// Job tracking (used by mining threads)
+std::atomic<uint32_t> activeJobId(0);
+std::atomic<uint32_t> notifiedJobId(0);
+std::atomic<bool> newJobAvailable(false);
+
+// Network
+std::atomic<bool> shouldStop(false);
 
 // Utility functions
 std::string bytesToHex(const std::vector<uint8_t>& bytes) {

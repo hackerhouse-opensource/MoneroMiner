@@ -376,10 +376,6 @@ bool RandomXManager::saveDataset(const std::string& filename) {
     return true;
 }
 
-std::string RandomXManager::getDatasetPath(const std::string& seedHash) {
-    return "randomx_dataset_" + seedHash + ".bin";
-}
-
 void RandomXManager::cleanupVM(int threadId) {
     std::unique_lock<std::shared_mutex> lock(vmMutex);
     auto it = vms.find(threadId);
@@ -514,7 +510,24 @@ std::vector<uint8_t> RandomXManager::getLastHash() {
 
 std::string RandomXManager::getLastHashHex() {
     std::lock_guard<std::mutex> lock(hashMutex);
-    return Utils::bytesToHex(lastHash);
+    std::stringstream ss;
+    ss << std::hex << std::setfill('0');
+    for (uint8_t byte : lastHash) {
+        ss << std::setw(2) << static_cast<int>(byte);
+    }
+    return ss.str();
+}
+
+randomx_dataset* RandomXManager::getDataset() {
+    return dataset;
+}
+
+randomx_cache* RandomXManager::getCache() {
+    return cache;
+}
+
+randomx_flags RandomXManager::getVMFlags() {
+    return static_cast<randomx_flags>(flags);
 }
 
 void RandomXManager::handleSeedHashChange(const std::string& newSeedHash) {
@@ -586,41 +599,7 @@ bool RandomXManager::calculateHashForThread(int threadId, const std::vector<uint
     return wouldBeValid;
 }
 
-std::string RandomXManager::getTargetHex() {
-    std::lock_guard<std::mutex> lock(targetMutex);
-    
-    std::stringstream ss;
-    ss << std::hex << std::setfill('0');
-    
-    for (int i = 3; i >= 0; i--) {
-        ss << std::setw(16) << expandedTarget.data[i];
-    }
-    
-    return ss.str();
-}
-
 double RandomXManager::getDifficulty() {
     std::lock_guard<std::mutex> lock(targetMutex);
     return currentDifficulty;
-}
-
-double RandomXManager::getTargetThreshold() {
-    std::lock_guard<std::mutex> lock(targetMutex);
-    
-    double result = static_cast<double>(expandedTarget.data[0]);
-    result += static_cast<double>(expandedTarget.data[1]) * 18446744073709551616.0;
-    
-    return result;
-}
-
-randomx_dataset* RandomXManager::getDataset() {
-    return dataset;
-}
-
-randomx_cache* RandomXManager::getCache() {
-    return cache;
-}
-
-randomx_flags RandomXManager::getVMFlags() {
-    return static_cast<randomx_flags>(flags);
 }

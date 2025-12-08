@@ -19,9 +19,6 @@ struct randomx_dataset;
 
 // Global atomic variables
 extern std::atomic<bool> shouldStop;
-extern std::atomic<uint32_t> activeJobId;
-extern std::atomic<uint32_t> notifiedJobId;
-extern std::atomic<bool> newJobAvailable;
 extern std::atomic<uint64_t> jsonRpcId;
 
 // Global variables
@@ -57,3 +54,8 @@ extern std::mutex seedHashMutex;
 // Utility functions declarations
 // void threadSafePrint(const std::string& message, bool toLogFile = false);
 // std::string getCurrentTimestamp();
+
+// Job tracking (used by mining threads)
+extern std::atomic<uint32_t> activeJobId;
+extern std::atomic<uint32_t> notifiedJobId;
+extern std::atomic<bool> newJobAvailable;

@@ -45,13 +45,11 @@ namespace PoolClient {
     // Helper functions
     void handleSeedHashChange(const std::string& newSeedHash);
     void processNewJob(const picojson::object& jobObj);
-    bool handleLoginResponse(const std::string& response);
     std::string sendAndReceive(const std::string& payload);
     std::string receiveData(socket_t sock);
     std::string sendData(const std::string& data);
     void distributeJob(const Job& job);
     
-    std::string getPoolId();
     bool reconnect();
     void sendKeepalive();
 }

@@ -554,36 +554,6 @@ namespace PoolClient {
         }
     }
 
-    bool handleLoginResponse(const std::string& response) {
-        try {
-            picojson::value v;
-            std::string err = picojson::parse(v, response);
-            if (!err.empty() || !v.is<picojson::object>()) return false;
-
-            const picojson::object& responseObj = v.get<picojson::object>();
-            if (responseObj.find("result") == responseObj.end()) return false;
-
-            const picojson::object& resultObj = responseObj.at("result").get<picojson::object>();
-            
-            if (resultObj.find("id") != resultObj.end()) {
-                poolId = resultObj.at("id").get<std::string>();
-                sessionId = poolId;
-                Utils::threadSafePrint("Session ID: " + poolId, true);
-            }
-
-            if (resultObj.find("job") != resultObj.end()) {
-                const picojson::object& jobObj = resultObj.at("job").get<picojson::object>();
-                processNewJob(jobObj);
-                return true;
-            }
-            return false;
-        }
-        catch (const std::exception& e) {
-            Utils::threadSafePrint("Error: " + std::string(e.what()), true);
-            return false;
-        }
-    }
-
     std::string sendAndReceive(const std::string& payload) {
         if (poolSocket == INVALID_SOCKET_VALUE) return "";
 

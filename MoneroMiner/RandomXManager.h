@@ -34,12 +34,8 @@ public:
     static bool checkTarget(const uint8_t* hash);
     static double getDifficulty();
     static double getCurrentDifficulty() { return currentDifficulty; }
-    static std::string getTargetHex();
-    static double getTargetThreshold();
-    
-    // Last hash result
-    static std::vector<uint8_t> getLastHash();
     static std::string getLastHashHex();
+    static std::vector<uint8_t> getLastHash();
     
     // Dataset management
     static bool createDataset();

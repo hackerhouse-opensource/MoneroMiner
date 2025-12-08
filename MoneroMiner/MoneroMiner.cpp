@@ -39,9 +39,6 @@
 #endif
 
 // Global variable declarations (not definitions)
-extern std::atomic<uint32_t> activeJobId;
-extern std::atomic<uint32_t> notifiedJobId;
-extern std::atomic<bool> newJobAvailable;
 extern std::atomic<uint64_t> acceptedShares;
 extern std::atomic<uint64_t> rejectedShares;
 extern std::atomic<uint64_t> jsonRpcId;
@@ -60,51 +57,6 @@ void printConfig();
 void miningThread(MiningThreadData* data);
 bool loadConfig();
 bool startMining();
-
-// Utility: Convert difficulty to 256-bit target (big-endian)
-std::array<uint8_t, 32> difficultyToTarget(uint64_t difficulty) {
-    std::array<uint8_t, 32> target{};
-    if (difficulty == 0) {
-        // Set target to max (all 0xFF)
-        target.fill(0xFF);
-        return target;
-    }
-    // Calculate: target = (2^256 - 1) / difficulty
-    // We'll use manual 256-bit division
-    // 2^256 - 1 = all bytes 0xFF
-    // We'll use a reference implementation for this calculation
-    // For Monero, pools send target as a 32-byte hex string, but we need to calculate it if only difficulty is given
-
-    // Use reference: xmrig's implementation
-    // target = (uint256_t(1) << 256) / difficulty;
-    // We'll use a simple approach for now:
-    // Only support up to 64-bit difficulty, so high bytes are zero
-    uint64_t quotient = ~0ULL / difficulty;
-    // Place quotient in the last 8 bytes (big-endian)
-    for (int i = 0; i < 8; ++i) {
-        target[24 + i] = (quotient >> (8 * (7 - i))) & 0xFF;
-    }
-    // The rest are zero
-    return target;
-}
-
-// Utility: Print 256-bit value as hex
-std::string print256Hex(const uint8_t* bytes) {
-    std::stringstream ss;
-    for (int i = 0; i < 32; ++i) {
-        ss << std::hex << std::setw(2) << std::setfill('0') << (int)bytes[i];
-    }
-    return ss.str();
-}
-
-// Utility: Compare 256-bit big-endian values
-bool meetsTarget256(const uint8_t* hash, const uint8_t* target) {
-    for (int i = 0; i < 32; ++i) {
-        if (hash[i] < target[i]) return true;
-        if (hash[i] > target[i]) return false;
-    }
-    return true; // hash == target
-}
 
 // New function: Get detailed CPU information
 std::string getCPUBrandString() {

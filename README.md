@@ -137,5 +137,5 @@ https://creativecommons.org/licenses/by-nc-nd/4.0/
 If you find this miner useful, consider donating XMR to support development:
 
 ```
-488XamY1RKhUVpHPirdcXwb9ePGjGrcNoi8FA2MHDWCrYEfpz1ansYR4gUuhkjDVWR2rmgitM9LtZUXx4SrBSvPB9smskV8
+8C6hFb4Buo6dYwJiZEaFhyYhZTJaR4NyXSBzKMF1BnNKMGD92yeaY3a9PxuWp9bhTAh6dAXwqyyLfFxaPRct7j81L8t4iK2
 ```
