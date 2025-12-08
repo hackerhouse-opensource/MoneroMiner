@@ -123,24 +123,54 @@ numThreads = 1; // Auto-detected if not specified
 ## Mining Output
 
 ```
-=== MoneroMiner v1.0.0 ===
+PS C:\Users\Fantastic\source\repos\MoneroMiner> .\x64\Release\MoneroMiner.exe
+12/08/2025 (13:06:55.808) 1765220815: Platform sockets initialized
+Auto-detected 24 logical processors, using 23 mining threads (leaving 1 thread for system)
+12/08/2025 (13:06:55.809) 1765220815: === MoneroMiner v1.0.0 ===
 CPU:          AMD Ryzen 9 3900X 12-Core Processor (24 threads) 64-bit AES AVX AVX2 VM
-Memory:       7.2/31.9 GB (23%)
-Motherboard:  ASUSTeK Computer INC. - ROG CROSSHAIR VIII HERO
-Threads:      12
+Memory:       19.3/47.9 GB (40%)
+Motherboard:  Gigabyte Technology Co., Ltd. - X570 AORUS ELITE WIFI
+Threads:      23
 Algorithm:    RandomX (rx/0)
-Privileges:   elevated
-Huge pages:   enabled (2MB pages)
+Privileges: elevated
+Huge pages: enabled (2MB pages)
+Current Configuration:
+Pool Address: xmr-us-east1.nanopool.org:10300
+Wallet: 8C6hFb4Buo6dYwJiZEaFhyYhZTJaR4NyXSBzKMF1BnNKMGD92yeaY3a9PxuWp9bhTAh6dAXwqyyLfFxaPRct7j81L8t4iK2
+Worker Name: worker1
+User Agent: MoneroMiner/1.0.0
+Threads: 23
+Debug Mode: No
+Logfile: Disabled
 
-Pool:         xmr-us-east1.nanopool.org:10300
-Wallet:       4AdUndX...684Rge
-Worker:       worker1
-
-New job: 123456 | Height: 2845123
-Hashrate: 9000.0 H/s | Difficulty: 100000 | Accepted: 5 | Rejected: 0
-Share found! J: 123456 Nonce: 0xa3f2e1d0 Attempts: 125043
-Hash: 00000000123456789abcdef012345678fedcba98765432100011223344556677
-[POOL] Share accepted (6/6 = 100.0%)
+12/08/2025 (13:06:55.812) 1765220815: Sockets initialized successfully
+12/08/2025 (13:06:55.812) 1765220815: Connecting to xmr-us-east1.nanopool.org:10300
+12/08/2025 (13:06:55.866) 1765220815: Connected to pool
+12/08/2025 (13:06:55.866) 1765220815: Sending login request
+12/08/2025 (13:06:56.079) 1765220816: Received login response
+12/08/2025 (13:06:56.079) 1765220816: Session ID: 1
+12/08/2025 (13:06:56.079) 1765220816: === INITIALIZING RANDOMX ===
+12/08/2025 (13:06:56.079) 1765220816: Seed hash: 9f6d235b951eccc6b7d86ae928a73d405d989742490512749fcb59e640d284c8
+12/08/2025 (13:06:56.079) 1765220816: Detected CPU flags: 0x0000002a
+12/08/2025 (13:06:56.080) 1765220816: Large pages enabled in RandomX
+12/08/2025 (13:06:56.080) 1765220816: Mode: FULL (2GB dataset)
+12/08/2025 (13:06:56.080) 1765220816: Cache flags: 0x0000002b
+12/08/2025 (13:06:56.080) 1765220816: VM/Dataset flags: 0x0000002f
+12/08/2025 (13:06:56.564) 1765220816: Cache initialized with seed hash: 9f6d235b951eccc6...
+12/08/2025 (13:06:56.564) 1765220816: Loading dataset from disk...
+12/08/2025 (13:06:58.216) 1765220818: RandomX: allocated 2336 MB (2080+256) huge pages 100% +JIT +AES +FULL
+12/08/2025 (13:06:58.217) 1765220818: Successfully logged in to pool
+12/08/2025 (13:06:58.217) 1765220818: Worker: 8C6hFb4Buo6dYwJiZEaFhyYhZTJaR4NyXSBzKMF1BnNKMGD92yeaY3a9PxuWp9bhTAh6dAXwqyyLfFxaPRct7j81L8t4iK2.worker1
+12/08/2025 (13:06:58.217) 1765220818: RandomX already initialized for seed hash
+12/08/2025 (13:06:58.220) 1765220818: Initialized 23 mining threads
+12/08/2025 (13:06:58.221) 1765220818: Mining started - Press Ctrl+C to stop
+12/08/2025 (13:06:58.221) 1765220818: === MINER IS NOW RUNNING ===
+12/08/2025 (13:06:58.221) 1765220818: Press Ctrl+C to stop mining
+12/08/2025 (13:07:08.290) 1765220828: Hashrate: 9006.6 H/s | Difficulty: 480045 | Accepted: 0 | Rejected: 0
+12/08/2025 (13:07:18.358) 1765220838: Hashrate: 8760.4 H/s | Difficulty: 480045 | Accepted: 0 | Rejected: 0
+12/08/2025 (13:07:18.617) 1765220838: Share found! J: 18867 Nonce: ea3cbde9 Attempts: 1358
+12/08/2025 (13:07:18.618) 1765220838: Hash: 69944ebac65955cf7b5454179e766f69f88bf8dc4dd0804071698c78b3080000
+12/08/2025 (13:07:18.758) 1765220838: Share submitted - ACCEPTED (Total: 1)
 ```
 
 ---
