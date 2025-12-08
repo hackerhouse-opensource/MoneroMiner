@@ -15,41 +15,45 @@ Complete instructions for building MoneroMiner from source and optimizing for ma
 
 ## Windows Build
 
+**IMPORTANT:** On Windows, use `build.ps1` NOT `make`. The Makefile is only for Linux.
+
 ### Prerequisites
 
 - Visual Studio 2019 or 2022 (Community Edition is free)
 - Git for Windows
 
-### Automated Build (Recommended)
+### Build Steps
 
 ```powershell
 # Clone repository
 git clone https://github.com/hackerhouse-opensource/MoneroMiner.git
 cd MoneroMiner
 
-# Run build script
+# Build with PowerShell script
 .\build.ps1
 
-# Output will be in x64\Release\MoneroMiner.exe
+# Output: x64\Release\MoneroMiner.exe
+```
+
+### Build Options
+
+```powershell
+.\build.ps1          # Release build (default)
+.\build.ps1 -debug   # Debug build with symbols
 ```
 
 ### Manual Build with Visual Studio
 
 1. Open `MoneroMiner.sln` in Visual Studio
 2. Select `Release` configuration and `x64` platform
-3. Build -> Build Solution (or press F7)
+3. Build -> Build Solution (F7)
 4. Executable: `x64\Release\MoneroMiner.exe`
-
-### Build Script Options
-
-```powershell
-.\build.ps1          # Release build (default)
-.\build.ps1 -debug   # Debug build
-```
 
 ---
 
 ## Linux Build
+
+**IMPORTANT:** On Linux, use `make` NOT `build.ps1`.
 
 ### Prerequisites
 
@@ -79,14 +83,14 @@ sudo apt update
 sudo apt install -y build-essential cmake git libssl-dev
 ```
 
-### Build with Makefile
+### Build Steps
 
 ```bash
 # Clone repository
 git clone https://github.com/hackerhouse-opensource/MoneroMiner.git
 cd MoneroMiner
 
-# Build everything
+# Build
 make
 
 # Output: bin/monerominer
@@ -103,16 +107,16 @@ make install      # Install to /usr/local/bin (requires sudo)
 make run          # Build and run with default wallet
 make debug        # Build with debug symbols
 make info         # Show build configuration
-make help         # Show all targets
+make help         # Show all available targets
 ```
 
-### Running
+### Running After Build
 
 ```bash
 # Run directly
 bin/monerominer --wallet YOUR_WALLET_ADDRESS
 
-# Or use make
+# Or use make run
 make run
 ```
 
@@ -331,7 +335,13 @@ objdump -d MoneroMiner | grep -i "vperm\|vaes\|vpaddd"
 
 ## Troubleshooting
 
-### Windows Issues
+### Platform-Specific Build Issues
+
+**Problem:** Typed `make` on Windows
+
+```
+Solution: Use PowerShell script build.ps1 instead of make
+```
 
 **Problem:** Compiler errors about missing headers
 
@@ -359,8 +369,6 @@ Solution:
 1. Install Windows SDK
 2. Or disable manifest generation in project properties
 ```
-
-### Linux Issues
 
 **Problem:** g++: command not found
 

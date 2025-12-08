@@ -43,13 +43,6 @@ A lightweight, high-performance Monero (XMR) CPU miner using the RandomX proof-o
 - ARM 32-bit (ARMv7+, Cortex-A series)
 - ARM 64-bit (ARMv8/AArch64, Cortex-A72+)
 
-**Requirements:**
-
-- 64-bit CPU with 2+ cores
-- 3 GB RAM minimum (2GB dataset + 1GB overhead)
-- 500 MB disk space for dataset cache
-- Network connection
-
 **Tested Systems:**
 
 - AMD Ryzen 9 3900X (12-core): 9,000 H/s
@@ -67,7 +60,7 @@ A lightweight, high-performance Monero (XMR) CPU miner using the RandomX proof-o
 git clone https://github.com/hackerhouse-opensource/MoneroMiner.git
 cd MoneroMiner
 
-# Build with Visual Studio
+# Build (use build.ps1, NOT make)
 .\build.ps1
 
 # Run with your wallet address
@@ -81,7 +74,7 @@ x64\Release\MoneroMiner.exe --wallet YOUR_WALLET_ADDRESS
 git clone https://github.com/hackerhouse-opensource/MoneroMiner.git
 cd MoneroMiner
 
-# Build
+# Build (use make, NOT build.ps1)
 make
 
 # Run with your wallet address
@@ -113,7 +106,7 @@ Optional:
 
 ### Default Configuration
 
-The default configuration is set in `Config.cpp` and can be over-written on the command-line:
+The default configuration is set in `Config.cpp` which can be over-written on the command-line or at compile time:
 
 ```cpp
 // Default pool and settings (Config.cpp lines 13-25)
@@ -123,22 +116,6 @@ walletAddress = "8C6hFb4Buo6dYwJiZEaFhyYhZTJaR4NyXSBzKMF1BnNKMGD92yeaY3a9PxuWp9b
 workerName = "worker1";
 password = "x";
 numThreads = 1; // Auto-detected if not specified
-```
-
-## Change the walletAddress to mine to your own wallet.
-
-## Building from Source
-
-See [BUILD.md](BUILD.md) for complete build instructions, performance optimization, and troubleshooting.
-
-**Quick build:**
-
-```bash
-# Windows (Visual Studio)
-.\build.ps1
-
-# Linux (Make)
-make
 ```
 
 ---
