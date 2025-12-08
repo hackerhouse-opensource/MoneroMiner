@@ -250,7 +250,7 @@ void printDetailedSystemInfo() {
 }
 
 void printHelp() {
-    std::cout << "MoneroMiner - A Monero (XMR) mining program\n\n"
+    std::cout << "MoneroMiner - A RandomX (XMR) mining program\n\n"
               << "Usage: MoneroMiner [options]\n\n"
               << "Options:\n"
               << "  --help               Show this help message\n"
@@ -258,7 +258,7 @@ void printHelp() {
               << "  --logfile            Enable logging to file\n"
               << "  --threads N          Number of mining threads (default: 1)\n"
               << "  --pool ADDRESS:PORT  Pool address and port (default: xmr-eu1.nanopool.org:14444)\n"
-              << "  --wallet ADDRESS      Your Monero wallet address\n"
+              << "  --wallet ADDRESS     Your Monero wallet address\n"
               << "  --worker NAME        Worker name (default: worker1)\n"
               << "  --password X         Pool password (default: x)\n"
               << "  --useragent AGENT    User agent string (default: MoneroMiner/1.0.0)\n\n"
