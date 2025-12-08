@@ -181,8 +181,8 @@ Nonces are 4-byte little-endian at blob offset 39-42.
 ### Dataset Caching
 
 ```
-Windows: %USERPROFILE%\AppData\Local\MoneroMiner\randomx_<seedhash>.dat
-Linux:   ~/.cache/monerominer/randomx_<seedhash>.dat
+Windows: %USERPROFILE%\AppData\Local\MoneroMiner\randomx_<seedhash>.bin
+Linux:   ~/.cache/monerominer/randomx_<seedhash>.bin
 ```
 
 Size: 2,080,374,784 bytes (2GB per seed hash)
