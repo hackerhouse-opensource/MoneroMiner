@@ -242,7 +242,7 @@ Thank you for your support!
 
 ## License
 
-**MoneroMiner** is licensed under the [Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International License](https://creativecommons.org/licenses/by-nc-nd/4.0/).
+These files are available under the 3-clause BSD license.
 
 **Third-Party:**
 
