@@ -3,7 +3,7 @@
 A lightweight, high-performance Monero (XMR) CPU miner using the RandomX proof-of-work algorithm. Designed for maximum efficiency and cross-platform compatibility.
 
 **Author:** [Hacker Fantastic](https://hacker.house)  
-**License:** [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/)  
+**License:** [BSD-3-Clause](https://opensource.org/license/bsd-3-clause/)
 **Documentation:** [Complete API & Implementation Docs](https://deepwiki.com/hackerhouse-opensource/MoneroMiner)
 
 ---
