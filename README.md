@@ -48,6 +48,7 @@ A lightweight, high-performance Monero (XMR) CPU miner using the RandomX proof-o
 - AMD Ryzen 9 3900X (12-core): 9,000 H/s
 - AMD Ryzen 24-core: 16,092 H/s
 - Raspberry Pi 5 (4-core): 450 H/s
+- Apple A18 Pro (6 threads) 64-bit AES VM (MacBook Neo): 1,300 H/s
 
 ---
 
