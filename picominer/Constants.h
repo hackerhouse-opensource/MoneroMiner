@@ -49,7 +49,7 @@ namespace DefaultConfig {
     static constexpr bool DEBUG_MODE = false;
     static constexpr bool USE_LOG_FILE = false;
     static constexpr const char* LOG_FILE = "miner.log";
-    static constexpr const char* USER_AGENT = "MoneroMiner/1.0.0";
+    static constexpr const char* USER_AGENT = "picominer/1.0.0";
     static constexpr const char* DEFAULT_PASSWORD = "x";
 }
 

@@ -1,5 +1,5 @@
 /**
- * MoneroMiner.cpp - Lightweight High Performance Monero (XMR) CPU Miner
+ * picominer.cpp - Lightweight High Performance Monero (XMR) CPU Miner
  *
  * Implementation file containing the core mining functionality.
  *
@@ -250,8 +250,8 @@ void printDetailedSystemInfo() {
 }
 
 void printHelp() {
-    std::cout << "MoneroMiner - A RandomX (XMR) mining program\n\n"
-              << "Usage: MoneroMiner [options]\n\n"
+    std::cout << "picominer - A RandomX (XMR) mining program\n\n"
+              << "Usage: picominer [options]\n\n"
               << "Options:\n"
               << "  --help               Show this help message\n"
               << "  --debug              Enable debug output\n"
@@ -261,9 +261,9 @@ void printHelp() {
               << "  --wallet ADDRESS     Your Monero wallet address\n"
               << "  --worker NAME        Worker name (default: worker1)\n"
               << "  --password X         Pool password (default: x)\n"
-              << "  --useragent AGENT    User agent string (default: MoneroMiner/1.0.0)\n\n"
+              << "  --useragent AGENT    User agent string (default: picominer/1.0.0)\n\n"
               << "Example:\n"
-              << "  MoneroMiner --debug --logfile --threads 4 --wallet YOUR_WALLET_ADDRESS\n"
+              << "  picominer --debug --logfile --threads 4 --wallet YOUR_WALLET_ADDRESS\n"
               << std::endl;
 }
 
@@ -856,7 +856,7 @@ int main(int argc, char* argv[]) {
 #endif
 
     // Show the main header with timestamp
-    Utils::threadSafePrint("=== MoneroMiner v1.0.0 ===", true);
+    Utils::threadSafePrint("=== picominer v1.0.0 ===", true);
     
     // Show detailed system info (always)
     printDetailedSystemInfo();

@@ -1,5 +1,5 @@
-# MoneroMiner - Linux Makefile
-# Compiles RandomX library and MoneroMiner from Windows codebase
+# picominer - Linux Makefile
+# Compiles RandomX library and picominer from Windows codebase
 
 CXX = g++
 CC = gcc
@@ -25,7 +25,7 @@ endif
 LDFLAGS = -pthread -ldl -flto
 
 # Directories
-SRC_DIR = MoneroMiner
+SRC_DIR = picominer
 BUILD_DIR = build
 BIN_DIR = bin
 
@@ -52,7 +52,7 @@ SOURCES := $(filter-out $(SRC_DIR)/framework.cpp $(SRC_DIR)/pch.cpp $(SRC_DIR)/m
 OBJECTS = $(patsubst $(SRC_DIR)/%.cpp,$(BUILD_DIR)/%.o,$(SOURCES))
 
 # Target executable
-TARGET = $(BIN_DIR)/monerominer
+TARGET = $(BIN_DIR)/picominer
 
 # RandomX library
 RANDOMX_LIB = $(RANDOMX_BUILD)/librandomx.a
@@ -93,7 +93,7 @@ randomx: directories
 	$(MAKE) -j$(nproc)
 	@echo "RandomX library built successfully"
 
-# Build MoneroMiner
+# Build picominer
 $(TARGET): $(OBJECTS)
 	@echo "Linking $(TARGET)..."
 	# Link static RandomX directly (no rpath required)
@@ -107,7 +107,7 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp
 
 # Install target (optional)
 install: all
-	@echo "Installing MoneroMiner..."
+	@echo "Installing picominer..."
 	install -d /usr/local/bin
 	install -m 755 $(TARGET) /usr/local/bin/
 	install -d /usr/local/lib
@@ -119,7 +119,7 @@ install: all
 clean:
 	@echo "Cleaning build artifacts..."
 	rm -rf build/*.o
-	rm -f bin/MoneroMiner
+	rm -f bin/picominer
 
 # Deep clean - remove everything including RandomX
 distclean: clean
@@ -146,7 +146,7 @@ rebuild: distclean all
 
 # Run the miner
 run: all
-	@echo "Starting MoneroMiner..."
+	@echo "Starting picominer..."
 	$(TARGET)
 
 # Debug build
@@ -165,7 +165,7 @@ info:
 
 # Help target
 help:
-	@echo "MoneroMiner Linux Build System"
+	@echo "picominer Linux Build System"
 	@echo ""
 	@echo "Targets:"
 	@echo "  all        - Build everything (default)"

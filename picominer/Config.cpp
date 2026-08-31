@@ -19,11 +19,11 @@ void Config::setDefaults() {
     walletAddress = "8C6hFb4Buo6dYwJiZEaFhyYhZTJaR4NyXSBzKMF1BnNKMGD92yeaY3a9PxuWp9bhTAh6dAXwqyyLfFxaPRct7j81L8t4iK2"; // Default test wallet
     workerName = "worker1";
     password = "x";  // Some pools require non-empty password
-    userAgent = "MoneroMiner/1.0.0";
+    userAgent = "picominer/1.0.0";
     numThreads = 1;
     debugMode = false;  // This should be overridden by --debug flag
     useLogFile = false;
-    logFileName = "monerominer.log";
+    logFileName = "picominer.log";
     headlessMode = false; // Initialize headless mode flag
 }
 
@@ -132,8 +132,8 @@ void Config::printConfig() const {
 }
 
 void Config::printUsage() const {
-    std::cout << "MoneroMiner - Monero CPU Miner" << std::endl;
-    std::cout << "\nUsage: MoneroMiner [options]" << std::endl;
+    std::cout << "picominer - Monero CPU Miner" << std::endl;
+    std::cout << "\nUsage: picominer [options]" << std::endl;
     std::cout << "\nOptions:" << std::endl;
     std::cout << "  --help                 Show this help message" << std::endl;
     std::cout << "  --debug                Enable debug output" << std::endl;
@@ -145,5 +145,5 @@ void Config::printUsage() const {
     std::cout << "  --password PASS        Pool password (default: x)" << std::endl;
     std::cout << "  --headless             Enable headless mode (no GUI)" << std::endl;
     std::cout << "\nExample:" << std::endl;
-    std::cout << "  MoneroMiner.exe --wallet YOUR_WALLET --threads 4" << std::endl;
+    std::cout << "  picominer.exe --wallet YOUR_WALLET --threads 4" << std::endl;
 }

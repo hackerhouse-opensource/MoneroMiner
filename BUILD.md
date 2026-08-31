@@ -1,6 +1,6 @@
-# MoneroMiner - Build and Optimization Guide
+# picominer - Build and Optimization Guide
 
-Complete instructions for building MoneroMiner from source and optimizing for maximum performance.
+Complete instructions for building picominer from source and optimizing for maximum performance.
 
 ---
 
@@ -26,13 +26,13 @@ Complete instructions for building MoneroMiner from source and optimizing for ma
 
 ```powershell
 # Clone repository
-git clone https://github.com/hackerhouse-opensource/MoneroMiner.git
-cd MoneroMiner
+git clone https://github.com/hackerhouse-opensource/picominer.git
+cd picominer
 
 # Build with PowerShell script
 .\build.ps1
 
-# Output: x64\Release\MoneroMiner.exe
+# Output: x64\Release\picominer.exe
 ```
 
 ### Build Options
@@ -44,10 +44,10 @@ cd MoneroMiner
 
 ### Manual Build with Visual Studio
 
-1. Open `MoneroMiner.sln` in Visual Studio
+1. Open `picominer.sln` in Visual Studio
 2. Select `Release` configuration and `x64` platform
 3. Build -> Build Solution (F7)
-4. Executable: `x64\Release\MoneroMiner.exe`
+4. Executable: `x64\Release\picominer.exe`
 
 ---
 
@@ -87,19 +87,19 @@ sudo apt install -y build-essential cmake git libssl-dev
 
 ```bash
 # Clone repository
-git clone https://github.com/hackerhouse-opensource/MoneroMiner.git
-cd MoneroMiner
+git clone https://github.com/hackerhouse-opensource/picominer.git
+cd picominer
 
 # Build
 make
 
-# Output: bin/monerominer
+# Output: bin/picominer
 ```
 
 ### Makefile Targets
 
 ```bash
-make              # Build everything (RandomX + MoneroMiner)
+make              # Build everything (RandomX + picominer)
 make randomx      # Build RandomX library only
 make clean        # Clean build artifacts
 make distclean    # Clean everything including RandomX
@@ -114,7 +114,7 @@ make help         # Show all available targets
 
 ```bash
 # Run directly
-bin/monerominer --wallet YOUR_WALLET_ADDRESS
+bin/picominer --wallet YOUR_WALLET_ADDRESS
 
 # Or use make run
 make run
@@ -299,10 +299,10 @@ Pin mining threads to specific CPU cores:
 
 ```bash
 # Pin to cores 0-11 (12-core CPU)
-taskset -c 0-11 ./MoneroMiner --wallet YOUR_WALLET --threads 12
+taskset -c 0-11 ./picominer --wallet YOUR_WALLET --threads 12
 
 # Raspberry Pi 5 (4 cores)
-taskset -c 0-3 ./MoneroMiner --wallet YOUR_WALLET --threads 4
+taskset -c 0-3 ./picominer --wallet YOUR_WALLET --threads 4
 ```
 
 **Windows:**
@@ -328,7 +328,7 @@ CXXFLAGS="-march=haswell" make
 
 ```bash
 # Check what instructions are used
-objdump -d MoneroMiner | grep -i "vperm\|vaes\|vpaddd"
+objdump -d picominer | grep -i "vperm\|vaes\|vpaddd"
 ```
 
 ---
@@ -400,7 +400,7 @@ make
 # The Makefile handles library paths automatically
 # If you still get this error:
 export LD_LIBRARY_PATH=$PWD/randomx/build:$LD_LIBRARY_PATH
-bin/monerominer --wallet YOUR_WALLET
+bin/picominer --wallet YOUR_WALLET
 
 # Or use make run (sets path automatically)
 make run
@@ -410,7 +410,7 @@ make run
 
 ```bash
 # Make executable have correct permissions
-chmod +x bin/monerominer
+chmod +x bin/picominer
 ```
 
 ### Performance Issues
@@ -485,7 +485,7 @@ Solutions:
 make -j$(nproc)
 
 # Windows: Enable multi-processor compilation
-MSBuild.exe /m MoneroMiner.sln
+MSBuild.exe /m picominer.sln
 ```
 
 **Problem:** Out of memory during build
@@ -508,19 +508,19 @@ Solutions:
 
 ### Linux systemd Service
 
-Create `/etc/systemd/system/monerominer.service`:
+Create `/etc/systemd/system/picominer.service`:
 
 ```ini
 [Unit]
-Description=MoneroMiner CPU Miner
+Description=picominer CPU Miner
 After=network.target
 
 [Service]
 Type=simple
 User=miner
-WorkingDirectory=/opt/monerominer
-Environment="LD_LIBRARY_PATH=/opt/monerominer/randomx/build"
-ExecStart=/opt/monerominer/MoneroMiner --wallet YOUR_WALLET --threads 12 --logfile
+WorkingDirectory=/opt/picominer
+Environment="LD_LIBRARY_PATH=/opt/picominer/randomx/build"
+ExecStart=/opt/picominer/picominer --wallet YOUR_WALLET --threads 12 --logfile
 Restart=always
 RestartSec=10
 StandardOutput=journal
@@ -534,12 +534,12 @@ Manage service:
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable monerominer
-sudo systemctl start monerominer
-sudo systemctl status monerominer
+sudo systemctl enable picominer
+sudo systemctl start picominer
+sudo systemctl status picominer
 
 # View logs
-journalctl -u monerominer -f
+journalctl -u picominer -f
 ```
 
 ### Windows Task Scheduler
@@ -550,10 +550,10 @@ Run at startup without login:
 2. Create Basic Task
 3. Trigger: "When the computer starts"
 4. Action: "Start a program"
-5. Program: `C:\path\to\MoneroMiner.exe`
+5. Program: `C:\path\to\picominer.exe`
 6. Arguments: `--wallet YOUR_WALLET --threads 12 --headless --logfile`
 7. Finish and test
 
 ---
 
-**For additional help, see the main [README.md](README.md) or visit [DeepWiki Documentation](https://deepwiki.com/hackerhouse-opensource/MoneroMiner)**
+**For additional help, see the main [README.md](README.md) or visit [DeepWiki Documentation](https://deepwiki.com/hackerhouse-opensource/picominer)**

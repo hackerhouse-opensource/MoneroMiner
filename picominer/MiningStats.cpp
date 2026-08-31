@@ -16,7 +16,7 @@ namespace MiningStatsUtil {
             std::this_thread::sleep_for(std::chrono::seconds(10));
             
             // Could add periodic logging here if needed
-            // For now, stats are displayed by the main loop in MoneroMiner.cpp
+            // For now, stats are displayed by the main loop in picominer.cpp
         }
     }
 }

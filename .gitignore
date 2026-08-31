@@ -361,8 +361,8 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
-/MoneroMiner/randomx_dataset.bin
-/MoneroMiner/randomx_dataset.bin.seed
+/picominer/randomx_dataset.bin
+/picominer/randomx_dataset.bin.seed
 
 # Build outputs
 x64/
@@ -394,7 +394,7 @@ randomx_dataset_*.bin
 *.dataset
 
 # Miner log files
-monerominer.log
+picominer.log
 *.log
 
 # Configuration files with sensitive data

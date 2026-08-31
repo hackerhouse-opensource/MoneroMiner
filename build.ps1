@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-Write-Host "=== MoneroMiner Build Script ===" -ForegroundColor Cyan
+Write-Host "=== picominer Build Script ===" -ForegroundColor Cyan
 Write-Host ""
 
 # Find Visual Studio
@@ -43,12 +43,12 @@ Write-Host "Cleaning..." -ForegroundColor Yellow
 Remove-Item -Recurse -Force "$platform\$configuration" -ErrorAction SilentlyContinue
 
 # Build solution
-& $msbuild "MoneroMiner.sln" "/p:Configuration=$configuration" "/p:Platform=$platform" /m /v:minimal
+& $msbuild "picominer.sln" "/p:Configuration=$configuration" "/p:Platform=$platform" /m /v:minimal
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host ""
     Write-Host "=== BUILD SUCCESSFUL ===" -ForegroundColor Green
-    $exe = "$platform\$configuration\MoneroMiner.exe"
+    $exe = "$platform\$configuration\picominer.exe"
     if (Test-Path $exe) {
         Write-Host "Output: $exe" -ForegroundColor Cyan
     }

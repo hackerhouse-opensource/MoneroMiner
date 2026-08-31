@@ -22,7 +22,7 @@
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
     <ProjectGuid>{b71b25bd-0bc4-4a8d-a496-46ce90ccb6e7}</ProjectGuid>
-    <RootNamespace>MoneroMiner</RootNamespace>
+    <RootNamespace>picominer</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -152,7 +152,7 @@
     <ClCompile Include="Job.cpp" />
     <ClCompile Include="MiningStats.cpp" />
     <ClCompile Include="MiningThreadData.cpp" />
-    <ClCompile Include="MoneroMiner.cpp" />
+    <ClCompile Include="picominer.cpp" />
     <ClCompile Include="PoolClient.cpp" />
     <ClCompile Include="Platform.cpp" />
     <ClCompile Include="RandomXManager.cpp" />

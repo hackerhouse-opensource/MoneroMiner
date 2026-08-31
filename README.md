@@ -1,10 +1,10 @@
-# MoneroMiner v1.0.0
+# picominer v1.0.0
 
-A lightweight, high-performance Monero (XMR) CPU miner using the RandomX proof-of-work algorithm. Designed for maximum efficiency and cross-platform compatibility.
+picominer is a small BSD-3 C++ RandomX miner. It compiles on Windows, Linux and OS-X for x86 and ARM.
 
 **Author:** [Hacker Fantastic](https://hacker.house)  
 **License:** [BSD-3-Clause](https://opensource.org/license/bsd-3-clause/)
-**Documentation:** [Complete API & Implementation Docs](https://deepwiki.com/hackerhouse-opensource/MoneroMiner)
+**Documentation:** [Complete API & Implementation Docs](https://deepwiki.com/hackerhouse-opensource/picominer)
 
 ---
 
@@ -58,28 +58,28 @@ A lightweight, high-performance Monero (XMR) CPU miner using the RandomX proof-o
 
 ```powershell
 # Clone repository
-git clone https://github.com/hackerhouse-opensource/MoneroMiner.git
-cd MoneroMiner
+git clone https://github.com/hackerhouse-opensource/picominer.git
+cd picominer
 
 # Build (use build.ps1, NOT make)
 .\build.ps1
 
 # Run with your wallet address
-x64\Release\MoneroMiner.exe --wallet YOUR_WALLET_ADDRESS
+x64\Release\picominer.exe --wallet YOUR_WALLET_ADDRESS
 ```
 
 ### Linux
 
 ```bash
 # Clone repository
-git clone https://github.com/hackerhouse-opensource/MoneroMiner.git
-cd MoneroMiner
+git clone https://github.com/hackerhouse-opensource/picominer.git
+cd picominer
 
 # Build (use make, NOT build.ps1)
 make
 
 # Run with your wallet address
-bin/monerominer --wallet YOUR_WALLET_ADDRESS
+bin/picominer --wallet YOUR_WALLET_ADDRESS
 ```
 
 ---
@@ -89,7 +89,7 @@ bin/monerominer --wallet YOUR_WALLET_ADDRESS
 ### Command Line Options
 
 ```
-MoneroMiner [OPTIONS]
+picominer [OPTIONS]
 
 Required:
   --wallet ADDRESS      Your Monero wallet address
@@ -124,10 +124,10 @@ numThreads = 1; // Auto-detected if not specified
 ## Mining Output
 
 ```
-PS C:\Users\Fantastic\source\repos\MoneroMiner> .\x64\Release\MoneroMiner.exe
+PS C:\Users\Fantastic\source\repos\picominer> .\x64\Release\picominer.exe
 12/08/2025 (13:06:55.808) 1765220815: Platform sockets initialized
 Auto-detected 24 logical processors, using 23 mining threads (leaving 1 thread for system)
-12/08/2025 (13:06:55.809) 1765220815: === MoneroMiner v1.0.0 ===
+12/08/2025 (13:06:55.809) 1765220815: === picominer v1.0.0 ===
 CPU:          AMD Ryzen 9 3900X 12-Core Processor (24 threads) 64-bit AES AVX AVX2 VM
 Memory:       19.3/47.9 GB (40%)
 Motherboard:  Gigabyte Technology Co., Ltd. - X570 AORUS ELITE WIFI
@@ -139,7 +139,7 @@ Current Configuration:
 Pool Address: xmr-us-east1.nanopool.org:10300
 Wallet: 8C6hFb4Buo6dYwJiZEaFhyYhZTJaR4NyXSBzKMF1BnNKMGD92yeaY3a9PxuWp9bhTAh6dAXwqyyLfFxaPRct7j81L8t4iK2
 Worker Name: worker1
-User Agent: MoneroMiner/1.0.0
+User Agent: picominer/1.0.0
 Threads: 23
 Debug Mode: No
 Logfile: Disabled
@@ -212,8 +212,8 @@ Nonces are 4-byte little-endian at blob offset 39-42.
 ### Dataset Caching
 
 ```
-Windows: %USERPROFILE%\AppData\Local\MoneroMiner\randomx_<seedhash>.bin
-Linux:   ~/.cache/monerominer/randomx_<seedhash>.bin
+Windows: %USERPROFILE%\AppData\Local\picominer\randomx_<seedhash>.bin
+Linux:   ~/.cache/picominer/randomx_<seedhash>.bin
 ```
 
 Size: 2,080,374,784 bytes (2GB per seed hash)
@@ -222,7 +222,7 @@ Size: 2,080,374,784 bytes (2GB per seed hash)
 
 ## Documentation
 
-Complete implementation documentation: https://deepwiki.com/hackerhouse-opensource/MoneroMiner
+Complete implementation documentation: https://deepwiki.com/hackerhouse-opensource/picominer
 
 Includes API reference, architecture diagrams, performance tuning, protocol specs, and debugging tips.
 
@@ -230,7 +230,7 @@ Includes API reference, architecture diagrams, performance tuning, protocol spec
 
 ## Donations
 
-If you find MoneroMiner useful, XMR donations support continued development:
+If you find picominer useful, XMR donations support continued development:
 
 ```
 8C6hFb4Buo6dYwJiZEaFhyYhZTJaR4NyXSBzKMF1BnNKMGD92yeaY3a9PxuWp9bhTAh6dAXwqyyLfFxaPRct7j81L8t4iK2
