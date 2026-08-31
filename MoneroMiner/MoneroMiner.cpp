@@ -1,11 +1,11 @@
 /**
  * MoneroMiner.cpp - Lightweight High Performance Monero (XMR) CPU Miner
- * 
+ *
  * Implementation file containing the core mining functionality.
- * 
+ *
  * Author: Hacker Fantastic (https://hacker.house)
- * License: Attribution-NonCommercial-NoDerivatives 4.0 International
- * https://creativecommons.org/licenses/by-nc-nd/4.0/
+ * SPDX-License-Identifier: BSD-3-Clause
+ * See LICENSE for the full license text.
  */
  
 #include "Config.h"

@@ -7,7 +7,6 @@
 #include <unordered_map>
 #include "randomx.h"
 #include "Types.h"  // FIX: Ensure Types.h is included
-#include "Difficulty.h"
 #include <filesystem>
 
 class MiningThreadData;
@@ -26,12 +25,8 @@ public:
     static void cleanup();
     static void destroyVM(randomx_vm* vm);
     
-    // Hash calculation - PRIMARY METHOD for mining threads
-    static bool calculateHashForThread(int threadId, const std::vector<uint8_t>& input, uint64_t nonce);
-    
     // Target/difficulty
     static bool setTargetAndDifficulty(const std::string& targetHex);
-    static bool checkTarget(const uint8_t* hash);
     static double getDifficulty();
     static double getCurrentDifficulty() { return currentDifficulty; }
     static std::string getLastHashHex();
@@ -69,7 +64,6 @@ private:
     static bool useLightMode;
     
     static std::vector<uint8_t> lastHash;
-    static uint256_t expandedTarget;  // FIX: Ensure uint256_t is defined before use
     static double currentDifficulty;
     static int flags;
 };

@@ -41,12 +41,6 @@ bool MiningThreadData::initializeVM() {
     return vm != nullptr;
 }
 
-bool MiningThreadData::calculateHash(const std::vector<uint8_t>& input, uint64_t nonce) {
-    bool result = RandomXManager::calculateHashForThread(threadId, input, nonce);
-    incrementHashCount();
-    return result;
-}
-
 bool MiningThreadData::calculateHashAndCheckTarget(
     const std::vector<uint8_t>& blob,
     const std::vector<uint8_t>& targetBytes,

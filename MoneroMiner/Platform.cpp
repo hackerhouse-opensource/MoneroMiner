@@ -8,7 +8,14 @@
 #include <cstring>
 #include <thread>
 #ifndef PLATFORM_WINDOWS
-    #include <sys/sysinfo.h>
+    #ifdef __APPLE__
+        #include <sys/sysctl.h>
+        #include <mach/mach.h>
+        #include <mach/mach_host.h>
+        #include <mach/vm_statistics.h>
+    #elif defined(__linux__)
+        #include <sys/sysinfo.h>
+    #endif
     #include <sys/utsname.h>
     #include <unistd.h>
 #endif
@@ -251,6 +258,19 @@ namespace Platform {
     }
 
     std::string getCPUBrand() {
+#ifdef __APPLE__
+        char brand[256] = {0};
+        size_t size = sizeof(brand);
+        if (sysctlbyname("machdep.cpu.brand_string", &brand, &size, NULL, 0) == 0 && brand[0]) {
+            return std::string(brand);
+        }
+        // Apple Silicon doesn't expose machdep.cpu.brand_string on all macOS versions; fall back to hw.model
+        size = sizeof(brand);
+        if (sysctlbyname("hw.model", &brand, &size, NULL, 0) == 0 && brand[0]) {
+            return std::string(brand);
+        }
+        return "Unknown CPU";
+#else
         std::ifstream cpuinfo("/proc/cpuinfo");
         std::string line;
         
@@ -303,11 +323,31 @@ namespace Platform {
         if (!model.empty()) return model;
         if (!processor.empty()) return processor;
         if (!hardware.empty()) return hardware;
-        
+
         return "Unknown CPU";
+#endif
     }
 
     std::string getCPUFeatures() {
+#ifdef __APPLE__
+        std::string features;
+#if defined(__aarch64__)
+        // All Apple Silicon chips have the ARMv8 crypto extensions (AES).
+        features += " AES";
+#elif defined(__x86_64__)
+        int32_t hasAVX2 = 0;
+        size_t size = sizeof(hasAVX2);
+        if (sysctlbyname("hw.optional.avx2_0", &hasAVX2, &size, NULL, 0) == 0 && hasAVX2) features += " AVX2";
+        int32_t hasAVX1 = 0;
+        size = sizeof(hasAVX1);
+        if (sysctlbyname("hw.optional.avx1_0", &hasAVX1, &size, NULL, 0) == 0 && hasAVX1) features += " AVX";
+        int32_t hasAES = 0;
+        size = sizeof(hasAES);
+        if (sysctlbyname("hw.optional.aes", &hasAES, &size, NULL, 0) == 0 && hasAES) features += " AES";
+#endif
+        features += " VM";
+        return features;
+#else
         std::ifstream cpuinfo("/proc/cpuinfo");
         std::string line;
         std::string features;
@@ -325,11 +365,15 @@ namespace Platform {
         if (features.empty()) {
             features = " VM";
         }
-        
+
         return features;
+#endif
     }
 
     std::string getHugePagesInfo() {
+#ifdef __APPLE__
+        return "n/a (macOS uses transparent superpages)";
+#else
         std::ifstream meminfo("/proc/meminfo");
         std::string line;
         while (std::getline(meminfo, line)) {
@@ -345,9 +389,35 @@ namespace Platform {
             }
         }
         return "unavailable";
+#endif
     }
 
     void getMemoryInfo(double& usedGB, double& totalGB, int& usage) {
+#ifdef __APPLE__
+        int64_t totalMem = 0;
+        size_t len = sizeof(totalMem);
+        if (sysctlbyname("hw.memsize", &totalMem, &len, NULL, 0) != 0) {
+            usedGB = totalGB = 0;
+            usage = 0;
+            return;
+        }
+        totalGB = totalMem / (1024.0 * 1024.0 * 1024.0);
+
+        mach_port_t host = mach_host_self();
+        vm_size_t pageSize = 0;
+        host_page_size(host, &pageSize);
+        vm_statistics64_data_t vmStats;
+        mach_msg_type_number_t count = HOST_VM_INFO64_COUNT;
+        if (pageSize > 0 && host_statistics64(host, HOST_VM_INFO64, (host_info64_t)&vmStats, &count) == KERN_SUCCESS) {
+            uint64_t usedPages = vmStats.active_count + vmStats.inactive_count + vmStats.wire_count + vmStats.compressor_page_count;
+            double usedBytes = static_cast<double>(usedPages) * pageSize;
+            usedGB = usedBytes / (1024.0 * 1024.0 * 1024.0);
+            usage = (totalGB > 0.0) ? static_cast<int>((usedGB / totalGB) * 100.0) : 0;
+        } else {
+            usedGB = 0;
+            usage = 0;
+        }
+#else
         struct sysinfo info;
         if (sysinfo(&info) == 0) {
             totalGB = info.totalram / (1024.0 * 1024.0 * 1024.0);
@@ -358,9 +428,18 @@ namespace Platform {
             usedGB = totalGB = 0;
             usage = 0;
         }
+#endif
     }
 
     std::string getMotherboardInfo() {
+#ifdef __APPLE__
+        char model[256] = {0};
+        size_t size = sizeof(model);
+        if (sysctlbyname("hw.model", &model, &size, NULL, 0) == 0 && model[0]) {
+            return "Apple - " + std::string(model);
+        }
+        return "Apple - Unknown";
+#else
         std::string vendor, product;
         std::ifstream vendorFile("/sys/devices/virtual/dmi/id/board_vendor");
         if (vendorFile) std::getline(vendorFile, vendor);
@@ -370,6 +449,7 @@ namespace Platform {
             return vendor + " - " + product;
         }
         return "Unknown";
+#endif
     }
 
     unsigned int getLogicalProcessors() {
@@ -390,7 +470,11 @@ namespace Platform {
     }
     
     bool hasHugePagesSupport() {
-#if defined(__aarch64__) || defined(__arm__)
+#if defined(__APPLE__)
+        // macOS provides transparent superpages via mmap(VM_FLAGS_SUPERPAGE_SIZE_2MB);
+        // allocLargePagesMemory() falls back to normal pages if the request fails.
+        return true;
+#elif defined(__aarch64__) || defined(__arm__)
         // ARM64: Check for THP (Transparent Huge Pages) support
         std::ifstream thp("/sys/kernel/mm/transparent_hugepage/enabled");
         if (thp) {
@@ -422,7 +506,10 @@ namespace Platform {
     }
     
     bool has1GBPagesSupport() {
-#if defined(__aarch64__) || defined(__arm__)
+#if defined(__APPLE__)
+        // macOS has no equivalent to explicit 1GB huge pages
+        return false;
+#elif defined(__aarch64__) || defined(__arm__)
         // ARM64 doesn't support 1GB pages in the same way as x86
         return false;
 #else
@@ -450,7 +537,9 @@ namespace Platform {
     }
     
     size_t getHugePageSize() {
-#if defined(__aarch64__) || defined(__arm__)
+#if defined(__APPLE__)
+        return 2097152; // macOS superpages are 2MB
+#elif defined(__aarch64__) || defined(__arm__)
         // ARM64: THP typically uses 2MB pages
         std::ifstream thp("/sys/kernel/mm/transparent_hugepage/hpage_pmd_size");
         if (thp) {
@@ -483,7 +572,9 @@ namespace Platform {
     }
     
     std::string getHugePagesStatus() {
-#if defined(__aarch64__) || defined(__arm__)
+#if defined(__APPLE__)
+        return "enabled (2MB superpages via mmap, best-effort)";
+#elif defined(__aarch64__) || defined(__arm__)
         // ARM64: Check Transparent Huge Pages (THP)
         // To enable THP on ARM64:
         //   Temporary: echo always | sudo tee /sys/kernel/mm/transparent_hugepage/enabled

@@ -8,22 +8,25 @@
 /*
  * Monero Mining Target Conversion
  * ================================
- * 
- * Pool sends: 4-byte compact target (e.g., 0xf3220000 little-endian)
- * 
- * Step 1: Extract compact value
- *   Reverse bytes: 0x000022f3
- * 
- * Step 2: Calculate difficulty
- *   difficulty = 0xFFFFFFFFFFFFFFFF / (compact + 1)
- *   Example: 0xFFFFFFFFFFFFFFFF / 0x22f4 ≈ 480045
- * 
- * Step 3: Convert difficulty to 256-bit comparison target
- *   target = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF / difficulty
- *   This gives the actual threshold for hash comparison
- * 
- * Step 4: Hash comparison
- *   Valid share: hash_result <= target (as 256-bit little-endian integers)
+ * This describes what the Job(blobHex, id, targetHex, h, seed) constructor
+ * below actually computes, and what MiningThreadData::calculateHashAndCheckTarget
+ * actually compares against when it validates a share.
+ *
+ * Pool sends: 4-byte compact target, little-endian (e.g. bytes f3 22 00 00)
+ *
+ * Step 1: Read the 4 bytes as a little-endian uint32
+ *   compactTarget = 0x000022f3
+ *
+ * Step 2: Calculate difficulty from the compact target
+ *   difficulty = 0xFFFFFFFF / compactTarget
+ *
+ * Step 3: Convert difficulty to the real 256-bit comparison target
+ *   target = (2^256 - 1) / difficulty   (true 256-bit division, via uint256_t)
+ *
+ * Step 4: Hash comparison (done per-hash on the mining threads, not here)
+ *   Valid share: RandomX hash < target, compared as 256-bit little-endian
+ *   integers. Only the RandomX hash itself is sent back to the pool as the
+ *   share's "result" - the target never leaves this process.
  */
 
 // Mining job structure
@@ -57,13 +60,7 @@ public:
     std::vector<uint8_t> getBlobBytes() const;
     std::string getJobId() const;
     std::string getTarget() const;
-    
-    // Convert difficulty to 256-bit comparison target
-    static std::array<uint64_t, 4> difficultyToTarget(uint64_t difficulty);
-    
-    // Compare hash against target (returns true if hash <= target)
-    bool isValidShare(const std::array<uint64_t, 4>& hashResult) const;
-    
+
     // Get target as hex string for display
     std::string getTargetHex() const;
 

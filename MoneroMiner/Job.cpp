@@ -106,57 +106,6 @@ Job::Job(const std::string& blobHex, const std::string& id, const std::string& t
     }
 }
 
-std::array<uint64_t, 4> Job::difficultyToTarget(uint64_t difficulty) {
-    /*
-     * Convert pool difficulty to 256-bit comparison target
-     * ====================================================
-     * 
-     * Formula: target = 0xFFFFFFFFFFFFFFFF / difficulty
-     * 
-     * This gives us the maximum hash value that meets the difficulty.
-     * Any RandomX hash output < target is a valid share.
-     */
-    
-    std::array<uint64_t, 4> target = {0, 0, 0, 0};
-    
-    if (difficulty == 0) difficulty = 1;
-    
-    // Calculate maximum hash value for this difficulty
-    uint64_t maxHash = 0xFFFFFFFFFFFFFFFFULL / difficulty;
-    
-    // Store in first word (little-endian)
-    target[0] = maxHash;
-    // Rest are zero (difficulty only affects first 64 bits for typical pool mining)
-    
-    return target;
-}
-
-bool Job::isValidShare(const std::array<uint64_t, 4>& hashResult) const {
-    /*
-     * Compare 256-bit hash against target (little-endian comparison)
-     * =============================================================
-     * 
-     * Compare from MSW to LSW (index 3 down to 0).
-     * Valid share: hashResult < targetHash
-     * 
-     * This matches how xmrig/xmr-stak perform validation.
-     */
-    
-    // Compare from most significant to least significant
-    for (int i = 3; i >= 0; i--) {
-        if (hashResult[i] < targetHash[i]) {
-            return true;  // Hash is definitely less than target
-        }
-        if (hashResult[i] > targetHash[i]) {
-            return false; // Hash is definitely greater than target
-        }
-        // If equal, continue to next word
-    }
-    
-    // All words equal - hash == target, which is valid (hash <= target)
-    return true;
-}
-
 std::string Job::getTargetHex() const {
     std::stringstream ss;
     // Display in big-endian order (MSW first) to match comparison display

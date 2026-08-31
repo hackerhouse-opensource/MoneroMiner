@@ -48,7 +48,9 @@
     #include <errno.h>
     #include <sys/ioctl.h>
     #include <fcntl.h>
-    #include <sys/sysinfo.h>
+    #ifdef __linux__
+        #include <sys/sysinfo.h>  // Linux-only; macOS uses sysctl/mach APIs instead
+    #endif
     #include <sys/utsname.h>
     #include <fstream>
 

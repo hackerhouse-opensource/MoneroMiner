@@ -50,7 +50,6 @@ bool RandomXManager::initialized = false;
 bool RandomXManager::useLightMode = false;
 std::vector<uint8_t> RandomXManager::lastHash;
 double RandomXManager::currentDifficulty = 0.0;
-uint256_t RandomXManager::expandedTarget;
 
 bool RandomXManager::initializeCache(const std::string& seedHash) {
     std::lock_guard<std::mutex> lock(cacheMutex);
@@ -413,94 +412,42 @@ void RandomXManager::cleanup() {
 }
 
 bool RandomXManager::setTargetAndDifficulty(const std::string& targetHex) {
+    // Tracks pool difficulty for display/stats only. The 256-bit target actually
+    // used to validate shares is computed per-job by Job's constructor (true
+    // (2^256-1)/difficulty division) and checked in
+    // MiningThreadData::calculateHashAndCheckTarget.
     if (targetHex.length() != 8) {
         return false;
     }
-    
+
     try {
         std::lock_guard<std::mutex> lock(targetMutex);
-        
+
         // Parse 4-byte compact target
         std::vector<uint8_t> targetBytes = Utils::hexToBytes(targetHex);
         uint32_t compactTarget = 0;
         for (size_t i = 0; i < 4; i++) {
             compactTarget |= static_cast<uint32_t>(targetBytes[i]) << (i * 8);
         }
-        
+
         if (compactTarget == 0) compactTarget = 1;
-        
+
         // Calculate difficulty
         currentDifficulty = static_cast<double>(0xFFFFFFFFULL) / static_cast<double>(compactTarget);
-        
-        // Calculate 256-bit target
-        uint64_t diff64 = static_cast<uint64_t>(currentDifficulty);
-        
-        expandedTarget.data[0] = 0xFFFFFFFFFFFFFFFFULL / diff64;
-        expandedTarget.data[1] = 0;
-        expandedTarget.data[2] = 0;
-        expandedTarget.data[3] = 0;
-        
+
         if (config.debugMode) {
             std::stringstream ss;
-            ss << "[TARGET] 0x" << std::hex << compactTarget 
-               << " -> Diff:" << std::dec << diff64
-               << " -> Target[0]=0x" << std::hex << std::setw(16) << std::setfill('0') 
-               << expandedTarget.data[0];
+            ss << "[TARGET] 0x" << std::hex << compactTarget
+               << " -> Diff:" << std::dec << static_cast<uint64_t>(currentDifficulty);
             Utils::threadSafePrint(ss.str(), true);
         }
-        
+
         return true;
     }
     catch (const std::exception& e) {
         Utils::threadSafePrint("Error parsing target: " + std::string(e.what()), true);
         return false;
     }
-}
-
-bool RandomXManager::checkTarget(const uint8_t* hash) {
-    if (!hash) return false;
-    
-    // Convert hash bytes to uint256_t (little-endian)
-    uint256_t hashValue;
-    for (int wordIdx = 0; wordIdx < 4; wordIdx++) {
-        uint64_t word = 0;
-        int baseByteIdx = wordIdx * 8;
-        for (int byteInWord = 0; byteInWord < 8; byteInWord++) {
-            word |= static_cast<uint64_t>(hash[baseByteIdx + byteInWord]) << (byteInWord * 8);
-        }
-        hashValue.data[wordIdx] = word;
-    }
-    
-    // Compare 256-bit values (MSW to LSW)
-    for (int i = 3; i >= 0; i--) {
-        if (hashValue.data[i] < expandedTarget.data[i]) {
-            // Valid share found!
-            std::lock_guard<std::mutex> lock(hashMutex);
-            lastHash.assign(hash, hash + RANDOMX_HASH_SIZE);
-            
-            std::stringstream ss;
-            ss << "\n*** VALID SHARE FOUND ***\n";
-            ss << "Hash (LE):   ";
-            for (int w = 0; w < 4; w++) {
-                ss << std::hex << std::setw(16) << std::setfill('0') << hashValue.data[w];
-            }
-            ss << "\nTarget (LE): ";
-            for (int w = 0; w < 4; w++) {
-                ss << std::hex << std::setw(16) << std::setfill('0') << expandedTarget.data[w];
-            }
-            ss << "\nFull hash: " << Utils::bytesToHex(hash, 32);
-            Utils::threadSafePrint(ss.str(), true);
-            
-            return true;
-        }
-        if (hashValue.data[i] > expandedTarget.data[i]) {
-            return false;
-        }
-        // Equal, continue to next word
-    }
-    
-    // All words equal - valid (hash == target)
-    return true;
 }
 
 std::vector<uint8_t> RandomXManager::getLastHash() {
@@ -542,61 +489,6 @@ void RandomXManager::handleSeedHashChange(const std::string& newSeedHash) {
         }
         initialize(newSeedHash);
     }
-}
-
-bool RandomXManager::calculateHashForThread(int threadId, const std::vector<uint8_t>& input, uint64_t nonce) {
-    // Note: nonce parameter kept for API compatibility but not used
-    // The nonce is already embedded in the input blob by the calling code
-    (void)nonce; // Suppress unused parameter warning
-    
-    randomx_vm* vm = nullptr;
-    {
-        std::shared_lock<std::shared_mutex> vmLock(vmMutex);
-        auto it = vms.find(threadId);
-        if (it == vms.end() || !it->second) return false;
-        vm = it->second;
-    }
-    
-    if (!initialized || input.empty() || input.size() > MAX_BLOB_SIZE) return false;
-    
-    alignas(64) uint8_t blob[MAX_BLOB_SIZE];
-    alignas(64) uint8_t hash[RANDOMX_HASH_SIZE];
-    
-    // CRITICAL FIX: DON'T insert nonce - it's already in the input blob!
-    // The calling code (MoneroMiner.cpp) already wrote the nonce to the blob
-    memcpy(blob, input.data(), input.size());
-    
-    // Calculate hash directly
-    randomx_calculate_hash(vm, blob, input.size(), hash);
-    
-    // Debug logging (only every 10000th hash)
-    static std::atomic<uint64_t> hashCounter{0};
-    uint64_t count = hashCounter.fetch_add(1);
-    
-    if (config.debugMode && (count % 10000 == 0)) {
-        std::stringstream ss;
-        ss << "\n[RandomX] Hash #" << count;
-        ss << "\n  Input blob (first 50 bytes): ";
-        for (size_t i = 0; i < 50 && i < input.size(); i++) {
-            ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(input[i]) << " ";
-        }
-        ss << "\n  Hash LSW: 0x" << std::hex << std::setw(16) << std::setfill('0');
-        uint64_t hashLSW = 0;
-        for (int i = 0; i < 8; i++) {
-            hashLSW |= static_cast<uint64_t>(hash[i]) << (i * 8);
-        }
-        ss << hashLSW;
-        ss << " | Target LSW: 0x" << std::hex << std::setw(16) << std::setfill('0') << expandedTarget.data[0];
-        Utils::threadSafePrint(ss.str(), true);
-    }
-    
-    bool wouldBeValid = checkTarget(hash);
-    
-    if (wouldBeValid) {
-        Utils::threadSafePrint("\n!!! VALID SHARE DETECTED !!!", true);
-    }
-    
-    return wouldBeValid;
 }
 
 double RandomXManager::getDifficulty() {

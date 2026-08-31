@@ -11,9 +11,9 @@ public:
     ~MiningThreadData();
 
     bool initializeVM();
-    bool calculateHash(const std::vector<uint8_t>& input, uint64_t nonce);
-    
-    // CRITICAL: New method for proper hash calculation with target checking
+
+    // Calculates the RandomX hash and checks it against the job's 256-bit
+    // target (see Job's constructor for how that target is derived).
     bool calculateHashAndCheckTarget(
         const std::vector<uint8_t>& blob,
         const std::vector<uint8_t>& target,

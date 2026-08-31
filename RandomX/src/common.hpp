@@ -42,9 +42,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // Only include cpuid.h on x86/x64 architectures
 #include <cpuid.h>
 #elif defined(__aarch64__) || defined(__arm__) || defined(_M_ARM64)
-// ARM-specific includes
-#include <sys/auxv.h>
+// ARM-specific includes (sys/auxv.h and asm/hwcap.h are Linux-only; not available on macOS/BSD)
 #ifdef __linux__
+#include <sys/auxv.h>
 #include <asm/hwcap.h>
 #endif
 #endif
