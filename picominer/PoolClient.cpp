@@ -91,7 +91,8 @@ namespace PoolClient {
     }
 
     bool submitShare(const std::string& jobId, const std::string& nonceHex,
-                     const std::string& hashHex, const std::string& algo) {
+                     const std::string& hashHex, const std::string& algo,
+                     const std::string& targetHex) {
         (void)algo; // silence unused parameter
         if (sessionId.empty()) {
             Utils::threadSafePrint("Cannot submit: No session", true);
@@ -144,9 +145,15 @@ namespace PoolClient {
         // Only count as accepted if NO error was found
         if (!hasError) {
             MiningStatsUtil::acceptedShares++;
-            Utils::threadSafePrint("Share submitted - ACCEPTED (Total: " + 
+            Utils::threadSafePrint("Share submitted - ACCEPTED (Total: " +
                                  std::to_string(MiningStatsUtil::acceptedShares.load()) + ")", true);
-            
+
+            if (config.debugMode) {
+                Utils::threadSafePrint("  Hash:   " + hashHex, true);
+                Utils::threadSafePrint("  Target: " + (targetHex.empty() ? "(unknown)" : targetHex), true);
+                Utils::threadSafePrint("  Result: VALID SHARE (passed target compare)", true);
+            }
+
             // Process response for any additional info (like new jobs)
             if (!response.empty()) {
                 processShareResponse(response);

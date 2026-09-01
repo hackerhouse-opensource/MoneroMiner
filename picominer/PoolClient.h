@@ -40,7 +40,8 @@ namespace PoolClient {
     
     // Share submission
     bool submitShare(const std::string& jobId, const std::string& nonceHex,
-                    const std::string& hashHex, const std::string& algo);
+                    const std::string& hashHex, const std::string& algo,
+                    const std::string& targetHex = "");
     
     // Helper functions
     void handleSeedHashChange(const std::string& newSeedHash);

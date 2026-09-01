@@ -576,7 +576,7 @@ void miningThread(MiningThreadData* data) {
                     }
 
                     // Submit share - PoolClient handles everything including response parsing
-                    PoolClient::submitShare(currentJobId, nonceHex, hashHex, "rx/0");
+                    PoolClient::submitShare(currentJobId, nonceHex, hashHex, "rx/0", jobCopy.getTarget());
                     // NOTE: Accept/reject counters are incremented by PoolClient::processShareResponse
                 }
 
