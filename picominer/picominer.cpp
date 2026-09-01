@@ -458,33 +458,41 @@ void miningThread(MiningThreadData* data) {
                     ss << "[T" << data->getThreadId() << "] Hash #" << debugHashCounter 
                        << " | Nonce: 0x" << std::hex << std::setw(8) << std::setfill('0') << nonce32 << "\n";
                     
-                    ss << "  Hash (LE):   ";
-                    for (size_t i = 0; i < 32; i++) {
+                    // Display only: hashResult/targetHash are little-endian 256-bit values
+                    // (byte[0] = LSB) - that raw order is what RandomX produced, what
+                    // operator< actually compares, and what gets submitted to the pool, and
+                    // it is never altered. Below we print byte[31] first down to byte[0]
+                    // (MSB first) purely so the hex string reads like a normal big number
+                    // and lines up with the byte-by-byte comparison beneath it.
+                    ss << "  Hash (MSB first, display only):   ";
+                    for (int i = 31; i >= 0; i--) {
                         ss << std::hex << std::setw(2) << std::setfill('0') << (int)hashResult[i];
-                        if (i == 7 || i == 15 || i == 23) ss << " ";
+                        if (i == 24 || i == 16 || i == 8) ss << " ";
                     }
-                    
-                    ss << "\n  Target (LE): ";
-                    // Convert targetHash to bytes for display
-                    for (int wordIdx = 0; wordIdx < 4; wordIdx++) {
+
+                    ss << "\n  Target (MSB first, display only): ";
+                    for (int wordIdx = 3; wordIdx >= 0; wordIdx--) {
                         uint64_t word = jobCopy.targetHash[wordIdx];
-                        for (int byteIdx = 0; byteIdx < 8; byteIdx++) {
+                        for (int byteIdx = 7; byteIdx >= 0; byteIdx--) {
                             uint8_t byte = static_cast<uint8_t>((word >> (byteIdx * 8)) & 0xFF);
                             ss << std::hex << std::setw(2) << std::setfill('0') << (int)byte;
-                            if ((wordIdx * 8 + byteIdx == 7) || (wordIdx * 8 + byteIdx == 15) || (wordIdx * 8 + byteIdx == 23)) ss << " ";
                         }
+                        if (wordIdx != 0) ss << " ";
                     }
-                    
-                    // Detailed byte-by-byte comparison (first 8 bytes)
-                    ss << "\n  Byte-by-byte comparison (LE order):";
+
+                    // Byte-by-byte comparison in true significance order (MSB first): operator<
+                    // in uint256_t compares 64-bit words from data[3] (MSW) down to data[0]
+                    // (LSW), so the first byte that can actually decide PASS/FAIL is the top
+                    // byte of the most significant word - raw index 31, not raw index 0.
+                    ss << "\n  Byte-by-byte comparison (MSB first, matches actual comparison order):";
                     bool hashStillValid = true;
-                    for (size_t i = 0; i < 8; i++) {
-                        uint8_t targetByte = static_cast<uint8_t>((jobCopy.targetHash[0] >> (i * 8)) & 0xFF);
-                        ss << "\n    Byte[" << i << "]: Hash=0x" 
+                    for (int i = 31; i >= 24; i--) {
+                        uint8_t targetByte = static_cast<uint8_t>((jobCopy.targetHash[3] >> ((i - 24) * 8)) & 0xFF);
+                        ss << "\n    Byte[" << i << "]: Hash=0x"
                            << std::hex << std::setw(2) << std::setfill('0') << (int)hashResult[i]
-                           << " vs Target=0x" 
+                           << " vs Target=0x"
                            << std::hex << std::setw(2) << std::setfill('0') << (int)targetByte;
-                        
+
                         if (hashStillValid) {
                             if (hashResult[i] < targetByte) {
                                 ss << " [PASS - hash byte is lower]";
@@ -557,6 +565,8 @@ void miningThread(MiningThreadData* data) {
                     std::string nonceHex = nonceStream.str();
                     
                     // CRITICAL FIX: Send hash in LITTLE-ENDIAN byte order (as calculated by RandomX)
+                    // This exact byte order is what goes into the "result" field submitted to
+                    // the pool below - do not reverse hashHex itself.
                     std::stringstream hashStream;
                     for (int i = 0; i < 32; i++) {
                         hashStream << std::hex << std::setw(2) << std::setfill('0') << (int)hashResult[i];
@@ -565,7 +575,9 @@ void miningThread(MiningThreadData* data) {
 
                     // Ultra-condensed single line format - REPLACED WITH TWO LINES
                     Utils::threadSafePrint("Share found! J: " + currentJobId + " Nonce: " + nonceHex + " Attempts: " + std::to_string(hashesTotal), true);
-                    Utils::threadSafePrint("Hash: " + hashHex, true);
+                    // Display only: reverse to MSB-first for on-screen readability. hashHex
+                    // (submitted below, untouched) stays in the raw byte order RandomX produced.
+                    Utils::threadSafePrint("Hash: " + Utils::bytesToHexReversed(hashResult), true);
                     
                     if (config.debugMode) {
                         Utils::threadSafePrint("  Blob with nonce (first 50 bytes): ", true);

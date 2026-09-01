@@ -108,7 +108,11 @@ Job::Job(const std::string& blobHex, const std::string& id, const std::string& t
 
 std::string Job::getTargetHex() const {
     std::stringstream ss;
-    // Display in big-endian order (MSW first) to match comparison display
+    // Display only: targetHash is little-endian (word[0]/byte[0] = LSB), the order actually
+    // used for the PoW comparison. This prints it MSB-first (word[3] down to word[0], each
+    // word high-byte-first) purely for human-readable logging - callers must build target
+    // bytes from targetHash directly (see the little-endian conversions in picominer.cpp)
+    // for anything that needs the real byte order, never parse this string back.
     for (int wordIdx = 3; wordIdx >= 0; wordIdx--) {
         uint64_t word = targetHash[wordIdx];
         // Display each word's bytes in big-endian order

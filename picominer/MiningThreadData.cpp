@@ -64,6 +64,11 @@ bool MiningThreadData::calculateHashAndCheckTarget(
         bool isValid = hashValue < targetValue;
         
         // Debug output - ONLY show every 10k hashes OR when valid share found
+        // hashOut/targetBytes are little-endian (byte[0] = LSB) and that raw order is what
+        // isValid actually compares and what gets submitted to the pool. uint256_t::toHex()
+        // below prints MSB-first purely for readability, so this Hash/Target text will look
+        // byte-reversed next to a raw hex dump (e.g. the "Hash: <hex>" line logged when a
+        // share is submitted) - both represent the same bytes.
         if (config.debugMode && (isValid || (totalHashes % 10000 == 0))) {
             std::stringstream ss;
             ss << "[T" << threadId << " PoW @ " << totalHashes << " hashes]\n";

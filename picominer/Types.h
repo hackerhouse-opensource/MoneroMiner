@@ -125,7 +125,16 @@ struct uint256_t {
 
     std::string toHex() const {
         std::stringstream ss;
-        // Display in big-endian order (MSW first) for human readability
+        // NOTE: This prints the 256-bit value MSB-first (word[3] down to word[0], each
+        // word high-byte-first) so the resulting hex string sorts/reads like a normal
+        // big number for humans. That is the OPPOSITE byte order from the raw little-endian
+        // hash/target byte arrays used everywhere else (RandomX output, the blob, the
+        // "result" hex submitted to the pool). The two representations hold the same
+        // value and operator< above compares the correct (data[3]..data[0]) word order
+        // regardless of how it's printed - but a hex string produced by toHex() will look
+        // byte-reversed next to a hex string produced by dumping a raw byte array directly
+        // (e.g. the "Hash: " line logged when a share is submitted). Don't mix the two
+        // conventions in the same debug message without noting which is which.
         for (int i = 3; i >= 0; i--) {
             for (int j = 7; j >= 0; j--) {
                 uint8_t byte = static_cast<uint8_t>((data[i] >> (j * 8)) & 0xFF);

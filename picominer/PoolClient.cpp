@@ -149,7 +149,13 @@ namespace PoolClient {
                                  std::to_string(MiningStatsUtil::acceptedShares.load()) + ")", true);
 
             if (config.debugMode) {
-                Utils::threadSafePrint("  Hash:   " + hashHex, true);
+                // Display only: hashHex is the raw little-endian hex actually submitted
+                // above ("params.result") - reverse it to MSB-first here purely so it reads
+                // left-to-right like a normal big number next to the target. targetHex
+                // (Job::getTarget()/getTargetHex()) is already formatted MSB-first, so the
+                // two now line up visually; neither the submitted hashHex nor the underlying
+                // target comparison is affected by this reversal.
+                Utils::threadSafePrint("  Hash:   " + Utils::reverseHexByteOrder(hashHex), true);
                 Utils::threadSafePrint("  Target: " + (targetHex.empty() ? "(unknown)" : targetHex), true);
                 Utils::threadSafePrint("  Result: VALID SHARE (passed target compare)", true);
             }

@@ -31,6 +31,32 @@ std::string Utils::bytesToHex(const std::vector<uint8_t>& bytes) {
     return ss.str();
 }
 
+std::string Utils::bytesToHexReversed(const std::vector<uint8_t>& bytes) {
+    std::stringstream ss;
+    ss << std::hex << std::setfill('0');
+
+    // Display only: print byte[N-1] first ... byte[0] last so the raw little-endian
+    // value (see bytesToHex above) reads MSB-first, matching uint256_t::toHex(). The
+    // caller's byte order (e.g. the hash actually sent to the pool) is untouched.
+    for (size_t i = bytes.size(); i-- > 0; ) {
+        ss << std::setw(2) << static_cast<unsigned int>(bytes[i]);
+    }
+
+    return ss.str();
+}
+
+std::string Utils::reverseHexByteOrder(const std::string& hex) {
+    std::string result;
+    result.reserve(hex.size());
+
+    // Reverse byte-pair order (not character order) so "aabbcc" becomes "ccbbaa".
+    for (size_t i = hex.size(); i >= 2; i -= 2) {
+        result += hex.substr(i - 2, 2);
+    }
+
+    return result;
+}
+
 std::vector<uint8_t> Utils::hexToBytes(const std::string& hex) {
     std::vector<uint8_t> bytes;
     for (size_t i = 0; i < hex.length(); i += 2) {
