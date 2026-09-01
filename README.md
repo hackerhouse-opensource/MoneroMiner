@@ -1,6 +1,8 @@
 # picominer v1.0.0
 
-picominer is a small BSD-3 C++ RandomX miner. It compiles on Windows, Linux and OS-X for x86 and ARM.
+picominer is a small BSD-3 C++ high-performance RandomX (XMR) miner. It works on Windows, Linux, OS-X, x86, 
+x86_64, arm & aarch64. optimized for modern CPUs and provides efficient mining capabilities with a simple 
+command-line interface.
 
 **Author:** [Hacker Fantastic](https://hacker.house)  
 **License:** [BSD-3-Clause](https://opensource.org/license/bsd-3-clause/)
